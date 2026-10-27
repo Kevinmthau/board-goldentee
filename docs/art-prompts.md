@@ -2,7 +2,7 @@
 
 ## October 27, 2026 — realistic golfer swing sheet
 
-- **Saved asset:** `public/art/golfer-swing.png`
+- **Saved asset:** `docs/art-reference/golfer-swing-v1.png` (originally `public/art/golfer-swing.png`; archived after the fuller motion sheet replaced it).
 - **Method:** built-in `image_gen`, with `transparent_background: true`.
 - **Use:** four poses of the same original golfer, composited over the game's course.
 - **Output:** 2172 × 724 PNG, four equal 543 × 724 horizontal cells.

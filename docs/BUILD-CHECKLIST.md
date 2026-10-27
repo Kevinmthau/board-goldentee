@@ -38,3 +38,9 @@
 - [x] Realistic golfer, photographic coastal sky, textured turf, natural trees, and soft shadows integrated.
 - [x] Browser: new address view, backswing, flight transition, and putting visually verified.
 - [x] Final tests and package pass; generated art provenance and package inventory updated.
+
+## Natural swing animation
+- [x] Continuous active-time tempo, earlier takeaway, exact ball/sound impact, and held finish.
+- [x] Unit and boot checks cover frame-rate independence, no pose snap on early strike, one impact, and menu pause during downswing.
+- [x] Aligned whole-pose interpolation and club arc visually checked through takeaway, impact, finish, and putting.
+- [x] Final browser evidence, tests, and package recorded (127 passed, 3 catalog-only skips).

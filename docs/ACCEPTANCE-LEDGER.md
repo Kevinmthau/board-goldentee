@@ -36,3 +36,15 @@
 - Package: `npm run pack` passed TypeScript, Vite, and web-pack. All 15 shipped files are recorded in the asset manifest, including three original built-in imagegen assets and their exact prompts.
 - Browser: inspected address and held backswing; performed forward swings and saw the follow-through before the camera followed the ball. Putting views at 24 and 43 feet kept golfer, ball, cup, distance, and fixed ring cues readable. Saved `realistic-close-address.png`, `realistic-close-backswing.png`, and `realistic-close-putting.png` as evidence. Final reload and shot produced no new console warnings or errors.
 - Board/Human: NOT TESTED. Native performance and physical play feel still require the checks already open in the build checklist.
+
+## October 27, 2026 — Smoother, natural swing
+
+- Asked for: smoother and more natural golfer swing animation.
+- Delivered: a fuller photographic pose sequence with aligned soles/head height and whole-pose interpolation, a continuous club arc, earlier takeaway anticipation, a faster downswing and eased held finish. Putting uses a small pendulum motion. The same original character, closer camera, and ring gesture remain.
+- Contact: a stroke commits only once; ball simulation and the hit cue wait 140 ms for iron/wedge contact or 160 ms for putter contact. Only the portion of a crossing frame after contact advances the ball. The camera eases away after contact.
+- Pause: all swing timing uses active dt. The boot regression pauses during a downswing, checks the saved ball stays at its lie, resumes to contact, and verifies only one stroke was counted. A committed shot still saves its launch velocity for restoration.
+- Unit: `npm test` — 130 total, 127 passed, 0 failed, 3 full-catalog skips. Nine added animation checks cover continuity, exact impact, one-shot events, frame-rate independence, early strike, cancel, finish, reset, invalid dt, and a bounded long frame. A real-SDK regression covers a fast finger tap completed before one simulator frame.
+- Browser: inspected the development motion sequence and live game; performed a held backswing, iron forward swing, camera transition, and compact putt, completing a two-stroke birdie. The character retains complete anatomy through the selected intermediate poses. Evidence: `docs/screenshots/swing-sequence.png` and `smooth-swing-backswing.png`.
+- Simulator: fixed same-frame pointer down/up coalescing that could drop a quick tap. Verified quick taps on How to play and Back after reload. This changes only the development host; native contacts are unchanged.
+- Package: final TypeScript/Vite/platform/web-pack build passed with stable appId/packageId and 15 files. The new built-in imagegen artwork and exact prompt are recorded in the asset manifest. The previous sheet and development reviewer are not packaged.
+- Board/Human: NOT TESTED. Device performance, audio mix, and physical swing feel remain open; browser motion does not establish these.

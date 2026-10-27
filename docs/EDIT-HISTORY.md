@@ -48,3 +48,13 @@
 - Replaced the flat coastal background with generated photographic scenery; added cached natural turf, sand, detailed foliage, and soft shadows.
 - Integrated four transparent realistic golfer poses, with the club attached to each pose's grip and the address shaft reaching the actual ball. Putting retains a compact stroke.
 - Browser inspection confirmed close address, backswing, follow-through, flight transition, and putting. Final tests: 117 passed, 3 catalog-only skips. Final 15-file package passed TypeScript, Vite, and web-pack.
+
+## October 27, 2026 — Natural swing animation
+
+- Person requested a smoother, more natural golfer swing.
+- Replaced wall-clock pose switching with active-time animation: anticipation, eased takeaway, accelerated downswing, and relaxed follow-through.
+- Delayed ball simulation and the hit cue until club contact while preserving the once-committed shot in platform saves. Native pause freezes both motion and the remaining impact delay.
+- Added focused animation timing tests and a boot regression that pauses during the downswing, verifies the ball stays at the tee, then launches after contact without another stroke.
+- Added a fuller twelve-pose photographic sheet, aligned feet and head height, blended complete poses, a continuous club arc, and compact putting movement. Preserved the previous artwork in docs/art-reference.
+- Added a development-only motion reviewer for checking intermediate frames. Browser checks cover takeaway, held backswing, contact, follow-through, and camera departure. Final test/package evidence is recorded in the acceptance ledger.
+- Final browser QA also exposed a simulator fast-tap issue: down/up in one frame lost the touch-begin event in the SDK. Split lifecycle events into ordered simulator wire frames and added a real-SDK regression. Native input is unchanged. Final tests: 127 passed, 3 catalog-only skips.

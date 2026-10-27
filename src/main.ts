@@ -105,7 +105,7 @@ startInput((batch, active) => {
   if (events.shot && mode === 'play' && game.phase === 'ready') {
     const putter = clubFor(game) === 'PUTTER';
     if (strike(game, events.shot)) {
-      playCue(putter ? 'putt' : 'swing', events.shot.power); controller.setEnabled(false); toast = ''; persist();
+      view.startStroke(game,putter); controller.setEnabled(false); toast = ''; persist();
     }
   }
 }, () => {
@@ -143,7 +143,6 @@ function result(now: number) {
   if(now-resultAt<2400)particles.draw(ctx);
 }
 function draw(now: number, dt: number) {
-  view.setSwing(controller.swing.stage, controller.swing.power);
   view.draw(ctx,game,now,dt,mode==='title'||mode==='setup'||mode==='howto');
   if(mode==='title') {
     ctx.fillStyle='rgba(6,37,35,0.3)';ctx.fillRect(0,0,1920,1080);
@@ -205,7 +204,11 @@ function update(now: number, dt: number) {
   }
   controller.setEnabled(mode==='play'&&game.phase==='ready'&&!!player);controller.tick(now);
   if(mode==='play') {
-    const before=game.phase;stepGame(game,dt);
+    const swing=controller.swing;
+    view.setSwing(swing.stage,swing.anchor&&swing.last?swing.last.y-swing.anchor.y:0);
+    const animation=view.advanceSwing(dt,clubFor(game)==='PUTTER');
+    if(animation.impact)playCue(animation.putting?'putt':'swing',game.shotPower);
+    const before=game.phase;stepGame(game,animation.ballDt);
     if(before!==game.phase) {
       if(before==='flight'&&game.phase==='rolling')playCue(terrainAt(game.ball.x,game.ball.z)==='bunker'?'sand':'land');
       if(game.phase==='ready'){controller.resetStroke();if(game.penalty)playCue('penalty');}

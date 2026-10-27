@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golfer motion review</title>
+<style>
+body{margin:24px;background:#173c2a;color:#f4efdc;font:16px system-ui}button{padding:14px;margin-right:12px}canvas{display:block;max-width:100%;height:auto;margin-top:20px;background:#719552}label{display:block;margin-top:16px}input{width:360px}
+</style>
+<h1>Golfer motion review</h1>
+<button id="swing">Replay swing</button><button id="putt">Replay putt</button>
+<label>Inspect backswing <input id="scrub" type="range" min="0" max="1" value="0" step="0.01"></label>
+<canvas id="review" width="1200" height="920" aria-label="Golfer animation poses and live swing"></canvas>
+<script type="module">
+import {GolferRenderer} from '/src/golfer-renderer.ts';
+import {SwingAnimation} from '/src/swing-animation.ts';
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
+const photo=new Image();photo.src='/art/golfer-motion-v2.png';await photo.decode();
+const render=new GolferRenderer(),motion=new SwingAnimation();
+let start=performance.now(),previous=start,putting=false,scrub=null,started=false;
+function replay(putt){putting=putt;motion.reset();start=performance.now();scrub=null;started=false;}
+document.querySelector('#swing').onclick=()=>replay(false);
+document.querySelector('#putt').onclick=()=>replay(true);
+document.querySelector('#scrub').oninput=e=>{scrub=Number(e.target.value);};
+function drawGolfer(x,y,scale,windup,followThrough,putting=false,target=ctx){
+  render.draw(target,photo,{footX:x,footY:y,ballX:x+112*scale,ballY:y-7*scale,scale,windup,followThrough,putting,alpha:1});
+}
+const sheet=document.createElement('canvas');sheet.width=1200;sheet.height=680;
+const sheetCtx=sheet.getContext('2d');sheetCtx.fillStyle='#719552';sheetCtx.fillRect(0,0,1200,680);
+sheetCtx.fillStyle='#f4efdc';sheetCtx.font='20px system-ui';
+for(let i=0;i<5;i++){drawGolfer(130+i*225,290,.85,i/4,0,false,sheetCtx);sheetCtx.fillText('Back '+Math.round(i/4*100)+'%',58+i*225,325);}
+for(let i=0;i<5;i++){drawGolfer(130+i*225,625,.85,0,i/4,false,sheetCtx);sheetCtx.fillText('Through '+Math.round(i/4*100)+'%',58+i*225,662);}
+function frame(now){
+  const dt=Math.min(.05,(now-previous)/1000);previous=now;
+  ctx.fillStyle='#719552';ctx.fillRect(0,0,1200,920);ctx.fillStyle='#f4efdc';ctx.font='20px system-ui';
+  ctx.drawImage(sheet,0,0);
+  const age=(now-start)/1000;
+  if(!started&&age>=.85){motion.strike(putting);started=true;}
+  const pose=motion.update(dt,!started,putting);
+  drawGolfer(550,910,.85,scrub??pose.windup,scrub===null?pose.followThrough:0,putting);
+  ctx.fillText(scrub===null?pose.phase:'Scrub '+scrub,710,780);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</html>

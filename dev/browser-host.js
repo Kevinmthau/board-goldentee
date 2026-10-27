@@ -172,10 +172,23 @@ function installBrowserHost(win         = window)          {
     if (menuOpen) return void (pending = []);
     if (redetectIn > 0 && --redetectIn === 0) redetect();
     blip();
-    const batch = pending;
-    batch.forEach(track);
-    (pending = []), (lastBatch = batch);
-    touch.onmessage?.(new MessageEvent("message", { data: JSON.stringify({ c: batch }) }));
+    const events = pending;
+    pending = [];
+    const send = (batch) => {
+      batch.forEach(track);
+      lastBatch = batch;
+      touch.onmessage?.(new MessageEvent("message", { data: JSON.stringify({ c: batch }) }));
+    };
+    // A fast browser click can begin and end between animation frames. The SDK
+    // keeps one state per contact in a wire frame, so separate lifecycle changes
+    // or Ended would erase Began before subscribers ever see the tap.
+    let batch = [];
+    const ids = new Set();
+    for (const c of events) {
+      if (ids.has(c.id)) { send(batch); batch = []; ids.clear(); }
+      batch.push(c); ids.add(c.id);
+    }
+    send(batch);
   };
   const raf = (cb            ) => (win.requestAnimationFrame ? win.requestAnimationFrame(cb) : setTimeout(cb, 16));
   const loop = () => (flush(), renderPieces(), raf(loop));

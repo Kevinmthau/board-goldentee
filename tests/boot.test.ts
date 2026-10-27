@@ -229,9 +229,27 @@ test("the game boots, draws its title, answers the first move and survives a pau
   onBatch!([piece(960, 850, BoardContactPhase.Began, id)]);
   run(0.6);
   assert.match(gameLabel, /play.*0 strokes.*ready/, "a roster player and a settled ring enter the hole");
+  let checkedImpactPause=false;
   const move = (y: number, seconds: number) => {
     run(seconds);
     onBatch!([piece(960, y, BoardContactPhase.Moved, id)]);
+    if(!checkedImpactPause&&latestRun.game.strokes===1&&latestRun.game.phase==='flight') {
+      checkedImpactPause=true;
+      run(0.04);
+      for(const pause of pauses)pause(); // Forces the current game into the save snapshot.
+      assert.equal(latestRun.game.ball.z,0,'the ball stays on the tee during the downswing');
+      run(1);
+      for(const resume of resumes)resume();
+      run(0.05);
+      for(const pause of pauses)pause();
+      assert.equal(latestRun.game.ball.z,0,'a native menu must not skip the remaining downswing');
+      for(const resume of resumes)resume();
+      run(0.14);
+      for(const pause of pauses)pause();
+      assert.ok(latestRun.game.ball.z>0,'the committed ball launches after the club reaches impact');
+      assert.equal(latestRun.game.strokes,1,'impact must not count the committed stroke twice');
+      for(const resume of resumes)resume();
+    }
   };
   const swing = (speed: number) => {
     move(850, 0.05); run(0.6);
@@ -240,6 +258,7 @@ test("the game boots, draws its title, answers the first move and survives a pau
     run(0.1);
   };
   swing(1272); // 90% iron: lands near the pin.
+  assert.ok(checkedImpactPause,'the real swing must exercise the impact/pause check');
   assert.match(gameLabel, /1 strokes/, "one back-then-forward swing counts once");
   run(12);
   assert.match(gameLabel, /1 strokes.*ready/, "flight and roll reach a playable rest");

@@ -1,6 +1,8 @@
 import { gameFont } from './runtime';
 import { HOLE, clubFor, distanceToCup, type GolfState, type SwingState } from './rules';
 import { createTreeSprite, createGroundTexture, createSoftShadow } from './course-art';
+import { SwingAnimation, FULL_IMPACT_SECONDS, PUTT_IMPACT_SECONDS } from './swing-animation';
+import { GolferRenderer } from './golfer-renderer';
 
 /** The physical ring travels in the quiet center lane, separate from the digital ball. */
 export const COURSE_LAYOUT = {
@@ -83,16 +85,16 @@ export class CourseView {
   private trace: TracePoint[] = [];
   private priorPhase = '';
   private landing: (Point & { at: number }) | null = null;
-  private swingStage: SwingState['stage'] = 'settling';
-  private swingPower = 0;
-  private windup = 0;
-  private shotAt = -Infinity;
-  private seenStrokes = 0;
+  private backswingHeld = false;
+  private animation = new SwingAnimation();
+  private shotElapsed = Infinity;
+  private strokeIsPutt = false;
   private golferAt: Point = { x: 0, z: 0 };
   private golferYaw = 0;
   private textures = new Map<Surface, CanvasPattern>();
   private softShadow: HTMLCanvasElement | null = null;
   private golferPhoto: HTMLImageElement | null = null;
+  private golferRenderer = new GolferRenderer();
 
   private loadScenery() {
     const photo = new Image();
@@ -106,7 +108,7 @@ export class CourseView {
     photo.src = 'art/coastal-sky.png';
     const golfer = new Image();
     golfer.onload = () => { this.golferPhoto = golfer; };
-    golfer.src = 'art/golfer-swing.png';
+    golfer.src = 'art/golfer-motion-v2.png';
     const turf = new Image();
     turf.onload = () => {
       // Reduce once to a small repeating material. The photograph supplies actual blade detail.
@@ -118,9 +120,24 @@ export class CourseView {
   }
 
   /** Only gesture intent is passed in; the golfer is anchored to the digital ball's lie. */
-  setSwing(stage: SwingState['stage'], power: number): void {
-    this.swingStage = stage;
-    this.swingPower = clamp(power, 0, 1);
+  setSwing(stage: SwingState['stage'], backwardTravel = 0): void {
+    // Anticipate the takeaway before the physical gesture reaches its arming threshold.
+    this.backswingHeld = stage === 'backswing' || (stage === 'ready' && backwardTravel > 12);
+  }
+
+  startStroke(game: GolfState, putting: boolean): void {
+    this.strokeIsPutt=putting;this.shotElapsed=0;
+    this.golferAt={...game.lastSafe};this.animation.strike(putting);
+  }
+
+  advanceSwing(dt: number, putting = false): {impact:boolean;putting:boolean;ballDt:number} {
+    const delta=Number.isFinite(dt)?clamp(dt,0,1):0;
+    const before=this.shotElapsed;
+    if(Number.isFinite(before))this.shotElapsed+=delta;
+    const pose=this.animation.update(delta,this.backswingHeld,putting);
+    const contact=this.strokeIsPutt?PUTT_IMPACT_SECONDS:FULL_IMPACT_SECONDS;
+    const ballDt=Number.isFinite(before)?Math.max(0,this.shotElapsed-contact)-Math.max(0,before-contact):delta;
+    return {impact:pose.impact,putting:this.strokeIsPutt,ballDt};
   }
 
   reset(game: GolfState) {
@@ -134,7 +151,7 @@ export class CourseView {
     this.priorPhase = game.phase;
     this.golferAt = { x: game.ball.x, z: game.ball.z };
     this.golferYaw = this.camera.yaw;
-    this.seenStrokes = game.strokes; this.shotAt = -Infinity; this.windup = 0;
+    this.shotElapsed=Infinity;this.animation.reset();this.backswingHeld=false;
   }
 
   private forward(p: Point) {
@@ -253,16 +270,14 @@ export class CourseView {
     const close=clubFor(game)==='PUTTER';
     const framing=game.phase==='flight'?FLIGHT_CAMERA:close?PUTT_CAMERA:ADDRESS_CAMERA;
     const targetYaw=distanceToCup(game)>1.5 ? Math.atan2(HOLE.flag.x-game.ball.x,HOLE.flag.z-game.ball.z) : this.camera.yaw;
-    if(moving&&game.strokes>this.seenStrokes){
-      this.shotAt=now;this.golferAt={...game.lastSafe};this.windup=Math.max(this.windup,0.5);
-    }
-    this.seenStrokes=game.strokes;
     if(game.phase==='ready'){
       this.golferAt={x:game.ball.x,z:game.ball.z};this.golferYaw=targetYaw;
-      if(this.priorPhase==='flight'||this.priorPhase==='rolling')this.shotAt=-Infinity;
+      if(this.priorPhase==='flight'||this.priorPhase==='rolling'){this.shotElapsed=Infinity;this.animation.reset();}
     }
-    // Hold the address camera briefly so the strike and full-body follow-through are visible.
-    const chase=moving&&now-this.shotAt<380?0:1;
+    // Ease the camera out only after contact; pause never consumes animation time.
+    const impactAt=this.strokeIsPutt?PUTT_IMPACT_SECONDS:FULL_IMPACT_SECONDS;
+    const departure=clamp((this.shotElapsed-impactAt-0.18)/0.2,0,1);
+    const chase=moving?departure*departure*(3-2*departure):1;
     const blend=(1-Math.exp(-Math.max(0,dt)*(moving?2.5:4)))*chase;
     const c=this.camera;
     c.x=mix(c.x,game.ball.x,blend);c.z=mix(c.z,game.ball.z,blend);
@@ -302,7 +317,7 @@ export class CourseView {
       ctx.globalAlpha=(1-t)*0.45;ctx.strokeStyle='#F5E4B4';ctx.lineWidth=3;
       ctx.beginPath();ctx.ellipse(p.x,p.y,8+t*45,3+t*12,0,0,TAU);ctx.stroke();ctx.globalAlpha=1;
     }
-    this.drawGolfer(ctx,game,now,dt);
+    this.drawGolfer(ctx,game);
     if(game.phase!=='holed')this.drawBall(ctx,game,now);
     ctx.restore();
     // A quiet fixed surface for the hand and ring; no marker follows physical motion.
@@ -314,9 +329,9 @@ export class CourseView {
   }
 
   /** Original three-quarter character. All pose coordinates belong to this digital golfer. */
-  private drawGolfer(ctx:CanvasRenderingContext2D,game:GolfState,now:number,dt:number) {
+  private drawGolfer(ctx:CanvasRenderingContext2D,game:GolfState) {
     const moving=game.phase==='flight'||game.phase==='rolling';
-    const age=now-this.shotAt;
+    const age=this.shotElapsed*1000;
     const shot=moving&&Number.isFinite(age);
     const alpha=shot?clamp(1-(age-600)/650,0,1):1;
     if(alpha<=0||game.phase==='holed'||game.phase==='limit')return;
@@ -326,11 +341,9 @@ export class CourseView {
     const foot=this.project(standing),ball=this.project(this.golferAt);
     if(foot.depth<3||foot.y>1000||foot.y<250)return;
     const scale=clamp(foot.scale*5.5/240,0.3,1.6);
-    const target=this.swingStage==='backswing'?1:0;
-    if(!shot)this.windup=mix(this.windup,target,1-Math.exp(-Math.max(0,dt)*16));
     const putting=clubFor({...game,ball:{...game.ball,x:this.golferAt.x,z:this.golferAt.z}})==='PUTTER';
-    const through=shot?clamp((age-95)/310,0,1):0;
-    const wind=shot?this.windup*(1-clamp(age/100,0,1)):this.windup;
+    const through=this.animation.pose.followThrough;
+    const wind=this.animation.pose.windup;
     const turn=through*12-wind*5;
     const lift=through*6;
     if(this.golferPhoto) {
@@ -402,31 +415,11 @@ export class CourseView {
   }
 
   private drawPhotographicGolfer(ctx:CanvasRenderingContext2D,foot:ScreenPoint,ball:ScreenPoint,scale:number,wind:number,through:number,putting:boolean,alpha:number) {
-    const pose = putting ? 0 : wind > 0.72 ? 2 : wind > 0.12 ? 1 : through > 0.12 ? 3 : 0;
-    const frames = [
-      {foot:[256,680],grip:[322,409],crop:[143,80,261,610]},
-      {foot:[252,679],grip:[132,119],crop:[101,86,276,602]},
-      {foot:[250,679],grip:[198,58],crop:[109,28,268,660]},
-      {foot:[276,681],grip:[233,64],crop:[131,35,244,655]},
-    ];
-    const frame=frames[pose],s=scale*245/592;
-    const grip={x:(frame.grip[0]-frame.foot[0])*s,y:(frame.grip[1]-frame.foot[1])*s};
-    const end=pose===0?{x:ball.x-foot.x+(putting?(through-wind)*23:0),y:ball.y-foot.y-2}:
-      pose===1?{x:grip.x-100*s,y:grip.y-260*s}:
-      pose===2?{x:grip.x-270*s,y:grip.y+150*s}:{x:grip.x+220*s,y:grip.y+160*s};
-    ctx.save();ctx.globalAlpha=alpha;ctx.translate(foot.x,foot.y);
-    if(this.softShadow)ctx.drawImage(this.softShadow,-83*scale,-14*scale,185*scale,34*scale);
-    // Draw behind the cutout so the fingers wrap naturally over the handle.
-    ctx.strokeStyle='#C4CEC8';ctx.lineWidth=2.6*scale;ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(grip.x,grip.y);ctx.lineTo(end.x,end.y);ctx.stroke();
-    ctx.strokeStyle='#27352F';ctx.lineWidth=4*scale;
-    ctx.beginPath();ctx.moveTo(grip.x,grip.y);ctx.lineTo(mix(grip.x,end.x,0.14),mix(grip.y,end.y,0.14));ctx.stroke();
-    ctx.save();ctx.translate(end.x,end.y);ctx.rotate(Math.atan2(end.y-grip.y,end.x-grip.x)-Math.PI/2);
-    ctx.fillStyle='#6E7E78';ctx.fillRect(-7*scale,-3*scale,14*scale,7*scale);
-    ctx.fillStyle='#E4E8DB';ctx.fillRect(-6*scale,-3*scale,12*scale,2*scale);ctx.restore();
-    const [x,y,w,h]=frame.crop;
-    ctx.drawImage(this.golferPhoto!,pose*543+x,y,w,h,(x-frame.foot[0])*s,(y-frame.foot[1])*s,w*s,h*s);
+    ctx.save();ctx.globalAlpha=alpha;
+    if(this.softShadow)ctx.drawImage(this.softShadow,foot.x-83*scale,foot.y-14*scale,185*scale,34*scale);
     ctx.restore();
+    this.golferRenderer.draw(ctx,this.golferPhoto!,{footX:foot.x,footY:foot.y,ballX:ball.x,ballY:ball.y-2,
+      scale,windup:wind,followThrough:through,putting,alpha});
   }
 
   private drawAim(ctx:CanvasRenderingContext2D,game:GolfState,now:number) {

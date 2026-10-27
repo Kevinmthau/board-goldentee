@@ -11,7 +11,7 @@
 | public/piece-footprints.json | True physical outlines and facing | Same set | Board-provided data for Board games |
 | public/art/coastal-sky.png | Photographic sky, ocean, and distant headlands | Original built-in imagegen output, October 27, 2026; prompt in docs/coastal-art-prompt.md | AI-generated project artwork; no third-party source image |
 | public/art/fairway-turf.png | Repeating natural turf material, baked to a small runtime tile | Original built-in imagegen output, October 27, 2026; prompt in docs/coastal-art-prompt.md | AI-generated project artwork; no third-party source image |
-| public/art/golfer-swing.png | Four transparent realistic golfer poses | Original built-in imagegen output, October 27, 2026; prompt in docs/art-prompts.md | AI-generated project artwork; no third-party source image |
+| public/art/golfer-motion-v2.png | Twelve transparent realistic swing keyframes, aligned and blended at runtime | Original built-in imagegen output, October 27, 2026; prompt and anchor table in docs/swing-motion-prompt.md; uses the prior original golfer as identity reference | AI-generated project artwork; no third-party source image |
 
 Model SHA-256: 407af89d2a7c41ba6bdcef3d15134dcb7d04f81d93e63dcafe143b4aac9c63dd.
 
@@ -21,11 +21,14 @@ Model SHA-256: 407af89d2a7c41ba6bdcef3d15134dcb7d04f81d93e63dcafe143b4aac9c63dd.
 |---|---|---|
 | src/course-view.ts | Dynamic terrain, cup, flag, ball, shaft animation, camera, and generated-art composition; procedural image-failure fallback | Original project code and Canvas artwork |
 | src/course-art.ts | Cached natural foliage, turf/sand fallback materials, and soft shadows | Original seeded procedural Canvas artwork |
+| src/golfer-renderer.ts | Whole-pose alignment, interpolation, continuous club arc, and compact putting rock | Original Canvas renderer using the generated motion sheet above |
+| src/swing-animation.ts | Takeaway, downswing, impact, and follow-through timing | Original deterministic animation code |
 | src/howto.ts | Animated control lesson and buttons | Original project drawing; ring render retains Board source above |
 | src/sound.ts | Placement, swing, putt, landing, sand, cup, button, and penalty cues | Original deterministic synthesized audio; no sampled recordings |
 
 The browser simulator ring proxy uses the same canonical ring render. The simulator is excluded from the Board package.
 Screenshot evidence in docs/screenshots is not shipped as a game asset.
+The original four-pose golfer is preserved in docs/art-reference/golfer-swing-v1.png and does not ship. The development-only motion reviewer at dev/swing-review.html also stays outside the package.
 
 ## Generated package files
 
@@ -34,7 +37,7 @@ The ten public assets above retain their paths inside the zip without the `publi
 | Packaged file | Role | Source | Licence |
 |---|---|---|---|
 | assets/index-CEmDy7iA.css | Full-size canvas layout | Vite build of src/style.css | Original project changes to Board Studio starter |
-| assets/index-BHcqmHGr.js | Game, rendering, input, and SDK runtime | Vite build of src and vendored SDK beta.8 | Original game code plus Board-provided starter; SDK is © 2026 Harris Hill Products Inc., governed by Board Developer Terms (see node_modules/@board.fun/web-sdk/LICENSE) |
+| assets/index-Cy_zL8O4.js | Game, rendering, input, and SDK runtime | Vite build of src and vendored SDK beta.8 | Original game code plus Board-provided starter; SDK is © 2026 Harris Hill Products Inc., governed by Board Developer Terms (see node_modules/@board.fun/web-sdk/LICENSE) |
 | board-platform.js | Native menu, saves, audio, exit, and game name | Unmodified Board Studio platform layer, stamped by pack | Board-provided platform code |
 | harness-config.json | Package identity and game name | Generated from board.config.json by pack | Project metadata |
 | index.html | Entry point loading platform and game | Board Studio entry transformed by Vite and pack | Board-provided starter with generated project references |

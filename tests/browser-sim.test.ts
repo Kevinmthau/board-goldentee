@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { Board, BoardContactPhase, BoardContactType, type BoardContact } from '@board.fun/web-sdk';
 
 type Event = Record<string, unknown>;
 class Element {
@@ -48,8 +49,32 @@ function simulator() {
   const pointer = (type: string, x: number, y: number, shift = false, pointerId = 1) => {
     listeners.get(type)!({ clientX: x, clientY: y, shiftKey: shift, pointerId, target: { closest: () => null } });
   };
-  return { pointer, flush, listeners, root: body.children[0], resize: (next: typeof rect) => { rect = next; listeners.get('resize')?.({}); } };
+  return { pointer, flush, listeners, win, root: body.children[0], resize: (next: typeof rect) => { rect = next; listeners.get('resize')?.({}); } };
 }
+
+test('a finger pressed and released before one animation frame reaches SDK subscribers as one tap', () => {
+  const sim = simulator();
+  const oldWindow = globalThis.window;
+  Object.assign(globalThis, { window: sim.win });
+  const phases: number[] = [];
+  const onContacts = (contacts: readonly BoardContact[]) => {
+    for (const c of contacts) if (c.type === BoardContactType.Finger) phases.push(c.phase);
+  };
+  Board.input.subscribe(onContacts);
+  try {
+    sim.pointer('pointerdown', 100, 300);
+    sim.pointer('pointerup', 100, 300);
+    sim.flush();
+    assert.deepEqual(phases, [BoardContactPhase.Began, BoardContactPhase.Ended]);
+    assert.equal(Board.input.getContacts().length, 0, 'a fast tap must not leave a stuck finger');
+    sim.flush();
+    assert.equal(phases.length, 2, 'the next frame must not repeat the tap');
+  } finally {
+    Board.input.unsubscribe(onContacts);
+    if (oldWindow === undefined) Reflect.deleteProperty(globalThis, 'window');
+    else Object.assign(globalThis, { window: oldWindow });
+  }
+});
 
 test('browser ring placement maps a scaled canvas to Board coordinates', () => {
   const sim = simulator();
