@@ -32,3 +32,9 @@
 - [x] Browser: title, placement, different swing powers, putting, result, rematch, help, and pause. Actual two-stroke birdie completed with pointer drags.
 - [ ] Board: real sensing, performance, platform saves, and audio levels. NOT TESTED.
 - [ ] Human: uncoached first swing and power control. NOT TESTED.
+
+## Closer camera and realism pass
+- [x] Lower and bring in the address camera; keep the ball and ring lane separate.
+- [x] Realistic golfer, photographic coastal sky, textured turf, natural trees, and soft shadows integrated.
+- [x] Browser: new address view, backswing, flight transition, and putting visually verified.
+- [x] Final tests and package pass; generated art provenance and package inventory updated.

@@ -1,6 +1,6 @@
 # Plan: Golden Tee
 
-Status: agreed solo first playable; implementation in progress. The person delegated the camera choice.
+Status: solo first playable and closer, realistic artwork pass complete in the browser. Native Board and human play checks remain open.
 Updated: October 27, 2026.
 
 ## Summary
@@ -12,7 +12,7 @@ Updated: October 27, 2026.
 - **Players:** Solo golf first, seated at the bottom edge.
 - **Piece set:** `save-the-bloogs`, using the Ring (glyph 1), one per box.
 - **First move:** Place the Bloogs ring at the bottom swing area, then slide back and forward along the arrows.
-- **Sound:** Proposed short swing, landing, sand, and cup effects through the platform audio system.
+- **Sound:** Short swing, landing, sand, and cup effects through the platform audio system.
 - **Reference:** [Golden Tee Golf](https://en.wikipedia.org/wiki/Golden_Tee_Golf), supplied by the person.
 
 The reference's main design cue is its trackball stroke, which controls power, direction, and curve.
@@ -26,7 +26,7 @@ Use original course layouts and game artwork for this prototype.
 4. Putt into the cup in the fewest strokes.
 
 Keep hold of the ring during the stroke. Throwing the piece is not required.
-In the browser, Shift-drag simulates the same ring and gesture.
+In the browser, Place ring or Shift-click creates the simulated ring; an ordinary drag moves it through the same gesture.
 
 ## First playable
 
@@ -130,6 +130,8 @@ Use a bright coastal course with deep green fairways, pale bunkers, blue water, 
 Use a third-person view from behind a visible golfer, as the person requested during the browser review.
 Use Canvas 2D perspective to show the golfer, course, ball flight, and rolling.
 The golfer stands beside the digital ball and animates the backswing and follow-through.
+The person requested closer Golden Tee framing, then more realistic graphics. At address the camera is lower and closer, making the golfer about 50% larger while keeping the ball above the physical control area.
+Use a photographic coastal sky, realistic pre-rendered golfer poses, natural turf detail, irregular foliage, and soft cached shadows. Keep the terrain and ball simulation dynamic.
 The golfer never follows the physical ring. The camera follows the ball after impact.
 The swing area stays at the bottom edge while the camera follows the digital ball between shots.
 Favor a large course, readable ball motion, and short golf labels over dashboard panels.
@@ -142,7 +144,7 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 - Palette: forest green for framing, warm cream for cues, coral for the flag, and white for the ball.
 - Camera: behind a visible golfer at address, following ball flight, then framing the golfer and cup for the next shot.
 - Coverage: title and setup show the same course; play uses exact terrain; help uses canonical ring art; results keep the course behind them.
-- Assets: original Canvas sky, coast, terrain, trees, flag, ball, and finite effects. Cache detailed scenery instead of rebuilding it while still.
+- Assets: original generated photographic coastal sky, natural turf, and transparent golfer poses; Canvas terrain, detailed procedural trees, flag, ball, and finite effects. Cache detailed scenery instead of rebuilding it while still. Exact prompts and provenance are recorded with the asset manifest.
 - Sound: original short synthesized swing, putt, landing, sand, placement, penalty, and cup cues. No music in this first playable.
 - Interaction protection: quiet turf around the bottom-centre swing corridor; arrows remain to its right.
 - Proof: inspect title, help, address, flight, approach, green, result, rematch, and pause in the browser.
@@ -171,6 +173,8 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 | First scope | One par-3 hole with a complete result loop | Builder | Final design question answered by person | Browser playable; Board and human checks open |
 | Players | Solo golf first | Person | “Solo golf first” | Fixed; multiplayer deferred |
 | Camera | Third-person, with a visible golfer beside the ball | Person | “I want to see the golfer third person style” | Replaces the initial ball-only framing |
+| Closer framing | Lower, closer address camera; preserve ball-follow view | Person | “bring the camera closer to the golfer so it feels more like Golden Tee” and supplied arcade screenshot | About 1.5× foreground golfer size |
+| Graphics | More realistic golfer, landscape, grass, lighting, and shadows | Person | “Can we make the graphics look more realistic?” | Artwork pass; original course and controls retained |
 | Recipe | Sports, using ball rest/recovery and deliberate stroke commitment | Builder | Genre recipes | No existing golf recipe |
 | UI floors | 48 px in play; 32 px elsewhere; 120 px targets; 48 px edge inset | Builder | User's Board rules | No conflicting spec sizes |
 | Physical control art | Nothing follows or sits under the moving ring | Builder | User's Board rules | Ball and arrows stay separate from the controller |
@@ -182,5 +186,6 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 - Package: TypeScript, Vite, platform build, and web-pack passed; stable package identity retained.
 - Browser: title, help, ring placement, varied swing powers, approach, putting, two-stroke birdie, rematch, and pause checked with real pointer actions. Third-person address, backswing, follow-through, and next-lie framing inspected.
 - Screenshots: `docs/screenshots/third-person-ready.png`, `third-person-backswing.png`, and `birdie-result.png`.
+- Realism pass: `realistic-close-address.png` and `realistic-close-backswing.png` show the closer camera and generated golfer. Address, backswing, follow-through, flight, and putting were inspected in the browser.
 - Board: not tested.
 - Human: no swing or teaching playtest yet.

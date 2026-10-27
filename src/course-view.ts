@@ -1,5 +1,6 @@
 import { gameFont } from './runtime';
 import { HOLE, clubFor, distanceToCup, type GolfState, type SwingState } from './rules';
+import { createTreeSprite, createGroundTexture, createSoftShadow } from './course-art';
 
 /** The physical ring travels in the quiet center lane, separate from the digital ball. */
 export const COURSE_LAYOUT = {
@@ -17,6 +18,10 @@ const TAU = Math.PI * 2;
 const FOCAL = 1120;
 const PITCH = 0.21;
 const CENTER_Y = COURSE_LAYOUT.horizon + FOCAL * Math.tan(PITCH);
+const ADDRESS_CAMERA = { distance: 17.2, height: 6.34 };
+const PUTT_CAMERA = { distance: 16, height: 5.9 };
+const FLIGHT_CAMERA = { distance: 26, height: 10 };
+type Surface = 'fairway' | 'rough' | 'green' | 'sand';
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const mix = (a: number, b: number, amount: number) => a + (b - a) * amount;
 const angleDelta = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
@@ -62,19 +67,6 @@ function backdrop() {
   });
 }
 
-function cypressSprite(variant: number) {
-  return canvasLayer(170, 250, ctx => {
-    ctx.strokeStyle = '#344A38'; ctx.lineWidth = 10; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(88, 244); ctx.lineTo(90, 130); ctx.lineTo(62, 92); ctx.stroke();
-    ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(90, 163); ctx.lineTo(123, 108); ctx.stroke();
-    const crowns = [[74, 58, 43, 54], [48, 93, 41, 35], [110, 87, 49, 40], [83, 119, 55, 36], [118, 123, 35, 24]];
-    for (const [x, y, rx, ry] of crowns) {
-      ctx.fillStyle = '#244C3D'; ctx.beginPath(); ctx.ellipse(x + variant * 4, y, rx, ry, -0.12, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#3C6244'; ctx.beginPath(); ctx.ellipse(x - 5 + variant * 4, y - 12, rx * 0.85, ry * 0.65, -0.12, Math.PI, TAU); ctx.fill();
-    }
-  });
-}
-
 const TREES = [
   {x:-43,z:20,h:12}, {x:-38,z:48,h:13}, {x:-44,z:72,h:11},
   {x:-40,z:94,h:14}, {x:-48,z:136,h:11}, {x:-37,z:169,h:12},
@@ -82,7 +74,7 @@ const TREES = [
 ];
 
 export class CourseView {
-  private camera: Camera = { x: 0, z: 0, yaw: 0, distance: 26, height: 10 };
+  private camera: Camera = { x: 0, z: 0, yaw: 0, ...ADDRESS_CAMERA };
   private initialized = false;
   private sky: HTMLCanvasElement | null = null;
   private terrain: HTMLCanvasElement | null = null;
@@ -98,6 +90,32 @@ export class CourseView {
   private seenStrokes = 0;
   private golferAt: Point = { x: 0, z: 0 };
   private golferYaw = 0;
+  private textures = new Map<Surface, CanvasPattern>();
+  private softShadow: HTMLCanvasElement | null = null;
+  private golferPhoto: HTMLImageElement | null = null;
+
+  private loadScenery() {
+    const photo = new Image();
+    photo.onload = () => {
+      this.sky = canvasLayer(1920, 1080, ctx => {
+        ctx.fillStyle = '#32698A'; ctx.fillRect(0, 0, 1920, 1080);
+        const scale = 1.38;
+        ctx.drawImage(photo, (1920-photo.naturalWidth*scale)/2, COURSE_LAYOUT.horizon-photo.naturalHeight*0.60*scale, photo.naturalWidth*scale, photo.naturalHeight*scale);
+      });
+    };
+    photo.src = 'art/coastal-sky.png';
+    const golfer = new Image();
+    golfer.onload = () => { this.golferPhoto = golfer; };
+    golfer.src = 'art/golfer-swing.png';
+    const turf = new Image();
+    turf.onload = () => {
+      // Reduce once to a small repeating material. The photograph supplies actual blade detail.
+      const tile = canvasLayer(256,256,c => {c.drawImage(turf,0,0,256,256);});
+      const pattern = this.terrain!.getContext('2d')!.createPattern(tile,'repeat');
+      if(pattern) {for(const kind of ['fairway','rough','green'] as const)this.textures.set(kind,pattern);this.terrainKey='';}
+    };
+    turf.src = 'art/fairway-turf.png';
+  }
 
   /** Only gesture intent is passed in; the golfer is anchored to the digital ball's lie. */
   setSwing(stage: SwingState['stage'], power: number): void {
@@ -110,7 +128,7 @@ export class CourseView {
     this.camera = {
       x: game.ball.x, z: game.ball.z,
       yaw: Math.atan2(HOLE.flag.x - game.ball.x, HOLE.flag.z - game.ball.z),
-      distance: close ? 16 : 26, height: close ? 6.15 : 10,
+      ...(close ? PUTT_CAMERA : ADDRESS_CAMERA),
     };
     this.initialized = true; this.trace = []; this.terrainKey = ''; this.landing = null;
     this.priorPhase = game.phase;
@@ -135,7 +153,7 @@ export class CourseView {
   }
 
   /** Clip ground polygons before projection; the near plane cannot fold across the screen. */
-  private ground(ctx: CanvasRenderingContext2D, points: readonly Point[], color: string) {
+  private ground(ctx: CanvasRenderingContext2D, points: readonly Point[], color: string, surface?: Surface) {
     const clipped: Point[] = [];
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length];
@@ -146,7 +164,19 @@ export class CourseView {
         clipped.push({x:mix(a.x,b.x,t),z:mix(a.z,b.z,t),y:mix(a.y??0,b.y??0,t)});
       }
     }
-    polygon(ctx, clipped.map(p => this.project(p)), color);
+    const screen = clipped.map(p => this.project(p));
+    polygon(ctx, screen, color);
+    const texture = surface && this.textures.get(surface);
+    if (!texture || clipped.length < 3) return;
+    // A world-anchored texture follows each small mown strip and is cached with the terrain.
+    const center = clipped.reduce((p,q) => ({x:p.x+q.x/clipped.length,z:p.z+q.z/clipped.length}),{x:0,z:0});
+    const origin = this.project(center), across = this.project({x:center.x+1,z:center.z}), along = this.project({x:center.x,z:center.z+1});
+    const density = surface === 'sand' ? 80 : surface === 'rough' ? 36 : surface === 'green' ? 84 : 58;
+    ctx.save();ctx.beginPath();screen.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.clip();
+    ctx.globalCompositeOperation='soft-light';ctx.globalAlpha=surface==='rough'?0.78:surface==='fairway'?0.72:0.48;
+    ctx.transform((across.x-origin.x)/density,(across.y-origin.y)/density,(along.x-origin.x)/density,(along.y-origin.y)/density,origin.x,origin.y);
+    ctx.translate(-center.x*density,-center.z*density);ctx.fillStyle=texture;
+    ctx.fillRect(-120*density,-80*density,240*density,360*density);ctx.restore();
   }
 
   private ovalPoints(x: number, z: number, rx: number, rz: number, y = 0) {
@@ -159,47 +189,48 @@ export class CourseView {
     // The island's grass edge is the actual playable boundary; sand and cliff lie outside it.
     const rim = [{x:b.left-3,z:b.near-3,y:-2},{x:b.right+3,z:b.near-3,y:-2},{x:b.right+3,z:b.far+3,y:-2},{x:b.left-3,z:b.far+3,y:-2}];
     this.ground(ctx,rim,'#D3BC84');
-    this.ground(ctx,[{x:b.left,z:b.near},{x:b.right,z:b.near},{x:b.right,z:b.far},{x:b.left,z:b.far}],'#467849');
+    this.ground(ctx,[{x:b.left,z:b.near},{x:b.right,z:b.near},{x:b.right,z:b.far},{x:b.left,z:b.far}],'#426538','rough');
     const center = (z:number) => Math.sin(z/45)*5;
     const width = (z:number) => 19 + Math.sin(clamp(z/150,0,1)*Math.PI)*5;
     const ribbon: Point[] = [];
     for (let z=b.near;z<=b.far;z+=2) ribbon.push({x:center(z)-width(z)-1.6,z});
     ribbon.push({x:center(b.far)-width(b.far)-1.6,z:b.far});
     for (let z=b.far;z>=b.near;z-=2) ribbon.push({x:center(z)+width(z)+1.6,z});
-    this.ground(ctx,ribbon,'#86A651');
+    this.ground(ctx,ribbon,'#7B9251','fairway');
     for (let z=b.far;z>b.near;z-=7) {
       const low=Math.max(b.near,z-7), mid=(z+low)/2;
       const pts=[{x:center(low)-width(low),z:low},{x:center(mid)-width(mid),z:mid},{x:center(z)-width(z),z},
         {x:center(z)+width(z),z},{x:center(mid)+width(mid),z:mid},{x:center(low)+width(low),z:low}];
-      this.ground(ctx,pts,Math.floor(z/7)%2 ? '#719B50' : '#7FA656');
+      this.ground(ctx,pts,Math.floor(z/7)%2 ? '#698449' : '#758E50','fairway');
     }
     const green=HOLE.green;
     this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx+1.8,green.rz+1.8),'#537F42');
     this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx+0.8,green.rz+0.8),'#BDD17C');
-    this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx,green.rz),'#A5C571');
+    this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx,green.rz),'#96AE63','green');
     // Mowed green bands use the exact ellipse used by the rules.
     for(let z=green.z-green.rz;z<green.z+green.rz;z+=3.4) {
       if(Math.floor((z-green.z+green.rz)/3.4)%2) continue;
       const top=Math.min(green.z+green.rz,z+3.4), pts:Point[]=[];
       for(let i=0;i<=8;i++) {const zz=mix(z,top,i/8),w=green.rx*Math.sqrt(Math.max(0,1-((zz-green.z)/green.rz)**2));pts.push({x:green.x-w,z:zz});}
       for(let i=8;i>=0;i--) {const zz=mix(z,top,i/8),w=green.rx*Math.sqrt(Math.max(0,1-((zz-green.z)/green.rz)**2));pts.push({x:green.x+w,z:zz});}
-      this.ground(ctx,pts,'#ACCA78');
+      this.ground(ctx,pts,'#A0B66C','green');
     }
     const sand=HOLE.bunker;
     this.ground(ctx,this.ovalPoints(sand.x,sand.z,sand.rx+0.65,sand.rz+0.65),'#355E39');
-    this.ground(ctx,this.ovalPoints(sand.x,sand.z,sand.rx,sand.rz),'#E6CE94');
-    this.ground(ctx,this.ovalPoints(sand.x+0.4,sand.z+0.6,sand.rx-1.5,sand.rz-1.8),'#F2DEAD');
+    this.ground(ctx,this.ovalPoints(sand.x,sand.z,sand.rx,sand.rz),'#C7B78C','sand');
+    this.ground(ctx,this.ovalPoints(sand.x+0.4,sand.z+0.6,sand.rx-1.5,sand.rz-1.8),'#DED0A8','sand');
     // Small raked strokes are baked with the course, never recalculated under a resting camera.
     for(let i=0;i<6;i++) {
       const z=sand.z-6+i*2;
       this.ground(ctx,[{x:sand.x-4,z},{x:sand.x+4,z:z+0.5},{x:sand.x+4,z:z+0.65},{x:sand.x-4,z:z+0.15}],'#D7BC83');
     }
-    this.ground(ctx,[{x:-3.5,z:-2},{x:3.5,z:-2},{x:3.5,z:1},{x:-3.5,z:1}],'#527E43');
+    this.ground(ctx,[{x:-3.5,z:-2},{x:3.5,z:-2},{x:3.5,z:1},{x:-3.5,z:1}],'#607D43','green');
     for(const x of [-3.4,3.4]) this.ground(ctx,[{x:x-0.3,z:-1},{x:x+0.3,z:-1},{x:x+0.3,z:-0.4},{x:x-0.3,z:-0.4}],'#F8EBC4');
     const visible=TREES.map((t,i)=>({...t,index:i,p:this.project(t)})).filter(t=>t.p.depth>4).sort((a,b)=>b.p.depth-a.p.depth);
     for(const tree of visible) {
-      const h=tree.h*tree.p.scale,w=h*0.68;
+      const h=tree.h*tree.p.scale,w=h*(320/440);
       if(tree.p.x+w<0||tree.p.x-w>1920)continue;
+      if(this.softShadow) {ctx.globalAlpha=0.48;ctx.drawImage(this.softShadow,tree.p.x-w*0.8,tree.p.y-h*0.04,w*1.6,h*0.13);ctx.globalAlpha=1;}
       ctx.drawImage(this.trees[tree.index%2],tree.p.x-w/2,tree.p.y-h,w,h);
     }
     // Subtle stakes communicate the out-of-bounds coastline without introducing a UI wall.
@@ -213,9 +244,14 @@ export class CourseView {
 
   draw(ctx: CanvasRenderingContext2D, game: GolfState, now: number, dt: number, preview = false) {
     if(!this.initialized)this.reset(game);
-    if(!this.sky) {this.sky=backdrop();this.trees=[cypressSprite(0),cypressSprite(1)];this.terrain=canvasLayer(1920,1080,()=>{});}
+    if(!this.sky) {
+      this.sky=backdrop();this.trees=[createTreeSprite(0),createTreeSprite(1)];this.softShadow=createSoftShadow();
+      for(const kind of ['fairway','rough','green','sand'] as const) {const pattern=ctx.createPattern(createGroundTexture(kind),'repeat');if(pattern)this.textures.set(kind,pattern);}
+      this.terrain=canvasLayer(1920,1080,()=>{});this.loadScenery();
+    }
     const moving=game.phase==='flight'||game.phase==='rolling';
     const close=clubFor(game)==='PUTTER';
+    const framing=game.phase==='flight'?FLIGHT_CAMERA:close?PUTT_CAMERA:ADDRESS_CAMERA;
     const targetYaw=distanceToCup(game)>1.5 ? Math.atan2(HOLE.flag.x-game.ball.x,HOLE.flag.z-game.ball.z) : this.camera.yaw;
     if(moving&&game.strokes>this.seenStrokes){
       this.shotAt=now;this.golferAt={...game.lastSafe};this.windup=Math.max(this.windup,0.5);
@@ -231,14 +267,14 @@ export class CourseView {
     const c=this.camera;
     c.x=mix(c.x,game.ball.x,blend);c.z=mix(c.z,game.ball.z,blend);
     if(!moving)c.yaw+=angleDelta(c.yaw,targetYaw)*blend;
-    c.distance=mix(c.distance,close?16:26,blend);
-    c.height=mix(c.height,(close?6.15:10)+game.ball.y*0.65,blend);
+    c.distance=mix(c.distance,framing.distance,blend);
+    c.height=mix(c.height,framing.height+game.ball.y*0.65,blend);
     if(!moving) {
       if(Math.abs(c.x-game.ball.x)<0.002)c.x=game.ball.x;
       if(Math.abs(c.z-game.ball.z)<0.002)c.z=game.ball.z;
       if(Math.abs(angleDelta(c.yaw,targetYaw))<0.0001)c.yaw=targetYaw;
-      if(Math.abs(c.height-(close?6.15:10))<0.002)c.height=close?6.15:10;
-      if(Math.abs(c.distance-(close?16:26))<0.002)c.distance=close?16:26;
+      if(Math.abs(c.height-framing.height)<0.002)c.height=framing.height;
+      if(Math.abs(c.distance-framing.distance)<0.002)c.distance=framing.distance;
     }
     const key=[c.x,c.z,c.yaw,c.distance,c.height].map(v=>v.toFixed(3)).join('|');
     if(key!==this.terrainKey){this.paintTerrain(this.terrain!.getContext('2d')!);this.terrainKey=key;}
@@ -289,7 +325,7 @@ export class CourseView {
     const standing={x:this.golferAt.x-right.x*2.8-forward.x*0.45,z:this.golferAt.z-right.z*2.8-forward.z*0.45};
     const foot=this.project(standing),ball=this.project(this.golferAt);
     if(foot.depth<3||foot.y>1000||foot.y<250)return;
-    const scale=clamp(foot.scale*5.5/240,0.3,1.06);
+    const scale=clamp(foot.scale*5.5/240,0.3,1.6);
     const target=this.swingStage==='backswing'?1:0;
     if(!shot)this.windup=mix(this.windup,target,1-Math.exp(-Math.max(0,dt)*16));
     const putting=clubFor({...game,ball:{...game.ball,x:this.golferAt.x,z:this.golferAt.z}})==='PUTTER';
@@ -297,6 +333,10 @@ export class CourseView {
     const wind=shot?this.windup*(1-clamp(age/100,0,1)):this.windup;
     const turn=through*12-wind*5;
     const lift=through*6;
+    if(this.golferPhoto) {
+      this.drawPhotographicGolfer(ctx,foot,ball,scale,wind,through,putting,alpha);
+      return;
+    }
     const ballLocal={x:(ball.x-foot.x)/scale,y:(ball.y-foot.y)/scale};
     const grip={x:mix(47,-25,wind)+through*8,y:mix(-119,-202,wind)-through*84};
     const clubEnd={
@@ -358,6 +398,34 @@ export class CourseView {
     ctx.save();ctx.translate(clubEnd.x,clubEnd.y);ctx.rotate(putting?-0.08:Math.atan2(clubEnd.y-grip.y,clubEnd.x-grip.x)-Math.PI/2);
     shape([[-10,-3],[8,-5],[12,0],[9,8],[-7,8],[-11,3]],'#536A64');
     shape([[-9,-3],[8,-5],[10,-1],[-7,3]],'#D7E0CB');ctx.restore();
+    ctx.restore();
+  }
+
+  private drawPhotographicGolfer(ctx:CanvasRenderingContext2D,foot:ScreenPoint,ball:ScreenPoint,scale:number,wind:number,through:number,putting:boolean,alpha:number) {
+    const pose = putting ? 0 : wind > 0.72 ? 2 : wind > 0.12 ? 1 : through > 0.12 ? 3 : 0;
+    const frames = [
+      {foot:[256,680],grip:[322,409],crop:[143,80,261,610]},
+      {foot:[252,679],grip:[132,119],crop:[101,86,276,602]},
+      {foot:[250,679],grip:[198,58],crop:[109,28,268,660]},
+      {foot:[276,681],grip:[233,64],crop:[131,35,244,655]},
+    ];
+    const frame=frames[pose],s=scale*245/592;
+    const grip={x:(frame.grip[0]-frame.foot[0])*s,y:(frame.grip[1]-frame.foot[1])*s};
+    const end=pose===0?{x:ball.x-foot.x+(putting?(through-wind)*23:0),y:ball.y-foot.y-2}:
+      pose===1?{x:grip.x-100*s,y:grip.y-260*s}:
+      pose===2?{x:grip.x-270*s,y:grip.y+150*s}:{x:grip.x+220*s,y:grip.y+160*s};
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(foot.x,foot.y);
+    if(this.softShadow)ctx.drawImage(this.softShadow,-83*scale,-14*scale,185*scale,34*scale);
+    // Draw behind the cutout so the fingers wrap naturally over the handle.
+    ctx.strokeStyle='#C4CEC8';ctx.lineWidth=2.6*scale;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(grip.x,grip.y);ctx.lineTo(end.x,end.y);ctx.stroke();
+    ctx.strokeStyle='#27352F';ctx.lineWidth=4*scale;
+    ctx.beginPath();ctx.moveTo(grip.x,grip.y);ctx.lineTo(mix(grip.x,end.x,0.14),mix(grip.y,end.y,0.14));ctx.stroke();
+    ctx.save();ctx.translate(end.x,end.y);ctx.rotate(Math.atan2(end.y-grip.y,end.x-grip.x)-Math.PI/2);
+    ctx.fillStyle='#6E7E78';ctx.fillRect(-7*scale,-3*scale,14*scale,7*scale);
+    ctx.fillStyle='#E4E8DB';ctx.fillRect(-6*scale,-3*scale,12*scale,2*scale);ctx.restore();
+    const [x,y,w,h]=frame.crop;
+    ctx.drawImage(this.golferPhoto!,pose*543+x,y,w,h,(x-frame.foot[0])*s,(y-frame.foot[1])*s,w*s,h*s);
     ctx.restore();
   }
 

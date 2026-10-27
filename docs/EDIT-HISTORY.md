@@ -40,3 +40,11 @@
 - Moved guidance clear of the physical ring and kept the missing-art fallback at the in-play text floor.
 - Verified 117 passing tests (3 catalog-only skips), production packaging, and an actual pointer-driven two-stroke birdie followed by rematch.
 - Real Board sensing, device performance, speaker mix, roster changes, long-name layout, and uncoached human play remain open.
+
+## October 27, 2026 — Closer camera and realistic graphics
+
+- Person requested a closer view resembling the supplied Golden Tee arcade reference, then asked for more realistic graphics.
+- Lowered and moved the address camera closer; increased golfer size by about 50%, retaining the digital ball above the ring lane and a wider camera during flight.
+- Replaced the flat coastal background with generated photographic scenery; added cached natural turf, sand, detailed foliage, and soft shadows.
+- Integrated four transparent realistic golfer poses, with the club attached to each pose's grip and the address shaft reaching the actual ball. Putting retains a compact stroke.
+- Browser inspection confirmed close address, backswing, follow-through, flight transition, and putting. Final tests: 117 passed, 3 catalog-only skips. Final 15-file package passed TypeScript, Vite, and web-pack.

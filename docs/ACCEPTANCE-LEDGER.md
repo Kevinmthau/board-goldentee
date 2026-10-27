@@ -26,3 +26,13 @@
 - Board evidence: NOT TESTED. Real sensing and occlusion, performance, native platform saves, roster changes, and speaker mix need a device pass. Long-name layout needs a focused check.
 - Human evidence: NOT TESTED. No uncoached first swing or physical power-control feedback yet.
 - Acceptance: browser-playable prototype; native and human acceptance remain open.
+
+## October 27, 2026 — Closer camera and realistic graphics
+
+- Asked for: closer Golden Tee-style camera using the supplied arcade screenshot as framing reference, followed by more realistic graphics.
+- Delivered: lower, closer address camera (17.2 distance / 6.34 height) and a larger foreground golfer; slightly closer putting view; wider camera during flight. Four realistic transparent golfer poses, photographic coast, natural turf material, detailed foliage, and soft cached shadows.
+- Source: generated images load once; turf is baked to 256×256; terrain and shadows are cached; original procedural fallbacks remain. No per-frame filters, shadowBlur, or pixel reads. The Board model, contact handling, roster, rules, IDs, saves, and controls are unchanged.
+- Unit: `npm test` — 117 passed, 0 failed, 3 catalog-only skips. No new tests were added for this visual change.
+- Package: `npm run pack` passed TypeScript, Vite, and web-pack. All 15 shipped files are recorded in the asset manifest, including three original built-in imagegen assets and their exact prompts.
+- Browser: inspected address and held backswing; performed forward swings and saw the follow-through before the camera followed the ball. Putting views at 24 and 43 feet kept golfer, ball, cup, distance, and fixed ring cues readable. Saved `realistic-close-address.png`, `realistic-close-backswing.png`, and `realistic-close-putting.png` as evidence. Final reload and shot produced no new console warnings or errors.
+- Board/Human: NOT TESTED. Native performance and physical play feel still require the checks already open in the build checklist.
