@@ -1,4 +1,4 @@
-// GENERATED from assets/game-template/astra-starter/src/browser-host.ts by scripts/board_app/build_browser_host.mjs. Do not edit.
+// Based on the Studio generated browser host. Local preview additions: scaled input, ring proxy, and placement controls.
 // The web lane's simulated Board host, injected by assets/board-app/boot_capture.cjs so a
 // packed Create Game candidate boots in a headless browser the way it does on a Board.
 (() => {
@@ -15,7 +15,7 @@
 //
 //   drag         one finger contact (glyphId 0): Began → Moved… → Ended
 //   shift-drag   a resting Piece (glyphId `__sim.glyph`, default 1) that stays on
-//                the table after release; shift-drag near it moves it
+//                the table after release; ordinary drag near it moves it
 //   backspace    lift every resting Piece
 //   P / Escape   open the simulated system menu (Board.application.onPause fires);
 //                inside it: Enter/P resume · Q quit · S save & quit (only when the
@@ -105,7 +105,13 @@ const SIM_PROFILE_ID = "5e1f0b0a-4d00-4c1e-8000-00000000517d";
 const REDETECT_FRAMES = 6; // empty frames between the menu closing and a resting Piece being born again
 const PNG_1PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const STYLE = `[data-board-sim]{position:fixed;inset:0;pointer-events:none;z-index:2147483647;font:12px ui-monospace,monospace;color:#fff}
-[data-board-sim] .bs-label{position:absolute;left:8px;bottom:8px;padding:4px 8px;border-radius:4px;background:rgba(0,0,0,.65);pointer-events:auto;cursor:pointer;user-select:none}
+[data-board-sim] .bs-toolbar{position:absolute;left:8px;bottom:8px;right:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;pointer-events:none}
+[data-board-sim] .bs-toolbar button{pointer-events:auto;cursor:pointer;min-height:30px}
+[data-board-sim] .bs-hint{padding:4px 8px;border-radius:4px;background:rgba(0,0,0,.7);user-select:none}
+[data-board-sim] .bs-pieces{position:absolute;inset:0;pointer-events:none}
+[data-board-sim] .bs-piece{position:absolute;transform:translate(-50%,-50%);background:center/contain no-repeat;pointer-events:none;opacity:.92}
+[data-board-sim] .bs-piece[data-held="true"]{opacity:1}
+[data-board-sim] .bs-menu{z-index:2}
 [data-board-sim] .bs-menu{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);pointer-events:auto}
 [data-board-sim] .bs-menu[hidden]{display:none}
 [data-board-sim] .bs-card{min-width:320px;padding:16px 20px;border-radius:8px;background:#1a1a2e;box-shadow:0 8px 32px #000}
@@ -128,6 +134,8 @@ function installBrowserHost(win         = window)          {
   // --- contacts: delta frames at frame rate, exactly what the sensor host pushes
   const live = new Map              ();
   const byPointer = new Map                ();
+  const pointerOffsets = new Map();
+  let renderPieces = () => {};
   let pending         = [];
   let lastBatch         = [];
   let nextId = 1;
@@ -170,32 +178,54 @@ function installBrowserHost(win         = window)          {
     touch.onmessage?.(new MessageEvent("message", { data: JSON.stringify({ c: batch }) }));
   };
   const raf = (cb            ) => (win.requestAnimationFrame ? win.requestAnimationFrame(cb) : setTimeout(cb, 16));
-  const loop = () => (flush(), raf(loop));
+  const loop = () => (flush(), renderPieces(), raf(loop));
   raf(loop);
   const end = (c      ) => (live.delete(c.id), (c.touched = 0), push(c, 3));
-  const endFingers = () => (live.forEach((c) => !c.resting && end(c)), byPointer.clear());
+  const endFingers = () => {
+    live.forEach((c) => { if (!c.resting) end(c); else if (c.touched) (c.touched = 0), push(c, 2); });
+    byPointer.clear(); pointerOffsets.clear();
+  };
   const liftResting = () => live.forEach((c) => c.resting && end(c));
   const fromShim = (e       ) => Boolean((e.target                  )?.closest?.("[data-board-sim]"));
-  const onDown = (e              ) => {
+  // Convert browser pointer positions only. Native Board contacts never pass through here.
+  const canvasRect = () => doc.querySelector("#game")?.getBoundingClientRect();
+  const toWorld = (e) => {
+    const r = canvasRect();
+    if (!r || r.width <= 0 || r.height <= 0) return null;
+    return { x: (e.clientX - r.left) * 1920 / r.width, y: (e.clientY - r.top) * 1080 / r.height };
+  };
+  const onDown = (e) => {
     if (menuOpen || fromShim(e)) return;
-    let c                  ;
-    if (e.shiftKey) for (const r of live.values()) if (r.resting && Math.hypot(r.x - e.clientX, r.y - e.clientY) < 80) c = r;
-    if (c) (c.x = e.clientX), (c.y = e.clientY), (c.touched = 1), push(c, 2);
-    else {
-      c = { id: nextId++, x: e.clientX, y: e.clientY, o: 0, p: 1, g: e.shiftKey ? host.__sim.glyph : 0, touched: 1, resting: e.shiftKey };
-      live.set(c.id, c), push(c, 1);
+    const p = toWorld(e);
+    if (!p || p.x < 0 || p.x > 1920 || p.y < 0 || p.y > 1080) return;
+    // The ring's actual footprint radius is 22.5 mm × 3.6 = 81 Board pixels.
+    // This is simulator pickup geometry, never a game collision or native input adjustment.
+    let c;
+    for (const r of live.values()) if (r.resting && ![...byPointer.values()].includes(r.id) && Math.hypot(r.x - p.x, r.y - p.y) <= 81) c = r;
+    if (c) {
+      pointerOffsets.set(e.pointerId, { x: p.x - c.x, y: p.y - c.y });
+      c.touched = 1; push(c, 2);
+    } else {
+      c = { id: nextId++, x: p.x, y: p.y, o: 0, p: 1, g: e.shiftKey ? host.__sim.glyph : 0, touched: 1, resting: e.shiftKey };
+      pointerOffsets.set(e.pointerId, { x: 0, y: 0 });
+      live.set(c.id, c); push(c, 1);
     }
     byPointer.set(e.pointerId, c.id);
+    renderPieces();
   };
-  const onMove = (e              ) => {
-    const c = live.get(byPointer.get(e.pointerId) ?? -1);
-    if (c) (c.x = e.clientX), (c.y = e.clientY), push(c, 2);
+  const onMove = (e) => {
+    const c = live.get(byPointer.get(e.pointerId) ?? -1), p = toWorld(e);
+    if (!c || !p) return;
+    const offset = pointerOffsets.get(e.pointerId) ?? { x: 0, y: 0 };
+    c.x = p.x - offset.x; c.y = p.y - offset.y; push(c, 2);
+    renderPieces();
   };
-  const onUp = (e              ) => {
+  const onUp = (e) => {
     const c = live.get(byPointer.get(e.pointerId) ?? -1);
-    byPointer.delete(e.pointerId);
+    byPointer.delete(e.pointerId); pointerOffsets.delete(e.pointerId);
     if (c && c.resting) (c.touched = 0), push(c, 2);
     else if (c) end(c);
+    renderPieces();
   };
 
   // --- simulated system menu: pause/resume, quit, custom buttons, audio gains
@@ -207,10 +237,47 @@ function installBrowserHost(win         = window)          {
   const restore = new Map                ();
   const root = doc.createElement("div");
   root.setAttribute("data-board-sim", "");
-  root.innerHTML = `<style>${STYLE}</style><div class="bs-label">BROWSER SIMULATOR · drag: finger · shift-drag: Piece · P: menu</div><div class="bs-menu" hidden></div>`;
+  root.innerHTML = `<style>${STYLE}</style><div class="bs-pieces" aria-hidden="true"></div><div class="bs-toolbar"><button type="button" class="bs-place">Place ring</button><button type="button" class="bs-lift">Lift ring</button><button type="button" class="bs-label">Menu · P</button><span class="bs-hint">BROWSER SIMULATOR · drag the ring · Shift-click to place · Backspace to lift</span></div><div class="bs-menu" hidden></div>`;
   (doc.body ?? doc.documentElement).appendChild(root);
   const label = root.querySelector(".bs-label")               ;
   const menu = root.querySelector(".bs-menu")               ;
+  const proxyLayer = root.querySelector(".bs-pieces");
+  const placeButton = root.querySelector(".bs-place");
+  const liftButton = root.querySelector(".bs-lift");
+  const proxies = new Map();
+  renderPieces = () => {
+    const r = canvasRect();
+    if (!r) return;
+    const stillHere = new Set();
+    for (const c of live.values()) {
+      if (!c.resting) continue;
+      stillHere.add(c.id);
+      let proxy = proxies.get(c.id);
+      if (!proxy) {
+        proxy = doc.createElement("div"); proxy.className = "bs-piece";
+        proxy.style.backgroundImage = `url("piece-art/${c.g}.png")`;
+        proxyLayer.appendChild(proxy); proxies.set(c.id, proxy);
+      }
+      const key = [r.left, r.top, r.width, r.height, c.x, c.y, c.touched].join(",");
+      if (proxy.dataset.pose === key) continue;
+      proxy.dataset.pose = key; proxy.dataset.held = String(Boolean(c.touched));
+      proxy.style.left = `${r.left + c.x * r.width / 1920}px`;
+      proxy.style.top = `${r.top + c.y * r.height / 1080}px`;
+      proxy.style.width = `${162 * r.width / 1920}px`;
+      proxy.style.height = `${162 * r.height / 1080}px`;
+    }
+    for (const [id, proxy] of proxies) if (!stillHere.has(id)) { proxy.remove(); proxies.delete(id); }
+    placeButton.disabled = [...live.values()].some(c => c.resting && c.g === 1);
+    liftButton.disabled = ![...live.values()].some(c => c.resting);
+  };
+  placeButton.addEventListener("click", () => {
+    if (menuOpen || [...live.values()].some(c => c.resting && c.g === 1)) return;
+    const c = { id: nextId++, x: 960, y: 850, o: 0, p: 1, g: 1, touched: 0, resting: true };
+    live.set(c.id, c); push(c, 1); renderPieces();
+  });
+  liftButton.addEventListener("click", () => { if (!menuOpen) { liftResting(); renderPieces(); } });
+  win.addEventListener("resize", renderPieces);
+
   const renderMenu = () => {
     const save = ctx.offerSaveOption ? `<button data-act="save">Save &amp; quit · S</button>` : "";
     const custom = (ctx.customButtons ?? []).map((b, i) => `<button data-act="custom" data-id="${esc(b.id)}">${i + 1} · ${boardIcon(b.icon)}${boardIcon(b.icon) ? " " : ""}${esc(b.title)}</button>`);
@@ -222,8 +289,8 @@ function installBrowserHost(win         = window)          {
     (menuOpen = true), (tracksChanged = false);
     // A native overlay steals the touches and restarts the detector epoch: drop
     // fingers silently (no synthetic lift) and keep resting Pieces on the table.
-    live.forEach((c) => !c.resting && live.delete(c.id));
-    byPointer.clear(), rests.clear(), (pending = []), (redetectIn = 0);
+    live.forEach((c) => { if (!c.resting) live.delete(c.id); else c.touched = 0; });
+    byPointer.clear(), pointerOffsets.clear(), rests.clear(), (pending = []), (redetectIn = 0);
     renderMenu(), (menu.hidden = false);
     board()?.onAppVisibility(false);
   };
@@ -249,7 +316,11 @@ function installBrowserHost(win         = window)          {
   const onKey = (e               ) => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target                  )?.tagName ?? "")) return;
     const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-    if (!menuOpen) return void (k === "P" || k === "Escape" ? openMenu() : k === "Backspace" && liftResting());
+    if (!menuOpen) {
+      if (k === "P" || k === "Escape") { e.preventDefault(); openMenu(); }
+      else if (k === "Backspace") { e.preventDefault(); liftResting(); renderPieces(); }
+      return;
+    }
     e.preventDefault();
     if (k === "Escape" || k === "Enter" || k === "P") closeMenu("RESUME");
     else if (k === "Q") closeMenu("EXIT_GAME_UNSAVED");

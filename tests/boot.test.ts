@@ -11,10 +11,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Board, BoardContactPhase, BoardContactType, BoardPlayerType, type BoardContact } from "@board.fun/web-sdk";
+import { createGame, type GolfState } from "../src/rules";
 
 // ---- the stand-in browser --------------------------------------------------------------------------
 type Call = { name: string; args: unknown[] };
 let calls: Call[] = [];
+let gameLabel = "";
 const frames: Call[][] = []; // the calls of each frame, newest last
 const recorder = () => new Proxy({} as Record<string, unknown>, {
   get(state, key) {
@@ -43,7 +45,7 @@ const fakeCanvas = () => ({
   width: 0, height: 0, style: {},
   getContext: () => recorder(),
   getBoundingClientRect: () => ({ left: 0, top: 0, width: 1920, height: 1080, right: 1920, bottom: 1080 }),
-  addEventListener: listen, removeEventListener() {},
+  addEventListener: listen, removeEventListener() {}, setAttribute(name: string, value: string) { if (name === "aria-label") gameLabel = value; },
 });
 const param = () => ({ value: 1, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {},
   setTargetAtTime() {}, cancelScheduledValues() {} });
@@ -57,6 +59,7 @@ g.requestAnimationFrame = (cb: (ms: number) => void) => { raf = cb; return 1; };
 g.cancelAnimationFrame = () => { raf = null; };
 g.document = { title: "", hidden: false, fonts: { add() {}, size: 0, ready: Promise.resolve() },
   querySelector: () => fakeCanvas(), createElement: () => fakeCanvas(), addEventListener: listen, removeEventListener() {} };
+g.Image = class { onload: (() => void) | null = null; onerror: (() => void) | null = null; width = 329; height = 337; naturalWidth = 329; naturalHeight = 337; complete = true; set src(_value: string) { queueMicrotask(() => this.onload?.()); } };
 g.FontFace = class { load() { return Promise.resolve(this); } };
 g.AudioContext = class {
   state = "running"; sampleRate = 48000; currentTime = 0; destination = {};
@@ -119,6 +122,10 @@ let nextId = 1;
 const piece = (x: number, y: number, phase: BoardContactPhase, contactId: number) => ({
   contactId, glyphId: 1, x, y, orientation: 0, phase, type: BoardContactType.Glyph, isTouched: true,
 }) as unknown as BoardContact;
+function tap(x: number, y: number) {
+  onBatch!([{ ...piece(x, y, BoardContactPhase.Began, nextId++), type: BoardContactType.Finger, glyphId: 0 }]);
+  run(0.1);
+}
 const texts = (from: number, to = frames.length) =>
   [...new Set(frames.slice(from, to).flatMap(f => f.filter(c => c.name === "fillText").map(c => String(c.args[0]))))].sort().join("|");
 // How different two frames are: 0 for the same drawing calls, 1 for nothing in common.
@@ -149,6 +156,30 @@ function firstMove(x: number, y: number) {
 
 // One test: it is one walk through the game in one process.
 test("the game boots, draws its title, answers the first move and survives a pause", async () => {
+  // The real platform's load() remains its startup snapshot after save(). Reproduce that
+  // contract so menu visits and canceled selectors cannot accidentally resurrect old progress.
+  await import("../src/platform-stub");
+  const restoredGame = createGame();
+  restoredGame.strokes = 2;
+  restoredGame.ball.z = 82;
+  restoredGame.lastSafe.z = 82;
+  const restoredRun = { version: 1, playerId: "p1", game: restoredGame };
+  type Run = { version: number; playerId: string; game: GolfState };
+  const savedRuns: Run[] = [];
+  let latestRun = structuredClone(restoredRun);
+  let menuAction: (id: string) => void = () => assert.fail("game did not register menu actions");
+  const platform = g.BoardPlatform as {
+    state: { progress: { get: (key: string) => unknown } };
+    menu: Record<string, unknown>;
+  };
+  stub(platform.state, {
+    ready: async () => ({ restored: true, reason: "restored" }),
+    load: () => structuredClone(restoredRun),
+    save: (value: Run) => { latestRun = structuredClone(value); savedRuns.push(latestRun); },
+  });
+  stub(platform.menu, {
+    onButton: (handler: (id: string) => void) => { menuAction = handler; return () => {}; },
+  });
   await import("../src/main");
   for (let i = 0; i < 20 && !raf; i++) await new Promise(resolve => setTimeout(resolve, 10)); // ready(), fonts, footprints
   assert.ok(raf, "nothing asked for a frame, so the game never started");
@@ -159,10 +190,27 @@ test("the game boots, draws its title, answers the first move and survives a pau
   assert.ok(title.length > 5, `the title frame made only ${title.length} drawing calls: a blank screen`);
   assert.deepEqual(errors, [], "the title threw");
 
+  for (const pause of pauses) pause();
+  run(0.3);
+  assert.equal(savedRuns.length, 0, "opening the menu before Continue must not save the fresh placeholder game");
+  assert.deepEqual(latestRun, restoredRun, "the pending two-stroke round must survive a title-screen menu visit");
+  for (const resume of resumes) resume();
+  run(0.2);
+  assert.match(gameLabel, /^title/, "a menu visit leaves the pending round on its title screen");
+
+  menuAction("help"); run(0.1);
+  assert.match(gameLabel, /^howto/);
+  menuAction("help"); run(0.1);
+  tap(188, 962); // Help's Back button; a repeated menu action must preserve its original return destination.
+  assert.match(gameLabel, /^title/, "opening help twice must not trap Back on the help screen");
+  assert.equal(savedRuns.length, 0, "help before Continue must not consume or overwrite the pending save");
+
   assert.ok(firstMove(960, 540), "a piece put down at the centre got no visible answer");
   assert.deepEqual(errors, [], "the first move threw");
   assert.ok(firstMove(480, 810), "a piece put down near the bottom edge got no visible answer");
   assert.deepEqual(errors, [], "the second move threw");
+  assert.match(gameLabel, /play.*2 strokes.*ready/, "the first legal ring placement adopts the pending round");
+  assert.equal(latestRun.game.ball.z, 82, "adopting a saved round preserves its lie");
 
   for (const pause of pauses) pause();
   run(1);
@@ -173,4 +221,60 @@ test("the game boots, draws its title, answers the first move and survives a pau
   run(10); // and it keeps going with nobody touching anything
   assert.ok(frames[frames.length - 1].length > 5, "the game stopped drawing when left alone");
   assert.deepEqual(errors, [], "a pause and resume threw");
+
+  // Drive the actual ring input through a whole hole, not a test-only game hook.
+  menuAction("restart"); run(0.1);
+  assert.match(gameLabel, /play.*0 strokes.*ready/, "the real Restart hole action begins a new round");
+  let id = nextId++;
+  onBatch!([piece(960, 850, BoardContactPhase.Began, id)]);
+  run(0.6);
+  assert.match(gameLabel, /play.*0 strokes.*ready/, "a roster player and a settled ring enter the hole");
+  const move = (y: number, seconds: number) => {
+    run(seconds);
+    onBatch!([piece(960, y, BoardContactPhase.Moved, id)]);
+  };
+  const swing = (speed: number) => {
+    move(850, 0.05); run(0.6);
+    move(880, 0.05); move(910, 0.05); move(940, 0.05);
+    for (let i=1;i<=7;i++) move(940-speed/60*i, 1/60);
+    run(0.1);
+  };
+  swing(1272); // 90% iron: lands near the pin.
+  assert.match(gameLabel, /1 strokes/, "one back-then-forward swing counts once");
+  run(12);
+  assert.match(gameLabel, /1 strokes.*ready/, "flight and roll reach a playable rest");
+
+  // Three menu cycles preserve the shot and rebind the ring without another swing.
+  for(let cycle=0;cycle<3;cycle++) {
+    for(const pause of pauses)pause();
+    run(0.4);
+    for(const resume of resumes)resume();
+    id=nextId++;
+    onBatch!([piece(960, 790, BoardContactPhase.Began, id)]);
+    run(0.6);
+    assert.match(gameLabel, /1 strokes/, "menu redetection must not strike");
+  }
+  swing(624.32); // A controlled putt of about seven yards.
+  run(8);
+  assert.match(gameLabel, /over.*2 strokes.*holed/, "the physical gesture can finish the hole");
+  run(5);
+  assert.match(gameLabel, /over.*2 strokes.*holed/, "the result waits for a shared choice");
+  onBatch!([{...piece(690,768,BoardContactPhase.Began,nextId++),type:BoardContactType.Finger,glyphId:0}]);
+  run(0.5);
+  assert.match(gameLabel, /play.*0 strokes.*ready/, "rematch resets the hole with the ring left down");
+  assert.equal(platform.state.progress.get("bestStrokes:p1"), 2, "the completed round records this golfer's personal best");
+
+  menuAction("setup"); run(0.1);
+  assert.match(gameLabel, /^setup/);
+  tap(1540, 745); // Change player; the host stub dismisses the selector without a roster change.
+  await new Promise(resolve => setTimeout(resolve, 0));
+  run(0.1);
+  assert.match(gameLabel, /^setup/, "canceling the player selector leaves setup in place");
+  tap(1540, 905); // Explicitly confirm the retained ring and tee off again.
+  run(0.5);
+  assert.match(gameLabel, /play.*0 strokes.*ready/, "a canceled selector cannot replay the startup two-stroke snapshot");
+  assert.equal(latestRun.game.strokes, 0);
+  assert.equal(latestRun.game.ball.z, 0);
+  assert.deepEqual(errors, [], "the complete golf journey threw");
+
 });

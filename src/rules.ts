@@ -185,10 +185,11 @@ export interface SwingState {
   history: SwingSample[];
   restSince: number;
   power: number;
+  forwardSamples: number;
 }
 
 export function createSwing(): SwingState {
-  return { stage: "settling", anchor: null, peak: null, last: null, history: [], restSince: 0, power: 0 };
+  return { stage: "settling", anchor: null, peak: null, last: null, history: [], restSince: 0, power: 0, forwardSamples: 0 };
 }
 
 /** Call on pause, a real lift, a turn change, or once the previous ball has stopped. */
@@ -223,6 +224,7 @@ export function sampleSwing(swing: SwingState, sample: SwingSample): Shot | null
       swing.stage = "backswing";
       swing.peak = { ...sample };
       swing.history = [{ ...sample }];
+      swing.forwardSamples = 0;
     }
     return null;
   }
@@ -231,7 +233,13 @@ export function sampleSwing(swing: SwingState, sample: SwingSample): Shot | null
     swing.peak = { ...sample };
     swing.history = [{ ...sample }];
     swing.power = 0;
+    swing.forwardSamples = 0;
     return null;
+  }
+  if ((last && sample.y < last.y - 0.5) || (!last && sample.y < swing.peak.y - 0.5)) swing.forwardSamples += 1;
+  else if (last && sample.y > last.y + 0.5) {
+    swing.forwardSamples = 0;
+    swing.history = [];
   }
   swing.history.push({ ...sample });
   while (swing.history.length > 2 && sample.time - swing.history[1].time > SWING.sampleWindowMs) swing.history.shift();
@@ -242,7 +250,7 @@ export function sampleSwing(swing: SwingState, sample: SwingSample): Shot | null
   swing.power = clamp((speed - SWING.minSpeed) / (SWING.maxSpeed - SWING.minSpeed), 0.05, 1);
   const angle = Math.atan2(sample.x - swing.peak.x, forward);
   if (forward >= SWING.forwardPx && speed >= SWING.minSpeed && elapsed >= 0.016 &&
-      sample.y < prior.y && Math.abs(angle) <= SWING.maxAngle && swing.history.length >= 3) {
+      sample.y < prior.y && Math.abs(angle) <= SWING.maxAngle && swing.forwardSamples >= 2) {
     swing.stage = "committed";
     return { power: swing.power, angle };
   }

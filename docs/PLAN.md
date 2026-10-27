@@ -32,7 +32,7 @@ In the browser, Shift-drag simulates the same ring and gesture.
 
 Build one complete par-3 hole before expanding the course.
 Include a tee, fairway, rough, bunker, green, ball flight, rolling, putting, stroke count, and a result.
-Use readable placeholder course art while testing the stroke.
+Use an original coastal course drawn in Canvas, with cached scenery and a clear swing area.
 The result waits for Rematch or Change setup.
 
 The main risk is power control: short strokes must feel predictable while leaving room to improve.
@@ -127,11 +127,26 @@ These values are prototype settings to test on glass, not claims about measured 
 ## Look
 
 Use a bright coastal course with deep green fairways, pale bunkers, blue water, and a clear white ball.
-Use a classic behind-the-ball arcade view. Use Canvas 2D perspective to show the course, ball flight, and rolling.
+Use a third-person view from behind a visible golfer, as the person requested during the browser review.
+Use Canvas 2D perspective to show the golfer, course, ball flight, and rolling.
+The golfer stands beside the digital ball and animates the backswing and follow-through.
+The golfer never follows the physical ring. The camera follows the ball after impact.
 The swing area stays at the bottom edge while the camera follows the digital ball between shots.
 Favor a large course, readable ball motion, and short golf labels over dashboard panels.
 Follow the platform's font, touch-target, and text-size floors.
 Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepared.
+
+### Visual-world and asset plan
+
+- World promise: a sunny coastal golf hole, with pale sand, blue sea, and cypress trees.
+- Palette: forest green for framing, warm cream for cues, coral for the flag, and white for the ball.
+- Camera: behind a visible golfer at address, following ball flight, then framing the golfer and cup for the next shot.
+- Coverage: title and setup show the same course; play uses exact terrain; help uses canonical ring art; results keep the course behind them.
+- Assets: original Canvas sky, coast, terrain, trees, flag, ball, and finite effects. Cache detailed scenery instead of rebuilding it while still.
+- Sound: original short synthesized swing, putt, landing, sand, placement, penalty, and cup cues. No music in this first playable.
+- Interaction protection: quiet turf around the bottom-centre swing corridor; arrows remain to its right.
+- Proof: inspect title, help, address, flight, approach, green, result, rematch, and pause in the browser.
+- Board sensing, speaker mix, and performance remain unverified until played on a device.
 
 ## Build steps
 
@@ -153,9 +168,9 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 | Piece set | Save the Bloogs, Ring, glyph 1 | Person | Control choice, confirmed against piece inventory | Replaces proposed Arcade robots |
 | Direction | Forward movement path, not ring rotation | Builder | Ring has no visible facing | Supports the requested arrows |
 | Arrows | Fixed beside the swing lane, showing back and forward directions | Builder proposal | Person requested direction arrows | Clear of the moving piece |
-| First scope | One par-3 hole with a complete result loop | Builder | Final design question answered by person | Building |
+| First scope | One par-3 hole with a complete result loop | Builder | Final design question answered by person | Browser playable; Board and human checks open |
 | Players | Solo golf first | Person | “Solo golf first” | Fixed; multiplayer deferred |
-| Camera | Classic behind-the-ball perspective | Builder, delegated by person | “You choose the view” | Fixed for this prototype |
+| Camera | Third-person, with a visible golfer beside the ball | Person | “I want to see the golfer third person style” | Replaces the initial ball-only framing |
 | Recipe | Sports, using ball rest/recovery and deliberate stroke commitment | Builder | Genre recipes | No existing golf recipe |
 | UI floors | 48 px in play; 32 px elsewhere; 120 px targets; 48 px edge inset | Builder | User's Board rules | No conflicting spec sizes |
 | Physical control art | Nothing follows or sits under the moving ring | Builder | User's Board rules | Ball and arrows stay separate from the controller |
@@ -163,7 +178,9 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 ## Evidence
 
 - Source: reference, plugin rules, piece inventory, and starter architecture inspected.
-- Unit: not run; no implementation exists yet.
-- Browser: not run; no implementation exists yet.
+- Unit: 117 passed, 3 full-catalog footprint checks skipped; includes core physics, stroke commitment, tracking gaps, pause epochs, save restoration, and a complete boot walk.
+- Package: TypeScript, Vite, platform build, and web-pack passed; stable package identity retained.
+- Browser: title, help, ring placement, varied swing powers, approach, putting, two-stroke birdie, rematch, and pause checked with real pointer actions. Third-person address, backswing, follow-through, and next-lie framing inspected.
+- Screenshots: `docs/screenshots/third-person-ready.png`, `third-person-backswing.png`, and `birdie-result.png`.
 - Board: not tested.
 - Human: no swing or teaching playtest yet.

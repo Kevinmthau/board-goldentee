@@ -110,6 +110,8 @@ async function readGameFontConfig(url: string) {
   let response: Response;
   try { response = await fetch(url); } catch { return null; } // no file: a Kabel-only game
   if (!response.ok) return null;
+  // Dev servers may serve the HTML entry point for an absent optional config.
+  if (response.headers?.get("content-type")?.includes("text/html")) return null;
   try {
     const config = parseGameFontConfig(await response.json());
     if (!config) console.warn("[font] game-font.json unusable");

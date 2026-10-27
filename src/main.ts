@@ -1,151 +1,246 @@
 import './style.css';
-import { Board, BoardContactType, BoardContactPhase, type BoardContact, type BoardPlayer } from '@board.fun/web-sdk';
-import { createSurface, gameFont, loadTitleFont, startInput, gameAudio } from './runtime';
+import { Board, BoardContactPhase, BoardContactType, type BoardPlayer } from '@board.fun/web-sdk';
+import { createSurface, gameFont, loadTitleFont, startInput } from './runtime';
 import { drawTitle } from './title';
-import { drawButton, hit, type Box } from './howto';
-import { Splashes } from './fx';
+import { drawButton, drawHowTo, hit, setRingArt, BACK_BUTTON, type Box } from './howto';
+import { Splashes, Particles } from './fx';
 import { loadPieceFootprints, pieceFootprint, type PieceFootprints } from './piece-footprints';
-import { seated, noteContacts, pickPlayer } from './seats';
-import { createGame, strike, stepGame, distanceToCup, clubFor, scoreLabel, HOLE, createSwing, resetSwing, sampleSwing } from './rules';
+import { activeSeat, seated, noteContacts, pickPlayer, selectorOpen } from './seats';
+import { createGame, strike, stepGame, distanceToCup, clubFor, scoreLabel, terrainAt, type GolfState } from './rules';
+import { RingController, isRingPlacement } from './ring-control';
+import { CourseView, drawSwingGuide } from './course-view';
+import { playCue } from './sound';
+import { readRun } from './run-state';
 
+type Mode = 'title' | 'setup' | 'play' | 'over' | 'howto';
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = createSurface(canvas);
+const view = new CourseView();
+const controller = new RingController();
+const splashes = new Splashes();
+const particles = new Particles(180);
 let game = createGame();
-const swing = createSwing();
-let mode: 'title' | 'setup' | 'play' | 'over' = 'title';
+let mode: Mode = 'title';
+let helpReturn: Mode = 'title';
 let player: BoardPlayer | undefined;
 let footprints: PieceFootprints | null = null;
-const splashes = new Splashes();
-let ring: BoardContact | null = null;
-let lost: { x: number; y: number; time: number } | null = null;
-let pauseSpot: { x: number; y: number } | null = null;
+let ringArt: HTMLImageElement | null = null;
+let artFailed = false;
+let booted = false;
 let paused = false;
-let pollAt = 0;
-let camera = { x: 0, z: 0 };
-let taps: { x: number; y: number }[] = [];
-const known = new Set<number>();
-let message = '';
-const REMATCH: Box = { x: 480, y: 650, width: 440, height: 140 };
-const SETUP: Box = { x: 1000, y: 650, width: 440, height: 140 };
-const PLAYER: Box = { x: 1460, y: 48, width: 400, height: 120 };
+let last = 0;
+let pollAt = -Infinity;
+let saveAt = 0;
+let resultAt = 0;
+let toast = '';
+let toastUntil = 0;
+let saved: GolfState | null = null;
+let roundActive = false;
+let best: number | null = null;
+let setupConfirm = false;
+let taps: {x: number; y: number}[] = [];
+let lastLabel = '';
+const HELP: Box = {x: 1472, y: 48, width: 400, height: 120};
+const PLAYER: Box = {x: 1280, y: 680, width: 520, height: 130};
+const CONTINUE: Box = {x: 1280, y: 840, width: 520, height: 130};
+const REMATCH: Box = {x: 460, y: 698, width: 460, height: 140};
+const SETUP: Box = {x: 1000, y: 698, width: 460, height: 140};
 
-function sound(frequency: number) {
-  const a = gameAudio(), tone = a.ctx.createOscillator(), gain = a.ctx.createGain();
-  tone.frequency.value = frequency; tone.connect(gain); gain.connect(a.sfx);
-  gain.gain.setValueAtTime(0.16, a.ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, a.ctx.currentTime + 0.2);
-  tone.start(); tone.stop(a.ctx.currentTime + 0.2);
+function say(message: string, seconds = 3) { toast = message; toastUntil = performance.now() + seconds * 1000; }
+function syncRoster() {
+  const next = activeSeat() ?? seated()[0];
+  if (player && (!next || player.playerId !== next.playerId)) {
+    controller.release(); game = createGame(); saved = null; roundActive = false; mode = 'setup'; setupConfirm = true;
+  }
+  const changed = player?.playerId !== next?.playerId;
+  player = next;
+  if (changed) refreshBest();
 }
-function syncRoster() { player = seated()[0]; }
-function save() { BoardPlatform.state.save({ version: 1, game }); }
-function newRound() { game = createGame(); camera = { x: 0, z: 0 }; resetSwing(swing); mode = ring && player ? 'play' : 'setup'; save(); }
+function persist() {
+  if (player && roundActive) BoardPlatform.state.save({version: 1, playerId: player.playerId, game});
+}
+function readSaved() {
+  if (!roundActive) saved = player ? readRun(BoardPlatform.state.load(), player.playerId) : null;
+  refreshBest();
+}
+function refreshBest() {
+  const n = player ? BoardPlatform.state.progress.get<number>(`bestStrokes:${player.playerId}`) : undefined;
+  best = typeof n === 'number' && n > 0 ? n : null;
+}
+function startRound(restore = false) {
+  if (!player) { mode = 'setup'; say('Choose your player'); return; }
+  if (restore && saved) { game = saved; saved = null; }
+  else game = createGame();
+  saved = null; roundActive = true;
+  controller.resetStroke(); view.reset(game); setupConfirm = false;
+  mode = game.phase === 'holed' || game.phase === 'limit' ? 'over' : 'play';
+  resultAt = performance.now(); persist();
+}
+function changeSetup() {
+  controller.release(); controller.setEnabled(false); mode = 'setup'; setupConfirm = true; syncRoster();
+}
+function showHelp() { if (mode === 'howto') return; helpReturn = mode; mode = 'howto'; controller.setEnabled(false); controller.resetStroke(); }
+function leaveHelp() { mode = helpReturn; controller.resetStroke(); if (mode === 'title' && controller.ring && player) startRound(!!saved); }
+async function changePlayer() {
+  if (selectorOpen()) return;
+  await pickPlayer([], player?.sessionId); syncRoster(); readSaved();
+}
 
 startInput((batch, active) => {
   noteContacts(batch);
+  if (!booted || paused) return;
   const now = performance.now();
   for (const c of batch) {
     if (c.type === BoardContactType.Finger && c.phase === BoardContactPhase.Began) taps.push(c);
-    if (c.type !== BoardContactType.Glyph) continue;
-    const ended = c.phase === BoardContactPhase.Ended || c.phase === BoardContactPhase.Canceled;
-    if (ended) known.delete(c.contactId);
-    if (ended && ring?.contactId === c.contactId) {
-      lost = { x: ring.x, y: ring.y, time: now }; ring = null; resetSwing(swing); continue;
-    }
-    if (ended || c.glyphId !== 1) continue;
-    if (ring?.contactId !== c.contactId) {
-      if (ring && active.has(ring.contactId)) continue;
-      const rebound = (lost && now - lost.time < 900 && Math.hypot(c.x - lost.x, c.y - lost.y) < 140)
-        || (pauseSpot && Math.hypot(c.x - pauseSpot.x, c.y - pauseSpot.y) < 140);
-      if (!rebound && !known.has(c.contactId)) splashes.at(c.x, c.y, { inner: pieceFootprint(footprints, c)?.radiusPx ?? 81, color: '#E8D7A4', sound: () => sound(320) });
-      known.add(c.contactId); lost = null; pauseSpot = null; resetSwing(swing);
-      if (mode === 'title') mode = 'setup';
-      if (c.y < 720 || !player) { message = player ? 'Place the ring at your edge' : 'Choose a player'; continue; }
-      ring = c;
-      if (mode === 'setup') mode = 'play';
-    }
-    ring = c;
-    if (!paused && mode === 'play' && game.phase === 'ready' && player) {
-      const shot = sampleSwing(swing, { x: c.x, y: c.y, time: now });
-      if (shot && strike(game, shot)) { sound(180); message = ''; save(); }
+  }
+  controller.setEnabled(mode === 'play' && game.phase === 'ready' && !!player);
+  const events = controller.update(batch, active, now);
+  for (const c of events.arrivals) {
+    splashes.at(c.x, c.y, {inner: pieceFootprint(footprints, c)?.radiusPx ?? 81, color: '#F3DC9A', sound: () => playCue('place')});
+    if (c.glyphId !== 1) say('Use the Bloogs ring');
+    else if (!controller.ring) say('Place the ring at the bottom centre');
+    if (mode === 'title' && c.glyphId === 1) mode = 'setup';
+  }
+  if (controller.ring && player && mode === 'setup' && !setupConfirm) startRound(!!saved);
+  if (events.shot && mode === 'play' && game.phase === 'ready') {
+    const putter = clubFor(game) === 'PUTTER';
+    if (strike(game, events.shot)) {
+      playCue(putter ? 'putt' : 'swing', events.shot.power); controller.setEnabled(false); toast = ''; persist();
     }
   }
 }, () => {
-  paused = true; pauseSpot = ring ? { x: ring.x, y: ring.y } : null;
-  ring = null; taps = []; known.clear(); resetSwing(swing);
+  paused = true; controller.pause(performance.now()); taps = []; persist();
 });
 
-function text(label: string, x: number, y: number, size = 48, color = '#FFFFFF', align: CanvasTextAlign = 'left') {
-  ctx.font = gameFont(size); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y);
+function text(label: string, x: number, y: number, size = 48, color = '#FFF8E4', align: CanvasTextAlign = 'left') {
+  ctx.font = gameFont(size); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(label,x,y);
 }
-function project(x: number, z: number, h = 0) {
-  const dz = z - camera.z + 24, scale = 1100 / Math.max(2, dz);
-  return { x: 960 + (x - camera.x) * scale, y: 310 + (8 - h) * scale, s: scale, dz };
-}
-function ellipse(x: number, z: number, rx: number, rz: number, color: string) {
-  ctx.fillStyle = color; ctx.beginPath();
-  for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2, p = project(x + Math.cos(a) * rx, z + Math.sin(a) * rz); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
-  ctx.fill();
-}
-function course(now: number) {
-  ctx.fillStyle = '#86C9D4'; ctx.fillRect(0, 0, 1920, 1080);
-  ctx.fillStyle = '#4B8085'; ctx.beginPath(); ctx.moveTo(0, 330); ctx.lineTo(250, 240); ctx.lineTo(480, 315); ctx.lineTo(820, 220); ctx.lineTo(1250, 320); ctx.lineTo(1920, 260); ctx.lineTo(1920, 400); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#458453'; ctx.fillRect(0, 330, 1920, 750);
-  for (let z = 250; z > camera.z - 20; z -= 8) {
-    const a = project(-25, z), b = project(25, z), c = project(25, z-8), d = project(-25,z-8);
-    ctx.fillStyle = Math.round(z/8)%2 ? '#6BA457' : '#72AC5D'; ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.fill();
+function nameLines(name: string, x: number, y: number, width: number) {
+  ctx.font = gameFont(48);
+  const lines: string[] = []; let line = '';
+  for(const char of name) {
+    if(ctx.measureText(line + char).width > width) { lines.push(line); line = char; }
+    else line += char;
   }
-  ellipse(0,150,19,21,'#90BF70'); ellipse(-19,132,9,13,'#E8D9A8');
-  const flag = project(HOLE.flag.x, HOLE.flag.z), tip = project(HOLE.flag.x, HOLE.flag.z,6);
-  ctx.strokeStyle='#FAFAEA';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(flag.x,flag.y);ctx.lineTo(tip.x,tip.y);ctx.stroke();
-  ctx.fillStyle='#E58156';ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x+35+Math.sin(now/300)*3,tip.y+12);ctx.lineTo(tip.x,tip.y+24);ctx.fill();
-  const p=project(game.ball.x,game.ball.z,game.ball.y), shadow=project(game.ball.x,game.ball.z);
-  ctx.fillStyle='rgba(20,55,30,0.35)';ctx.beginPath();ctx.ellipse(shadow.x,shadow.y,12,4,0,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.arc(p.x,p.y,Math.max(7,Math.min(16,p.s*0.25)),0,Math.PI*2);ctx.fill();
+  if(line)lines.push(line);
+  lines.forEach((part,i) => text(part,x,y+i*54,48,'#FFF8E4','center'));
 }
-function draw(now: number) {
-  course(now);
-  if (mode === 'title') {
-    ctx.fillStyle='rgba(8,43,40,0.36)';ctx.fillRect(0,0,1920,1080);
-    drawTitle(ctx,{x:0,y:50,width:1920,height:600});
-    text('ONE HOLE · PAR 3',960,620,48,'#F8E5AF','center');
-    text('Place the Bloogs ring at your edge',960,850,48,'#FFFFFF','center');
-  } else if(mode === 'setup') {
-    text(message || 'Place the Bloogs ring at your edge',960,650,48,'#FFFFFF','center');
-    drawButton(ctx,PLAYER,player ? 'CHANGE PLAYER':'CHOOSE PLAYER');
-  } else {
-    text('HOLE 01  /  PAR 3',64,85);text(`${game.strokes} STROKES`,64,150);
-    text(`${Math.round(distanceToCup(game))} YD`,1856,85,64,'#FFFFFF','right');
-    text(clubFor(game),1856,155,48,'#F8E5AF','right');
-    text(player?.name ?? '',64,1000,48);
-    text(mode === 'over' ? '' : !ring ? 'Return the ring' : swing.stage === 'backswing' ? 'Slide forward to swing' : game.phase === 'ready' ? 'Slide back, then forward' : 'Watch your shot',960,970,48,'#FFFFFF','center');
-    text('↙  ↑  ↗',1650,800,64,'#F8E5AF','center');text('↓',1650,900,64,'#F8E5AF','center');
-    if(mode==='over') {
-      ctx.fillStyle='rgba(8,43,40,0.94)';ctx.fillRect(370,260,1180,590);
-      text(game.phase==='holed'?scoreLabel(game.strokes):'STROKE LIMIT',960,390,80,'#F8E5AF','center');
-      text(`${game.strokes} strokes · Par 3`,960,520,56,'#FFFFFF','center');
-      drawButton(ctx,REMATCH,'REMATCH');drawButton(ctx,SETUP,'CHANGE SETUP');
-    }
+function ringPrompt(y = 830) {
+  if (controller.ring || controller.observedRing) return;
+  if (ringArt) ctx.drawImage(ringArt,880,y-90,160,164);
+  else if (artFailed) text('Bloogs ring · piece 1',960,y,48,'#FFF8E4','center');
+  ctx.strokeStyle='#E7DBB4';ctx.lineWidth=2;ctx.setLineDash([8,12]);
+  ctx.beginPath();ctx.ellipse(960,y+8,106,72,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+}
+function result(now: number) {
+  ctx.fillStyle='rgba(9,42,37,0.86)';ctx.fillRect(0,0,1920,1080);
+  text('SEABREEZE LINKS',960,230,40,'#C5D5B7','center');
+  text(game.phase==='holed'?scoreLabel(game.strokes).toUpperCase():'STROKE LIMIT',960,370,104,'#F1D58B','center');
+  text(`${game.strokes} STROKES   /   PAR 3`,960,500,56,'#FFFFFF','center');
+  if(player) nameLines(player.name,960,575,1000);
+  drawButton(ctx,REMATCH,'REMATCH');drawButton(ctx,SETUP,'CHANGE SETUP');
+  if(best!==null)text(`PERSONAL BEST  ${best}`,960,920,36,'#C5D5B7','center');
+  if(now-resultAt<2400)particles.draw(ctx);
+}
+function draw(now: number, dt: number) {
+  view.setSwing(controller.swing.stage, controller.swing.power);
+  view.draw(ctx,game,now,dt,mode==='title'||mode==='setup'||mode==='howto');
+  if(mode==='title') {
+    ctx.fillStyle='rgba(6,37,35,0.3)';ctx.fillRect(0,0,1920,1080);
+    text('SEABREEZE LINKS',960,110,36,'#E8E0BE','center');
+    drawTitle(ctx,{x:0,y:125,width:1920,height:430});
+    text('ONE HOLE. MAKE IT COUNT.',960,615,40,'#F4DA94','center');
+    ringPrompt();
+    text('Place the Bloogs ring to tee off',960,995,48,'#FFFFFF','center');
+    drawButton(ctx,HELP,'HOW TO PLAY');
+    if(saved)drawButton(ctx,CONTINUE,'CONTINUE ROUND');
+  } else if(mode==='setup') {
+    ctx.fillStyle='rgba(6,37,35,0.5)';ctx.fillRect(0,0,1920,1080);
+    text('YOUR TEE TIME',960,220,88,'#F4DA94','center');
+    if(player)nameLines(player.name,960,350,1150);
+    text('SOLO  /  HOLE 01  /  PAR 3',960,475,40,'#FFFFFF','center');
+    ringPrompt();
+    text(player?'Place your ring at the bottom centre':'Choose a player to begin',960,620,48,'#FFFFFF','center');
+    drawButton(ctx,PLAYER,player?'CHANGE PLAYER':'CHOOSE PLAYER');
+    if(player&&(controller.ring||controller.observedRing))drawButton(ctx,CONTINUE,'TEE OFF');
+  } else if(mode==='howto') {
+    ctx.fillStyle='rgba(6,37,35,0.9)';ctx.fillRect(0,0,1920,1080);drawHowTo(ctx,now);
+  } else if(mode==='over') result(now);
+  else {
+    ctx.fillStyle='rgba(12,45,36,0.72)';ctx.fillRect(48,48,432,146);
+    text('SEABREEZE',74,92,48,'#E3DBB6');text('01   /   PAR 3',74,150,48);
+    const distance=distanceToCup(game), putting=clubFor(game)==='PUTTER';
+    const unit=putting?'FT':'YD', amount=putting?distance*3:distance;
+    ctx.fillStyle='rgba(12,45,36,0.72)';ctx.fillRect(1452,48,420,184);
+    text(`${amount<10?amount.toFixed(1):Math.round(amount)} ${unit}`,1838,106,64,'#FFF8E4','right');
+    text(game.phase === 'flight' ? 'IN FLIGHT' : game.phase === 'rolling' ? 'ROLLING' : clubFor(game),1838,184,48,'#EEDA9E','right');
+    text(`STROKES ${String(game.strokes).padStart(2,'0')}`,64,900,48);
+    text(game.strokes?`${Math.round(game.shotPower*100)}% POWER`:'150 YD · PAR 3',64,970,48,'#EEDA9E');
+    drawSwingGuide(ctx,game.phase==='ready'?controller.swing.stage:'watch',controller.swing.power,!!controller.ring,now);
+    if(!controller.ring)ringPrompt(820);
+    const instruction=!player?'Choose a player':!controller.ring?'Return the ring to swing':'';
+    if(instruction)text(instruction,960,1010,48,'#FFF8E4','center');
+    if(controller.ring&&game.phase==='ready'&&controller.swing.stage==='settling'&&!isRingPlacement(controller.ring))
+      text('Move the ring to the bottom centre',960,290,48,'#FFF8E4','center');
+    if(game.penalty && !toast)text('OUT OF BOUNDS  +1',960,260,48,'#F4DA94','center');
+  }
+  if(toast&&now<toastUntil) {
+    ctx.fillStyle='rgba(7,35,31,0.9)';ctx.fillRect(420,240,1080,100);text(toast,960,290,48,'#FFF8E4','center');
   }
   splashes.draw(ctx);
 }
 function update(now: number, dt: number) {
-  if (now-pollAt>1000) {syncRoster();pollAt=now;}
-  if (mode==='setup' && taps.some(t=>hit(PLAYER,t.x,t.y))) void pickPlayer([],player?.sessionId).then(syncRoster);
-  if(mode==='over') {
-    if(taps.some(t=>hit(REMATCH,t.x,t.y)))newRound();
-    else if(taps.some(t=>hit(SETUP,t.x,t.y))) {ring=null;newRound();mode='setup';}
+  if(now-pollAt>1000){syncRoster();pollAt=now;}
+  const tapped=(box:Box)=>taps.some(t=>hit(box,t.x,t.y));
+  if(mode==='title') {
+    if(tapped(HELP)){playCue('button');showHelp();}
+    else if(saved&&tapped(CONTINUE)){playCue('button');startRound(true);}
+  } else if(mode==='setup') {
+    if(tapped(PLAYER)){playCue('button');void changePlayer();}
+    else if(tapped(CONTINUE)&&player&&(controller.ring||controller.confirmPlacement())){playCue('button');startRound(!!saved);}
+  } else if(mode==='howto'&&tapped(BACK_BUTTON)){playCue('button');leaveHelp();}
+  else if(mode==='over') {
+    if(tapped(REMATCH)){playCue('button');startRound();}
+    else if(tapped(SETUP)){playCue('button');changeSetup();}
   }
+  controller.setEnabled(mode==='play'&&game.phase==='ready'&&!!player);controller.tick(now);
   if(mode==='play') {
     const before=game.phase;stepGame(game,dt);
     if(before!==game.phase) {
-      save();
-      if(game.phase==='ready'){resetSwing(swing);camera={x:game.ball.x,z:game.ball.z};}
-      if(game.phase==='holed'||game.phase==='limit'){mode='over';sound(640);}
+      if(before==='flight'&&game.phase==='rolling')playCue(terrainAt(game.ball.x,game.ball.z)==='bunker'?'sand':'land');
+      if(game.phase==='ready'){controller.resetStroke();if(game.penalty)playCue('penalty');}
+      if(game.phase==='holed'||game.phase==='limit') {
+        mode='over';resultAt=now;controller.setEnabled(false);
+        if(game.phase==='holed') {
+          playCue('cup');particles.burst(960,410,{count:120,color:'#F1D58B',speed:420,life:1.6,gravity:220});
+          if(best===null||game.strokes<best){best=game.strokes;BoardPlatform.state.progress.set(`bestStrokes:${player!.playerId}`,best);}
+        } else playCue('penalty');
+      }
+      persist();
     }
+    if(now-saveAt>400){persist();saveAt=now;}
   }
-  splashes.update(dt);taps=[];
+  splashes.update(dt);particles.update(dt);taps=[];
+  const label=`${mode}. Solo golf. ${game.strokes} strokes. ${game.phase}. ${game.phase==='flight'||game.phase==='rolling'?'Ball in motion':distanceToCup(game).toFixed(1)+' yards to cup'}. ${controller.ring?'Ring present':'Place Bloogs ring at bottom centre'}. ${controller.swing.stage}.`;
+  if(label!==lastLabel){canvas.setAttribute('aria-label',label);lastLabel=label;}
 }
-let last=0;
-function frame(now:number){if(paused)return;const dt=Math.min(0.05,last?(now-last)/1000:0);last=now;update(now,dt);draw(now);requestAnimationFrame(frame);}
-Board.application.onResume(()=>{paused=false;last=0;requestAnimationFrame(frame);});
-void(async()=>{await BoardPlatform.state.ready();syncRoster();Board.session.onPlayersChanged(syncRoster);[footprints]=await Promise.all([loadPieceFootprints(),loadTitleFont()]);requestAnimationFrame(frame);})();
+function frame(now:number){if(paused)return;const dt=Math.min(.05,last?(now-last)/1000:0);last=now;update(now,dt);draw(now,dt);requestAnimationFrame(frame);}
+Board.application.onResume(()=>{controller.resume(performance.now());if(paused){paused=false;last=0;if(booted)requestAnimationFrame(frame);}});
+
+async function loadRingArt() {
+  return new Promise<void>(resolve=>{
+    const img=new Image();
+    img.onload=()=>{ringArt=img;setRingArt(img);resolve();};
+    img.onerror=()=>{artFailed=true;resolve();};
+    img.src='piece-art/1.png';
+  });
+}
+void(async()=>{
+  await BoardPlatform.state.ready();syncRoster();readSaved();
+  Board.session.onPlayersChanged(syncRoster);
+  BoardPlatform.state.onRestore(()=>{syncRoster();readSaved();});
+  BoardPlatform.menu.setButtons([{id:'help',title:'How to swing',icon:'square'},{id:'restart',title:'Restart hole',icon:'circular_arrow'},{id:'setup',title:'Change setup',icon:'left_arrow'}]);
+  BoardPlatform.menu.onButton(id=>{if(id==='help')showHelp();if(id==='restart')startRound();if(id==='setup')changeSetup();});
+  [footprints]=await Promise.all([loadPieceFootprints(),loadTitleFont(),loadRingArt()]);
+  view.reset(game);booted=true;requestAnimationFrame(frame);
+})();

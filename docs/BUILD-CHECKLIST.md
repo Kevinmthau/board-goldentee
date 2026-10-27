@@ -8,24 +8,27 @@
 - [x] Package identity minted and initial starter pack passed.
 
 ## First playable
-- [ ] Place the ring at the bottom edge and enter play as the roster player.
-- [ ] Back-then-forward swing commits one shot; speed controls power and path controls direction.
-- [ ] Ball flies, lands, rolls, and rests; terrain changes the outcome.
-- [ ] Putt into the cup; strokes, par, penalties, and stroke limit follow the plan.
-- [ ] Result waits for Rematch or Change setup; rematch works with the ring left down.
+- [x] Place the ring at the bottom edge and enter play as the roster player.
+- [x] Back-then-forward swing commits one shot; speed controls power and path controls direction.
+- [x] Ball flies, lands, rolls, and rests; terrain changes the outcome.
+- [x] Putt into the cup; strokes, par, penalties, and stroke limit follow the plan.
+- [x] Result waits for Rematch or Change setup; rematch works with the ring left down.
 - [x] Core tests (95 pass, 3 catalog-only skips), pack, and initial browser title/placement check passed.
 
 ## Board and teaching
-- [ ] Ring identity survives tracking gaps and three pause/resume cycles without a second splash or shot.
-- [ ] Stationary holds, moves, rotations, lifts, duplicate glyphs, and wrong-piece input covered by tests.
-- [ ] Canonical ring art, direction arrows, optional animated help, and a visible response to misplaced pieces.
-- [ ] No game art follows the moving physical ring; real footprint clears teaching and HUD.
+- [x] Ring identity survives tracking gaps and three pause/resume cycles without a second splash or shot.
+- [x] Stationary holds, moves, rotations, lifts, duplicate glyphs, and wrong-piece input covered by tests.
+- [x] Canonical ring art, direction arrows, optional animated help, and a visible response to misplaced pieces.
+- [x] No game art follows the moving physical ring; fixed teaching and HUD clear the intended swing lane in the browser. Native footprint clearance remains a Board check.
 - [ ] Roster refresh, selector, long player names, and solo current-profile path verified.
-- [ ] Saves and best score use BoardPlatform.state; audio uses gameAudio.
-- [ ] Text floors, touch targets, and safe insets inspected through the complete journey.
+  - Solo profile, retained seat, and canceled selector are covered by the boot walk. Native roster changes and long-name layout remain open.
+- [x] Saves and best score use BoardPlatform.state; audio uses gameAudio.
+- [x] Text floors, touch targets, and safe insets inspected in source and through the browser journey; missing-art fallback is also 48 px.
+
+- [x] Third-person golfer visible at address, animated on backswing and follow-through, then framed at the next lie.
 
 ## Final verification
-- [ ] npm test and npm run pack pass for final build.
-- [ ] Browser: title, placement, slow/fast swing, putting, result, rematch, help, and pause.
+- [x] npm test and npm run pack pass for final build (117 passed, 3 catalog-only skips).
+- [x] Browser: title, placement, different swing powers, putting, result, rematch, help, and pause. Actual two-stroke birdie completed with pointer drags.
 - [ ] Board: real sensing, performance, platform saves, and audio levels. NOT TESTED.
 - [ ] Human: uncoached first swing and power control. NOT TESTED.

@@ -24,3 +24,19 @@
 - Connected the core to the starter roster and input path.
 - Core tests: 95 passed, 3 catalog-only skips; package passed.
 - Browser title and ring placement inspected. Browser aspect ratio and simulation coordinates need correction in the next step.
+
+## October 27, 2026 — Third-person golfer
+
+- Person asked: “I want to see the golfer third person style.”
+- Added a visible golfer beside the digital ball, with a backswing and follow-through.
+- Kept the golfer in the course world; the physical ring remains a separate control.
+
+## October 27, 2026 — Playable handover
+
+- Completed the solo par-3, automatic clubs, bunker and rough, putting, penalties, score, rematch, and change-setup flow.
+- Added the coastal perspective and camera follow, canonical animated ring lesson, synthesized audio, and platform round saves and personal best.
+- Fixed browser canvas scaling and added a development-only ring proxy and placement controls.
+- Protected pause/re-detection identity, deliberate swing commitment, startup saves, repeated help, and retained-ring rematches with regression checks.
+- Moved guidance clear of the physical ring and kept the missing-art fallback at the in-play text floor.
+- Verified 117 passing tests (3 catalog-only skips), production packaging, and an actual pointer-driven two-stroke birdie followed by rematch.
+- Real Board sensing, device performance, speaker mix, roster changes, long-name layout, and uncoached human play remain open.
