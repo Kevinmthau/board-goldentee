@@ -44,3 +44,10 @@
 - [x] Unit and boot checks cover frame-rate independence, no pose snap on early strike, one impact, and menu pause during downswing.
 - [x] Aligned whole-pose interpolation and club arc visually checked through takeaway, impact, finish, and putting.
 - [x] Final browser evidence, tests, and package recorded (127 passed, 3 catalog-only skips).
+
+## Continuous solid swing
+- [x] Replace photographic pose blends with one opaque articulated golfer and rigid club.
+- [x] Verify planted feet, connected hands, continuous joints, exact contact, and WebGL fallback.
+- [x] Inspect intermediate poses, full swing, putting, and pause in the browser.
+- [x] Run final tests and pack; update provenance and handover evidence (137 passed, 3 catalog-only skips; 14-file package).
+- [ ] Board: native GPU performance and physical swing feel remain untested.

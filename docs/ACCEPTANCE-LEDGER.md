@@ -48,3 +48,15 @@
 - Simulator: fixed same-frame pointer down/up coalescing that could drop a quick tap. Verified quick taps on How to play and Back after reload. This changes only the development host; native contacts are unchanged.
 - Package: final TypeScript/Vite/platform/web-pack build passed with stable appId/packageId and 15 files. The new built-in imagegen artwork and exact prompt are recorded in the asset manifest. The previous sheet and development reviewer are not packaged.
 - Board/Human: NOT TESTED. Device performance, audio mix, and physical swing feel remain open; browser motion does not establish these.
+
+## October 27, 2026 — Continuous swing without pose ghosting
+
+- Asked for: “one continuous motion without the ghosting between poses.”
+- Delivered: one opaque articulated 3D golfer with continuous joint motion and a rigid club. The hands share the shaft, the lead foot stays planted, and the trailing heel rises into the finish. Coral polo, navy trousers, cream cap, closer framing, and the existing photographic course remain. The golfer is now shaded geometry rather than photographic keyframes.
+- Rendering evidence: a reusable 768×768 WebGL 1 surface clears color and depth before each changed pose, draws opaque geometry, and composites once into the 1920×1080 Canvas 2D course. Stationary poses and geometry are cached. No pose images, cross-fades, motion blur, pixel reads, or new runtime dependency. A continuous Canvas fallback handles absent or failed GPU initialization.
+- Timing: existing 140/160 ms contact, ball/audio release, active-time pause behavior, and once-committed shot are unchanged.
+- Unit: `npm test` — 140 total, 137 passed, 0 failed, 3 full-catalog skips. Six rig checks cover limb/shaft lengths, attached hands, contact, continuous joint trajectories, stable anatomical frames, planted toes/lead foot, and heel lift. Four renderer checks cover missing WebGL, null context, context creation exceptions, and shader setup exceptions, including no repeated failing initialization. Existing boot/timing regressions continue to pass.
+- Browser: inspected address and intermediate/full backswing and follow-through poses in the development reviewer, then used actual pointer drags in the game for an iron, wedge, and compact putt. Completed a three-stroke par. Paused and resumed with an unfinished backswing without adding a stroke, then made a fresh stroke. Rematch retained the ring and returned to zero strokes.
+- Evidence: `docs/screenshots/solid-swing-sequence.png`, `solid-swing-backswing.png`, `solid-swing-ready.png`, and `solid-swing-par.png`. Final reload and ring placement produced no new browser console warnings or errors; preview is left at the tee, ready to swing.
+- Package: TypeScript, Vite, platform build, and web-pack passed; 14 files with the existing appId/packageId and unchanged Board model. Removed the unused photographic motion sheet from the shipped package and preserved it under docs/art-reference.
+- Board/Human: NOT TESTED. The added offscreen GPU rendering still needs native performance verification, along with the existing sensing/audio/physical-feel checks.

@@ -131,9 +131,9 @@ Use a third-person view from behind a visible golfer, as the person requested du
 Use Canvas 2D perspective to show the golfer, course, ball flight, and rolling.
 The golfer stands beside the digital ball and animates the backswing and follow-through.
 The person requested closer Golden Tee framing, then more realistic graphics. At address the camera is lower and closer, making the golfer about 50% larger while keeping the ball above the physical control area.
-Use a photographic coastal sky, realistic pre-rendered golfer poses, natural turf detail, irregular foliage, and soft cached shadows. Keep the terrain and ball simulation dynamic.
+Use a photographic coastal sky, a single articulated 3D golfer in a coral polo and navy trousers, natural turf detail, irregular foliage, and soft cached shadows. The golfer uses opaque shaded geometry, composited into the Canvas 2D course; no photographic pose blending. Keep the terrain and ball simulation dynamic.
 The golfer never follows the physical ring. The camera follows the ball after impact.
-The swing uses aligned whole-pose interpolation from a fuller photographic sequence: a relaxed 450 ms takeaway, an accelerating 140 ms downswing, and a 450 ms follow-through into a held finish. Putting has a compact 160 ms downswing and 260 ms finish. Positive back travel anticipates the takeaway before the physical gesture is armed.
+The swing uses continuous joint positions and a rigid club, with both hands attached to its grip: a relaxed 450 ms takeaway, an accelerating 140 ms downswing, and a 450 ms follow-through into a held finish. Putting has a compact 160 ms downswing and 260 ms finish. Positive back travel anticipates the takeaway before the physical gesture is armed.
 The shot is committed once when the ring completes its gesture, but ball motion and the hit sound wait for visual contact. Animation and ball simulation use active game time, so a menu visit cannot skip impact.
 The swing area stays at the bottom edge while the camera follows the digital ball between shots.
 Favor a large course, readable ball motion, and short golf labels over dashboard panels.
@@ -146,7 +146,7 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 - Palette: forest green for framing, warm cream for cues, coral for the flag, and white for the ball.
 - Camera: behind a visible golfer at address, following ball flight, then framing the golfer and cup for the next shot.
 - Coverage: title and setup show the same course; play uses exact terrain; help uses canonical ring art; results keep the course behind them.
-- Assets: original generated photographic coastal sky, natural turf, and transparent golfer poses; Canvas terrain, detailed procedural trees, flag, ball, and finite effects. Cache detailed scenery instead of rebuilding it while still. Exact prompts and provenance are recorded with the asset manifest.
+- Assets: original generated photographic coastal sky, natural turf, and original procedural golfer geometry; Canvas terrain, detailed procedural trees, flag, ball, and finite effects. Cache detailed scenery instead of rebuilding it while still. Exact prompts and provenance are recorded with the asset manifest.
 - Sound: original short synthesized swing, putt, landing, sand, placement, penalty, and cup cues. No music in this first playable.
 - Interaction protection: quiet turf around the bottom-centre swing corridor; arrows remain to its right.
 - Proof: inspect title, help, address, flight, approach, green, result, rematch, and pause in the browser.
@@ -178,6 +178,7 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 | Closer framing | Lower, closer address camera; preserve ball-follow view | Person | “bring the camera closer to the golfer so it feels more like Golden Tee” and supplied arcade screenshot | About 1.5× foreground golfer size |
 | Graphics | More realistic golfer, landscape, grass, lighting, and shadows | Person | “Can we make the graphics look more realistic?” | Artwork pass; original course and controls retained |
 | Swing animation | Continuous pose movement, natural tempo, and synchronized impact | Person | “make the golfer’s swing animation smoother and more natural” | Replaces four discrete pose switches |
+| Solid swing | One articulated golfer; no fading between photographic poses | Person | “one continuous motion without the ghosting between poses” | Replaces the photographic pose sheet with opaque geometry; retains swing timing |
 | Recipe | Sports, using ball rest/recovery and deliberate stroke commitment | Builder | Genre recipes | No existing golf recipe |
 | UI floors | 48 px in play; 32 px elsewhere; 120 px targets; 48 px edge inset | Builder | User's Board rules | No conflicting spec sizes |
 | Physical control art | Nothing follows or sits under the moving ring | Builder | User's Board rules | Ball and arrows stay separate from the controller |
@@ -185,10 +186,11 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 ## Evidence
 
 - Source: reference, plugin rules, piece inventory, and starter architecture inspected.
-- Unit: 127 passed, 3 full-catalog footprint checks skipped; includes core physics, stroke commitment, tracking gaps, pause epochs, save restoration, animation continuity and impact timing, fast simulator taps, and a complete boot walk.
+- Unit: 137 passed, 3 full-catalog footprint checks skipped; includes core physics, stroke commitment, tracking gaps, pause epochs, save restoration, animation continuity and impact timing, anatomical constraints, GPU fallback, fast simulator taps, and a complete boot walk.
 - Package: TypeScript, Vite, platform build, and web-pack passed; stable package identity retained.
 - Browser: title, help, ring placement, varied swing powers, approach, putting, two-stroke birdie, rematch, and pause checked with real pointer actions. Third-person address, backswing, follow-through, and next-lie framing inspected.
 - Screenshots: `docs/screenshots/third-person-ready.png`, `third-person-backswing.png`, and `birdie-result.png`.
 - Realism pass: `realistic-close-address.png` and `realistic-close-backswing.png` show the closer camera and generated golfer. Address, backswing, follow-through, flight, and putting were inspected in the browser.
+- Continuous swing: `solid-swing-sequence.png` and `solid-swing-backswing.png` show one opaque golfer throughout the motion. Full iron, wedge, putt, pause/resume, par result, and rematch verified with pointer input.
 - Board: not tested.
 - Human: no swing or teaching playtest yet.

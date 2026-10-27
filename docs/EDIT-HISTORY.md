@@ -58,3 +58,11 @@
 - Added a fuller twelve-pose photographic sheet, aligned feet and head height, blended complete poses, a continuous club arc, and compact putting movement. Preserved the previous artwork in docs/art-reference.
 - Added a development-only motion reviewer for checking intermediate frames. Browser checks cover takeaway, held backswing, contact, follow-through, and camera departure. Final test/package evidence is recorded in the acceptance ledger.
 - Final browser QA also exposed a simulator fast-tap issue: down/up in one frame lost the touch-begin event in the SDK. Split lifecycle events into ordered simulator wire frames and added a real-SDK regression. Native input is unchanged. Final tests: 127 passed, 3 catalog-only skips.
+
+## October 27, 2026 — Continuous swing without ghosting
+
+- Person requested one continuous motion without ghosting between poses.
+- Replaced the photo cross-fades with one articulated 3D golfer, shaded and composited once into the existing Canvas 2D course. Both hands and the rigid club follow continuous joint positions.
+- Preserved the active-time swing clock, once-committed shot, exact impact delay, and pause behavior.
+- Added graceful Canvas fallback for unavailable WebGL; geometry is allocated once and stationary poses are cached.
+- Browser verification completed an iron, wedge, putt, three-stroke par, pause/resume, and retained-ring rematch. All 137 tests passed (3 catalog-only skips); the 14-file Board package passed. Full evidence is in the acceptance ledger.

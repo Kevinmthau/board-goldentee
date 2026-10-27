@@ -93,7 +93,6 @@ export class CourseView {
   private golferYaw = 0;
   private textures = new Map<Surface, CanvasPattern>();
   private softShadow: HTMLCanvasElement | null = null;
-  private golferPhoto: HTMLImageElement | null = null;
   private golferRenderer = new GolferRenderer();
 
   private loadScenery() {
@@ -106,9 +105,6 @@ export class CourseView {
       });
     };
     photo.src = 'art/coastal-sky.png';
-    const golfer = new Image();
-    golfer.onload = () => { this.golferPhoto = golfer; };
-    golfer.src = 'art/golfer-motion-v2.png';
     const turf = new Image();
     turf.onload = () => {
       // Reduce once to a small repeating material. The photograph supplies actual blade detail.
@@ -346,10 +342,11 @@ export class CourseView {
     const wind=this.animation.pose.windup;
     const turn=through*12-wind*5;
     const lift=through*6;
-    if(this.golferPhoto) {
-      this.drawPhotographicGolfer(ctx,foot,ball,scale,wind,through,putting,alpha);
-      return;
-    }
+    ctx.save();ctx.globalAlpha=alpha;
+    if(this.softShadow)ctx.drawImage(this.softShadow,foot.x-70*scale,foot.y-12*scale,150*scale,28*scale);
+    ctx.restore();
+    if(this.golferRenderer.draw(ctx,{footX:foot.x,footY:foot.y,ballX:ball.x,ballY:ball.y-2,
+      scale,windup:wind,followThrough:through,putting,alpha}))return;
     const ballLocal={x:(ball.x-foot.x)/scale,y:(ball.y-foot.y)/scale};
     const grip={x:mix(47,-25,wind)+through*8,y:mix(-119,-202,wind)-through*84};
     const clubEnd={
@@ -412,14 +409,6 @@ export class CourseView {
     shape([[-10,-3],[8,-5],[12,0],[9,8],[-7,8],[-11,3]],'#536A64');
     shape([[-9,-3],[8,-5],[10,-1],[-7,3]],'#D7E0CB');ctx.restore();
     ctx.restore();
-  }
-
-  private drawPhotographicGolfer(ctx:CanvasRenderingContext2D,foot:ScreenPoint,ball:ScreenPoint,scale:number,wind:number,through:number,putting:boolean,alpha:number) {
-    ctx.save();ctx.globalAlpha=alpha;
-    if(this.softShadow)ctx.drawImage(this.softShadow,foot.x-83*scale,foot.y-14*scale,185*scale,34*scale);
-    ctx.restore();
-    this.golferRenderer.draw(ctx,this.golferPhoto!,{footX:foot.x,footY:foot.y,ballX:ball.x,ballY:ball.y-2,
-      scale,windup:wind,followThrough:through,putting,alpha});
   }
 
   private drawAim(ctx:CanvasRenderingContext2D,game:GolfState,now:number) {

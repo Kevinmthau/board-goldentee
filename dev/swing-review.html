@@ -8,22 +8,23 @@ body{margin:24px;background:#173c2a;color:#f4efdc;font:16px system-ui}button{pad
 </style>
 <h1>Golfer motion review</h1>
 <button id="swing">Replay swing</button><button id="putt">Replay putt</button>
+<label>Inspect follow-through <input id="follow" type="range" min="0" max="1" value="0" step="0.01"></label>
 <label>Inspect backswing <input id="scrub" type="range" min="0" max="1" value="0" step="0.01"></label>
 <canvas id="review" width="1200" height="920" aria-label="Golfer animation poses and live swing"></canvas>
 <script type="module">
 import {GolferRenderer} from '/src/golfer-renderer.ts';
 import {SwingAnimation} from '/src/swing-animation.ts';
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
-const photo=new Image();photo.src='/art/golfer-motion-v2.png';await photo.decode();
 const render=new GolferRenderer(),motion=new SwingAnimation();
-let start=performance.now(),previous=start,putting=false,scrub=null,started=false;
-function replay(putt){putting=putt;motion.reset();start=performance.now();scrub=null;started=false;}
+let start=performance.now(),previous=start,putting=false,scrub=null,started=false,followScrub=0;
+function replay(putt){putting=putt;motion.reset();start=performance.now();scrub=null;followScrub=0;started=false;}
 document.querySelector('#swing').onclick=()=>replay(false);
 document.querySelector('#putt').onclick=()=>replay(true);
-document.querySelector('#scrub').oninput=e=>{scrub=Number(e.target.value);};
+document.querySelector('#scrub').oninput=e=>{scrub=Number(e.target.value);followScrub=0;};
 function drawGolfer(x,y,scale,windup,followThrough,putting=false,target=ctx){
-  render.draw(target,photo,{footX:x,footY:y,ballX:x+112*scale,ballY:y-7*scale,scale,windup,followThrough,putting,alpha:1});
+  render.draw(target,{footX:x,footY:y,ballX:x+112*scale,ballY:y-7*scale,scale,windup,followThrough,putting,alpha:1});
 }
+document.querySelector('#follow').oninput=e=>{scrub=0;followScrub=Number(e.target.value);};
 const sheet=document.createElement('canvas');sheet.width=1200;sheet.height=680;
 const sheetCtx=sheet.getContext('2d');sheetCtx.fillStyle='#719552';sheetCtx.fillRect(0,0,1200,680);
 sheetCtx.fillStyle='#f4efdc';sheetCtx.font='20px system-ui';
@@ -36,7 +37,7 @@ function frame(now){
   const age=(now-start)/1000;
   if(!started&&age>=.85){motion.strike(putting);started=true;}
   const pose=motion.update(dt,!started,putting);
-  drawGolfer(550,910,.85,scrub??pose.windup,scrub===null?pose.followThrough:0,putting);
+  drawGolfer(550,910,.85,scrub??pose.windup,scrub===null?pose.followThrough:followScrub,putting);
   ctx.fillText(scrub===null?pose.phase:'Scrub '+scrub,710,780);
   requestAnimationFrame(frame);
 }
