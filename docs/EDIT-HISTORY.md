@@ -17,3 +17,10 @@
 - Builder selected a classic behind-the-ball view.
 - Copied the exact Studio starter and installed Save the Bloogs assets.
 - Retained the vendored beta.8 SDK and minted the package identity.
+
+## October 27, 2026 — Core milestone
+
+- Added deterministic flight, rolling, terrain, putting, scoring, and a deliberate ring swing.
+- Connected the core to the starter roster and input path.
+- Core tests: 95 passed, 3 catalog-only skips; package passed.
+- Browser title and ring placement inspected. Browser aspect ratio and simulation coordinates need correction in the next step.

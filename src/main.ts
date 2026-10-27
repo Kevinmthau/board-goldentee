@@ -1,205 +1,151 @@
-import "./style.css";
-import { Board, BoardContactPhase, BoardContactType, BoardPlayerType, type BoardAIPlayerType, type BoardContact,
-  type BoardPlayer } from "@board.fun/web-sdk";
-import { clientToWorld, createSurface, gameFont, loadTitleFont, startInput } from "./runtime";
-import { drawTitle } from "./title";
-import { BACK_BUTTON, HOW_TO_BUTTON, drawButton, drawHowTo, hit, type Box } from "./howto";
-import { Splashes, edgeAngle, nearestEdge, type Edge } from "./fx";
-import { loadPieceFootprints, pieceFootprint, type PieceFootprints } from "./piece-footprints";
-import { noteContacts, pickPlayer, registerAiTypes, seated, selectorOpen } from "./seats";
-// A mode skeleton, not a template: rename, add or drop modes (howto included) to fit the game. Keep
-// the principle: one mode at a time, update() and draw() switch on it, piece-lift and pause logic
-// run only in play, and every every() over players or pieces checks the length first.
-const canvas = document.querySelector<HTMLCanvasElement>("#game")!;
+import './style.css';
+import { Board, BoardContactType, BoardContactPhase, type BoardContact, type BoardPlayer } from '@board.fun/web-sdk';
+import { createSurface, gameFont, loadTitleFont, startInput, gameAudio } from './runtime';
+import { drawTitle } from './title';
+import { drawButton, hit, type Box } from './howto';
+import { Splashes } from './fx';
+import { loadPieceFootprints, pieceFootprint, type PieceFootprints } from './piece-footprints';
+import { seated, noteContacts, pickPlayer } from './seats';
+import { createGame, strike, stepGame, distanceToCup, clubFor, scoreLabel, HOLE, createSwing, resetSwing, sampleSwing } from './rules';
+
+const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = createSurface(canvas);
-
-type Mode = "title" | "howto" | "setup" | "play" | "over";
-let mode: Mode = "title";
-let modeAt = 0; // when the current mode began (ms)
-const setMode = (next: Mode) => { mode = next; modeAt = performance.now(); };
-
-// ---- seats: the roster decides who plays, a piece at an edge says where ------------------------
-// The Board's player selector (src/seats.ts) is the only source of players, AI included; never make
-// an anonymous seat for a piece. A piece set down at a free edge binds to the next roster player
-// without a piece, or opens the selector when there is none. AI players come from the roster, take
-// a free edge and need no piece. Identity follows sessionId; seated() is re-read on every change.
-const MIN_PLAYERS = 1; // the game's least player count (humans and AI together)
-const EDGES: Edge[] = ["bottom", "top", "left", "right"]; // the edges players sit at, in seat order
-const EDGE_BAND = 300; // how far in from its edge a piece still counts as at that edge (px)
-// The game's computer players, each driven by the same rule functions as a human turn, e.g.
-// { name: "Rook", description: "Plays it safe" }. Leave it empty only for a reason written in PLAN.md.
-const AI_TYPES: BoardAIPlayerType[] = [];
-type Seat = { player: BoardPlayer; edge: Edge | null; contactId: number | null; at: { x: number; y: number } | null;
-  paused: boolean }; // add what a player needs: score, colour
-let seats: Seat[] = [];
-const isAi = (s: Seat) => s.player.type === BoardPlayerType.AI;
-const humans = () => seats.filter(s => !isAi(s));
-const edgeAt = (x: number, y: number): Edge | null => {
-  const edge = nearestEdge(x, y);
-  const gap = { bottom: 1080 - y, top: y, left: x, right: 1920 - x }[edge];
-  return EDGES.includes(edge) && gap < EDGE_BAND ? edge : null;
-};
-
-let rosterAt = -Infinity; // when setup last re-read the roster (ms)
-function syncRoster() { // after ready(), on every players-changed, after every pick, and each second in setup
-  const before = seats;
-  seats = seated().map(player => {
-    const old = before.find(s => s.player.sessionId === player.sessionId);
-    return old ? { ...old, player } : { player, edge: null, contactId: null, at: null, paused: false };
-  });
-  for (const s of seats) {
-    if (!isAi(s)) continue;
-    s.contactId = null; // a digital player has no piece
-    s.edge ??= EDGES.find(e => !seats.some(o => o.edge === e)) ?? null;
-  }
-}
-
-function bind(c: BoardContact) {
-  const edge = edgeAt(c.x, c.y);
-  if (!edge || seats.some(s => s.edge === edge && (isAi(s) || s.contactId !== null))) return; // the cues answer it
-  // The player who sits at this edge, else (only while setting up) the next roster player without a piece.
-  const seat = seats.find(s => s.edge === edge && !isAi(s))
-    ?? (mode === "setup" ? seats.find(s => !isAi(s) && s.edge === null) : undefined);
-  if (seat) Object.assign(seat, { edge, contactId: c.contactId, at: { x: c.x, y: c.y }, paused: false });
-  else if (mode === "setup" && !selectorOpen()) void addPlayer().then(() => { const p = pieces.get(c.contactId); if (p) bind(p); });
-}
-const addPlayer = () => pickPlayer().then(syncRoster); // always re-read the roster after a pick
-
-// ---- input ---------------------------------------------------------------------------------------
-const pieces = new Map<number, BoardContact>(); // glyph contacts on the glass, by contactId
-let arrivals: BoardContact[] = []; // pieces put down since the last frame
-let taps: { x: number; y: number }[] = []; // finger taps since the last frame, in world points
-let resumedAt = -Infinity; // when the system menu last closed (ms)
+let game = createGame();
+const swing = createSwing();
+let mode: 'title' | 'setup' | 'play' | 'over' = 'title';
+let player: BoardPlayer | undefined;
 let footprints: PieceFootprints | null = null;
 const splashes = new Splashes();
+let ring: BoardContact | null = null;
+let lost: { x: number; y: number; time: number } | null = null;
+let pauseSpot: { x: number; y: number } | null = null;
+let paused = false;
+let pollAt = 0;
+let camera = { x: 0, z: 0 };
+let taps: { x: number; y: number }[] = [];
+const known = new Set<number>();
+let message = '';
+const REMATCH: Box = { x: 480, y: 650, width: 440, height: 140 };
+const SETUP: Box = { x: 1000, y: 650, width: 440, height: 140 };
+const PLAYER: Box = { x: 1460, y: 48, width: 400, height: 120 };
+
+function sound(frequency: number) {
+  const a = gameAudio(), tone = a.ctx.createOscillator(), gain = a.ctx.createGain();
+  tone.frequency.value = frequency; tone.connect(gain); gain.connect(a.sfx);
+  gain.gain.setValueAtTime(0.16, a.ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, a.ctx.currentTime + 0.2);
+  tone.start(); tone.stop(a.ctx.currentTime + 0.2);
+}
+function syncRoster() { player = seated()[0]; }
+function save() { BoardPlatform.state.save({ version: 1, game }); }
+function newRound() { game = createGame(); camera = { x: 0, z: 0 }; resetSwing(swing); mode = ring && player ? 'play' : 'setup'; save(); }
 
 startInput((batch, active) => {
-  noteContacts(batch); // lets seats.ts notice a selector that closed without answering
-  pieces.clear();
-  for (const c of active.values()) if (c.type === BoardContactType.Glyph) pieces.set(c.contactId, c);
+  noteContacts(batch);
+  const now = performance.now();
   for (const c of batch) {
-    if (c.type === BoardContactType.Glyph && c.phase === BoardContactPhase.Began) arrivals.push(c);
-    if (c.type === BoardContactType.Finger && c.phase === BoardContactPhase.Began) taps.push({ x: c.x, y: c.y });
-    const lifted = c.phase === BoardContactPhase.Ended || c.phase === BoardContactPhase.Canceled;
-    const seat = lifted ? seats.find(s => s.contactId === c.contactId) : undefined;
-    if (seat) seat.contactId = null; // a lift; the seat keeps its player and edge
+    if (c.type === BoardContactType.Finger && c.phase === BoardContactPhase.Began) taps.push(c);
+    if (c.type !== BoardContactType.Glyph) continue;
+    const ended = c.phase === BoardContactPhase.Ended || c.phase === BoardContactPhase.Canceled;
+    if (ended) known.delete(c.contactId);
+    if (ended && ring?.contactId === c.contactId) {
+      lost = { x: ring.x, y: ring.y, time: now }; ring = null; resetSwing(swing); continue;
+    }
+    if (ended || c.glyphId !== 1) continue;
+    if (ring?.contactId !== c.contactId) {
+      if (ring && active.has(ring.contactId)) continue;
+      const rebound = (lost && now - lost.time < 900 && Math.hypot(c.x - lost.x, c.y - lost.y) < 140)
+        || (pauseSpot && Math.hypot(c.x - pauseSpot.x, c.y - pauseSpot.y) < 140);
+      if (!rebound && !known.has(c.contactId)) splashes.at(c.x, c.y, { inner: pieceFootprint(footprints, c)?.radiusPx ?? 81, color: '#E8D7A4', sound: () => sound(320) });
+      known.add(c.contactId); lost = null; pauseSpot = null; resetSwing(swing);
+      if (mode === 'title') mode = 'setup';
+      if (c.y < 720 || !player) { message = player ? 'Place the ring at your edge' : 'Choose a player'; continue; }
+      ring = c;
+      if (mode === 'setup') mode = 'play';
+    }
+    ring = c;
+    if (!paused && mode === 'play' && game.phase === 'ready' && player) {
+      const shot = sampleSwing(swing, { x: c.x, y: c.y, time: now });
+      if (shot && strike(game, shot)) { sound(180); message = ''; save(); }
+    }
   }
 }, () => {
-  // A native pause is an epoch boundary, not a lift: clear intent and velocity here, keep the mode.
-  // Resting pieces come back under new contact ids after the menu closes; arrive() re-binds them.
-  for (const s of seats) { s.paused = s.contactId !== null; s.contactId = null; }
-  arrivals = [];
+  paused = true; pauseSpot = ring ? { x: ring.x, y: ring.y } : null;
+  ring = null; taps = []; known.clear(); resetSwing(swing);
 });
-canvas.addEventListener("pointerdown", e => taps.push(clientToWorld(canvas, e.clientX, e.clientY))); // browser preview
 
-function arrive(c: BoardContact, now: number) {
-  // A piece re-detected near its spot just after the menu closed is the same piece: no new splash.
-  const back = seats.find(s => s.paused && s.at && Math.hypot(s.at.x - c.x, s.at.y - c.y) < 120);
-  if (back && now - resumedAt < 2000) { Object.assign(back, { contactId: c.contactId, paused: false }); return; }
-  // One piece-down moment per real arrival, starting at the piece's real edge.
-  splashes.at(c.x, c.y, { inner: pieceFootprint(footprints, c)?.radiusPx ?? 60, color: "#9CF" });
-  bind(c);
+function text(label: string, x: number, y: number, size = 48, color = '#FFFFFF', align: CanvasTextAlign = 'left') {
+  ctx.font = gameFont(size); ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y);
 }
-
-// ---- the result: one shared decision for the table -------------------------------------------
-const REMATCH: Box = { x: 960 - 20 - 460, y: 600, width: 460, height: 140 };
-const CHANGE_SETUP: Box = { x: 960 + 20, y: 600, width: 460, height: 140 };
-const ADD_PLAYER: Box = { x: 1920 - 48 - 440, y: 48, width: 440, height: 140 };
-
-function update(now: number, dt: number) {
-  const tapped = (box: Box) => taps.some(t => hit(box, t.x, t.y));
-  for (const s of seats) { const p = s.contactId === null ? undefined : pieces.get(s.contactId); if (p) s.at = { x: p.x, y: p.y }; }
-  switch (mode) {
-    case "title": // key art and the name; the first real action (a placed piece) leads into setup
-      if (arrivals.length) setMode("setup"); // the piece is handled there, so it can take a seat at once
-      else if (tapped(HOW_TO_BUTTON)) setMode("howto");
-      break;
-    case "howto": // optional help; a placed piece starts setup from here too, Back returns
-      if (arrivals.length) setMode("setup");
-      else if (tapped(BACK_BUTTON)) setMode("title");
-      break;
-    case "setup": { // pieces take seats; play starts once everyone in the roster is ready
-      // Player services can come up late, and the SDK reports only changes: keep re-reading here.
-      if (now - rosterAt > 1000) { syncRoster(); rosterAt = now; }
-      for (const c of arrivals.splice(0)) arrive(c, now);
-      if (tapped(ADD_PLAYER) && !selectorOpen()) void addPlayer();
-      // every() over no players is true: check length first, or an empty roster starts on frame 1.
-      const people = humans();
-      if (seats.length >= MIN_PLAYERS && people.length > 0 && people.every(s => s.contactId !== null)) setMode("play");
-      break;
-    }
-    case "play": { // the rules. Piece lifts and pause handling belong here, never in title or setup.
-      for (const c of arrivals.splice(0)) arrive(c, now);
-      // Placeholder result: the round ends once every human's piece is lifted. Use the game's own.
-      const people = humans();
-      if (people.length > 0 && people.every(s => s.contactId === null) && now - resumedAt > 2000) setMode("over");
-      break;
-    }
-    case "over": // the result waits for one shared decision; nothing restarts by itself
-      for (const c of arrivals.splice(0)) arrive(c, now);
-      if (tapped(REMATCH)) setMode("setup"); // the same seats: play starts once their pieces are down
-      else if (tapped(CHANGE_SETUP)) { seats = []; syncRoster(); setMode("setup"); } // seats released
-      break;
+function project(x: number, z: number, h = 0) {
+  const dz = z - camera.z + 24, scale = 1100 / Math.max(2, dz);
+  return { x: 960 + (x - camera.x) * scale, y: 310 + (8 - h) * scale, s: scale, dz };
+}
+function ellipse(x: number, z: number, rx: number, rz: number, color: string) {
+  ctx.fillStyle = color; ctx.beginPath();
+  for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2, p = project(x + Math.cos(a) * rx, z + Math.sin(a) * rz); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); }
+  ctx.fill();
+}
+function course(now: number) {
+  ctx.fillStyle = '#86C9D4'; ctx.fillRect(0, 0, 1920, 1080);
+  ctx.fillStyle = '#4B8085'; ctx.beginPath(); ctx.moveTo(0, 330); ctx.lineTo(250, 240); ctx.lineTo(480, 315); ctx.lineTo(820, 220); ctx.lineTo(1250, 320); ctx.lineTo(1920, 260); ctx.lineTo(1920, 400); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#458453'; ctx.fillRect(0, 330, 1920, 750);
+  for (let z = 250; z > camera.z - 20; z -= 8) {
+    const a = project(-25, z), b = project(25, z), c = project(25, z-8), d = project(-25,z-8);
+    ctx.fillStyle = Math.round(z/8)%2 ? '#6BA457' : '#72AC5D'; ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.fill();
   }
-  splashes.update(dt);
-  taps = [];
+  ellipse(0,150,19,21,'#90BF70'); ellipse(-19,132,9,13,'#E8D9A8');
+  const flag = project(HOLE.flag.x, HOLE.flag.z), tip = project(HOLE.flag.x, HOLE.flag.z,6);
+  ctx.strokeStyle='#FAFAEA';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(flag.x,flag.y);ctx.lineTo(tip.x,tip.y);ctx.stroke();
+  ctx.fillStyle='#E58156';ctx.beginPath();ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x+35+Math.sin(now/300)*3,tip.y+12);ctx.lineTo(tip.x,tip.y+24);ctx.fill();
+  const p=project(game.ball.x,game.ball.z,game.ball.y), shadow=project(game.ball.x,game.ball.z);
+  ctx.fillStyle='rgba(20,55,30,0.35)';ctx.beginPath();ctx.ellipse(shadow.x,shadow.y,12,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.arc(p.x,p.y,Math.max(7,Math.min(16,p.s*0.25)),0,Math.PI*2);ctx.fill();
 }
-
-function nameAtEdge(s: Seat) { // each player's label at their own edge, facing them
-  if (!s.edge) return;
-  const at = { bottom: [960, 1032], top: [960, 48], left: [48, 540], right: [1872, 540] }[s.edge];
-  ctx.save(); ctx.translate(at[0], at[1]); ctx.rotate(edgeAngle(s.edge));
-  ctx.font = gameFont(48); ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-  ctx.fillStyle = isAi(s) || s.contactId !== null ? "#FFFFFF" : "rgba(255,255,255,0.45)";
-  ctx.fillText(s.player.name, 0, 0);
-  ctx.restore();
-}
-
 function draw(now: number) {
-  ctx.fillStyle = "#101827"; ctx.fillRect(0, 0, 1920, 1080);
-  if (mode === "title") { drawTitle(ctx, { x: 0, y: 0, width: 1920, height: 1080 }); drawButton(ctx, HOW_TO_BUTTON, "HOW TO PLAY"); }
-  if (mode === "howto") drawHowTo(ctx, now);
-  if (mode === "setup") { // a signal, not words: every free edge breathes until a piece takes it
-    ctx.save(); ctx.fillStyle = "#96C8FF"; ctx.globalAlpha = 0.3 + 0.2 * Math.sin(now / 300); // fixed colour, animated alpha
-    for (const edge of EDGES) {
-      if (seats.some(s => s.edge === edge && (isAi(s) || s.contactId !== null))) continue;
-      if (edge === "bottom") ctx.fillRect(0, 1080 - 24, 1920, 24);
-      if (edge === "top") ctx.fillRect(0, 0, 1920, 24);
-      if (edge === "left") ctx.fillRect(0, 0, 24, 1080);
-      if (edge === "right") ctx.fillRect(1920 - 24, 0, 24, 1080);
+  course(now);
+  if (mode === 'title') {
+    ctx.fillStyle='rgba(8,43,40,0.36)';ctx.fillRect(0,0,1920,1080);
+    drawTitle(ctx,{x:0,y:50,width:1920,height:600});
+    text('ONE HOLE · PAR 3',960,620,48,'#F8E5AF','center');
+    text('Place the Bloogs ring at your edge',960,850,48,'#FFFFFF','center');
+  } else if(mode === 'setup') {
+    text(message || 'Place the Bloogs ring at your edge',960,650,48,'#FFFFFF','center');
+    drawButton(ctx,PLAYER,player ? 'CHANGE PLAYER':'CHOOSE PLAYER');
+  } else {
+    text('HOLE 01  /  PAR 3',64,85);text(`${game.strokes} STROKES`,64,150);
+    text(`${Math.round(distanceToCup(game))} YD`,1856,85,64,'#FFFFFF','right');
+    text(clubFor(game),1856,155,48,'#F8E5AF','right');
+    text(player?.name ?? '',64,1000,48);
+    text(mode === 'over' ? '' : !ring ? 'Return the ring' : swing.stage === 'backswing' ? 'Slide forward to swing' : game.phase === 'ready' ? 'Slide back, then forward' : 'Watch your shot',960,970,48,'#FFFFFF','center');
+    text('↙  ↑  ↗',1650,800,64,'#F8E5AF','center');text('↓',1650,900,64,'#F8E5AF','center');
+    if(mode==='over') {
+      ctx.fillStyle='rgba(8,43,40,0.94)';ctx.fillRect(370,260,1180,590);
+      text(game.phase==='holed'?scoreLabel(game.strokes):'STROKE LIMIT',960,390,80,'#F8E5AF','center');
+      text(`${game.strokes} strokes · Par 3`,960,520,56,'#FFFFFF','center');
+      drawButton(ctx,REMATCH,'REMATCH');drawButton(ctx,SETUP,'CHANGE SETUP');
     }
-    ctx.restore();
-    drawButton(ctx, ADD_PLAYER, "ADD PLAYER");
   }
-  // Placeholder playfield: play must look different the moment a piece starts it (Studio's boot
-  // check puts a piece down and looks for that). Replace it with the game's own field and HUD.
-  if (mode === "play" || mode === "over") { ctx.fillStyle = "#2A3A5C"; ctx.fillRect(48, 48, 1824, 984); }
-  if (mode !== "title" && mode !== "howto") for (const s of seats) nameAtEdge(s);
-  if (mode === "over") { // one card for the whole table: one result, one decision
-    ctx.fillStyle = "rgba(10,14,24,0.88)"; ctx.fillRect(400, 300, 1120, 500);
-    ctx.fillStyle = "#FFFFFF"; ctx.font = gameFont(72); ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("ROUND OVER", 960, 440); // placeholder: the game's result, matching its rules
-    drawButton(ctx, REMATCH, "REMATCH"); drawButton(ctx, CHANGE_SETUP, "CHANGE SETUP");
-  }
-  splashes.draw(ctx); // nothing else is drawn at or following a piece
+  splashes.draw(ctx);
 }
-
-let running = true;
-let last = 0;
-const frame = (now: number) => {
-  if (!running) return;
-  const dt = Math.min(0.05, last ? (now - last) / 1000 : 0); last = now;
-  update(now, dt); draw(now);
-  requestAnimationFrame(frame);
-};
-Board.application.onPause(() => { running = false; });
-Board.application.onResume(() => { resumedAt = performance.now(); if (!running) { running = true; last = 0; requestAnimationFrame(frame); } });
-
-void (async () => {
-  await BoardPlatform.state.ready(); // before reading progress or seating players (PLATFORM.md)
-  registerAiTypes(AI_TYPES);
-  syncRoster();
-  if (Board.isOnDevice) Board.session.onPlayersChanged(syncRoster); // the SDK polls; late services arrive here
-  [footprints] = await Promise.all([loadPieceFootprints(), loadTitleFont()]);
-  requestAnimationFrame(frame);
-})();
+function update(now: number, dt: number) {
+  if (now-pollAt>1000) {syncRoster();pollAt=now;}
+  if (mode==='setup' && taps.some(t=>hit(PLAYER,t.x,t.y))) void pickPlayer([],player?.sessionId).then(syncRoster);
+  if(mode==='over') {
+    if(taps.some(t=>hit(REMATCH,t.x,t.y)))newRound();
+    else if(taps.some(t=>hit(SETUP,t.x,t.y))) {ring=null;newRound();mode='setup';}
+  }
+  if(mode==='play') {
+    const before=game.phase;stepGame(game,dt);
+    if(before!==game.phase) {
+      save();
+      if(game.phase==='ready'){resetSwing(swing);camera={x:game.ball.x,z:game.ball.z};}
+      if(game.phase==='holed'||game.phase==='limit'){mode='over';sound(640);}
+    }
+  }
+  splashes.update(dt);taps=[];
+}
+let last=0;
+function frame(now:number){if(paused)return;const dt=Math.min(0.05,last?(now-last)/1000:0);last=now;update(now,dt);draw(now);requestAnimationFrame(frame);}
+Board.application.onResume(()=>{paused=false;last=0;requestAnimationFrame(frame);});
+void(async()=>{await BoardPlatform.state.ready();syncRoster();Board.session.onPlayersChanged(syncRoster);[footprints]=await Promise.all([loadPieceFootprints(),loadTitleFont()]);requestAnimationFrame(frame);})();

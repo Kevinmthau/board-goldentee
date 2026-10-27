@@ -13,7 +13,7 @@
 - [ ] Ball flies, lands, rolls, and rests; terrain changes the outcome.
 - [ ] Putt into the cup; strokes, par, penalties, and stroke limit follow the plan.
 - [ ] Result waits for Rematch or Change setup; rematch works with the ring left down.
-- [ ] Tests and pack pass for the core loop, followed by a browser visual check.
+- [x] Core tests (95 pass, 3 catalog-only skips), pack, and initial browser title/placement check passed.
 
 ## Board and teaching
 - [ ] Ring identity survives tracking gaps and three pause/resume cycles without a second splash or shot.
