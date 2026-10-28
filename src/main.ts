@@ -6,7 +6,7 @@ import { drawButton, drawHowTo, hit, setPieceArt, BACK_BUTTON, type Box } from '
 import { Splashes, Particles } from './fx';
 import { loadPieceFootprints, pieceFootprint, type PieceFootprints } from './piece-footprints';
 import { activeSeat, seated, noteContacts, pickPlayer, selectorOpen } from './seats';
-import { createGame, strike, stepGame, distanceToCup, clubFor, CLUBS, scoreLabel, terrainAt, type GolfState, type Club } from './rules';
+import { createGame, strike, stepGame, distanceToCup, clubFor, CLUBS, HOLES, holeFor, advanceHole, roundStrokes, roundPar, isFinalHole, scoreLabel, terrainAt, type GolfState, type Club } from './rules';
 import { PieceController } from './piece-control';
 import { CourseView } from './course-view';
 import { drawPieceClub } from './piece-club';
@@ -27,13 +27,14 @@ const controller = new PieceController({
 const splashes = new Splashes();
 const particles = new Particles(180);
 let game = createGame();
-let selectedClub: Club = '7 IRON';
+let selectedClub: Club = clubFor(game);
 let aim = 0;
 let mode: Mode = 'title';
 let helpReturn: Mode = 'title';
 let player: BoardPlayer | undefined;
 let booted = false;
 let paused = false;
+let pendingFrame: number | null = null;
 let last = 0;
 let pollAt = -Infinity;
 let saveAt = 0;
@@ -49,11 +50,11 @@ let lastLabel = '';
 const HELP: Box = {x: 340, y: 1120, width: 400, height: 120};
 const PLAYER: Box = {x: 280, y: 1050, width: 520, height: 130};
 const CONTINUE: Box = {x: 280, y: 1250, width: 520, height: 130};
-const REMATCH: Box = {x: 280, y: 1030, width: 520, height: 140};
-const SETUP: Box = {x: 280, y: 1220, width: 520, height: 140};
-const AIM_LEFT: Box = {x: 64, y: 1530, width: 160, height: 130};
-const AIM_RIGHT: Box = {x: 856, y: 1530, width: 160, height: 130};
-const CLUB_BOXES = CLUBS.map((club, i) => ({club, box: {x: 48 + i * 252, y: 1740, width: 228, height: 130}}));
+const REMATCH: Box = {x: 280, y: 1270, width: 520, height: 140};
+const SETUP: Box = {x: 280, y: 1460, width: 520, height: 140};
+const AIM_LEFT: Box = {x: 64, y: 1360, width: 160, height: 130};
+const AIM_RIGHT: Box = {x: 856, y: 1360, width: 160, height: 130};
+const CLUB_BOXES = CLUBS.map((club, i) => ({club, box: {x: 48 + (i % 3) * 336, y: 1590 + Math.floor(i / 3) * 150, width: 312, height: 130}}));
 
 function say(message: string, seconds = 3) { toast = message; toastUntil = performance.now() + seconds * 1000; }
 function syncRoster() {
@@ -73,7 +74,7 @@ function readSaved() {
   refreshBest();
 }
 function refreshBest() {
-  const n = player ? BoardPlatform.state.progress.get<number>(`bestStrokes:${player.playerId}`) : undefined;
+  const n = player ? BoardPlatform.state.progress.get<number>(`bestRoundStrokes:${player.playerId}`) : undefined;
   best = typeof n === 'number' && n > 0 ? n : null;
 }
 function freshLie() { selectedClub = clubFor(game); aim = 0; view.setAim(aim); controller.resetStroke(); }
@@ -85,6 +86,10 @@ function startRound(restore = false) {
   freshLie(); view.reset(game); setupConfirm = false;
   mode = game.phase === 'holed' || game.phase === 'limit' ? 'over' : 'play';
   resultAt = performance.now(); persist();
+}
+function nextHole() {
+  if (!advanceHole(game)) return;
+  freshLie(); view.reset(game); mode = 'play'; toast = ''; persist();
 }
 function changeSetup() { controller.release(); controller.setEnabled(false); mode = 'setup'; setupConfirm = true; syncRoster(); }
 function showHelp() { if (mode === 'howto') return; helpReturn = mode; mode = 'howto'; controller.setEnabled(false); controller.resetStroke(); }
@@ -118,7 +123,10 @@ startInput((batch, active) => {
     }
   }
 }, () => {
-  paused = true; controller.pause(performance.now()); taps = []; persist();
+  paused = true;
+  if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
+  pendingFrame = null;
+  controller.pause(performance.now()); taps = []; persist();
 });
 
 function text(label: string, x: number, y: number, size = 48, color = '#FFF8E4', align: CanvasTextAlign = 'left') {
@@ -136,18 +144,33 @@ function nameLines(name: string, x: number, y: number, width: number) {
   lines.forEach((part, i) => text(part, x, y + i * 54, 48, '#FFF8E4', 'center'));
 }
 function result(now: number) {
-  ctx.fillStyle = 'rgba(9,42,37,0.88)'; ctx.fillRect(0, 0, 1080, 1920);
-  text('SEABREEZE LINKS', 540, 360, 40, '#C5D5B7', 'center');
-  text(game.phase === 'holed' ? scoreLabel(game.strokes).toUpperCase() : 'STROKE LIMIT', 540, 540, 80, '#F1D58B', 'center');
-  text(`${game.strokes} STROKES  /  PAR 3`, 540, 690, 56, '#FFFFFF', 'center');
-  if (player) nameLines(player.name, 540, 800, 900);
-  drawButton(ctx, REMATCH, 'REMATCH'); drawButton(ctx, SETUP, 'CHANGE SETUP');
-  if (best !== null) text(`PERSONAL BEST  ${best}`, 540, 1510, 40, '#C5D5B7', 'center');
+  const hole = holeFor(game), final = isFinalHole(game);
+  const total = roundStrokes(game), par = roundPar(game);
+  const relative = total - par;
+  const score = relative === 0 ? 'EVEN PAR' : `${relative > 0 ? '+' : ''}${relative} TO PAR`;
+  ctx.fillStyle = 'rgba(9,42,37,0.94)'; ctx.fillRect(0, 0, 1080, 1920);
+  text(final ? 'ROUND COMPLETE' : `HOLE ${game.holeIndex + 1} COMPLETE`, 540, 260, 48, '#C5D5B7', 'center');
+  text(final ? score : game.phase === 'holed' ? scoreLabel(game.strokes, hole.par).toUpperCase() : 'STROKE LIMIT', 540, 390, 72, '#F1D58B', 'center');
+  text(final ? `${total} STROKES  /  PAR ${par}` : `${game.strokes} STROKES  /  PAR ${hole.par}`, 540, 500, 56, '#FFFFFF', 'center');
+  text('HOLE', 90, 660, 48, '#C5D5B7');
+  text('PAR', 720, 660, 48, '#C5D5B7', 'center');
+  text('SCORE', 975, 660, 48, '#C5D5B7', 'right');
+  for (let i = 0; i < HOLES.length; i++) {
+    const y = 760 + i * 105;
+    const strokes = i < game.holeIndex ? game.completedStrokes[i] : i === game.holeIndex ? game.strokes : null;
+    text(`${i + 1}  ${HOLES[i].name.toUpperCase()}`, 90, y, 48, strokes === null ? '#A4B5A2' : '#FFFFFF');
+    text(String(HOLES[i].par), 720, y, 48, '#EEDA9E', 'center');
+    text(strokes === null ? '—' : String(strokes), 975, y, 48, '#FFFFFF', 'right');
+  }
+  if (!final) text(`ROUND SO FAR  ${total}  /  ${score}`, 540, 1110, 48, '#F1D58B', 'center');
+  drawButton(ctx, REMATCH, final ? 'REMATCH' : 'NEXT HOLE'); drawButton(ctx, SETUP, 'CHANGE SETUP');
+  if (best !== null) text(`BEST ROUND  ${best}`, 540, 1740, 48, '#C5D5B7', 'center');
   if (now - resultAt < 2400) particles.draw(ctx);
 }
 function drawPlay(now: number) {
   ctx.fillStyle = 'rgba(12,45,36,0.82)'; ctx.fillRect(48, 48, 984, 184);
-  text('SEABREEZE', 76, 100, 48, '#E3DBB6'); text('01  /  PAR 3', 76, 174, 48);
+  const hole = holeFor(game);
+  text(hole.name.toUpperCase(), 76, 100, 48, '#E3DBB6'); text(`${game.holeIndex + 1}/${HOLES.length}  /  PAR ${hole.par}`, 76, 174, 48);
   const distance = distanceToCup(game), putting = selectedClub === 'PUTTER';
   const amount = putting ? distance * 3 : distance;
   text(`${amount < 10 ? amount.toFixed(1) : Math.round(amount)} ${putting ? 'FT' : 'YD'}`, 1004, 102, 64, '#FFF8E4', 'right');
@@ -160,20 +183,18 @@ function drawPlay(now: number) {
     ctx.restore();
   }
   drawButton(ctx, AIM_LEFT, '←'); drawButton(ctx, AIM_RIGHT, '→');
-  text('AIM', 144, 1495, 48, '#C5D5B7', 'center');
-  text(`${Math.abs(Math.round(aim * 180 / Math.PI))}°`, 936, 1495, 48, '#C5D5B7', 'center');
+  text('AIM', 144, 1320, 48, '#C5D5B7', 'center');
+  text(`${Math.abs(Math.round(aim * 180 / Math.PI))}°`, 936, 1320, 48, '#C5D5B7', 'center');
   const swing = controller.swing;
   const instruction = !ready ? 'WATCH YOUR SHOT' : !controller.piece ? (controller.observedPiece ? 'MOVE ONTO THE OPEN GRASS' : 'PLACE YOUR SPORTS PLAYER') :
     !isPiecePlacement(controller.piece) ? 'MOVE ONTO THE OPEN GRASS' :
     swing.stage === 'settling' ? 'HOLD STILL TO ADDRESS' : swing.stage === 'backswing' ? 'TURN BACK TO THE BALL' : 'TURN BACK, THEN THROUGH';
-  text(instruction, 540, 1685, 48, '#FFF8E4', 'center');
+  text(instruction, 540, 1530, 48, '#FFF8E4', 'center');
   // Fixed feedback stays with the controls; only the requested club follows the piece.
   if (ready && swing.windup > 0) {
-    ctx.fillStyle = '#3E6048'; ctx.fillRect(290, 1550, 380, 16);
-    ctx.fillStyle = '#F1D58B'; ctx.fillRect(290, 1550, 380 * swing.power, 16);
-    text(`${Math.round(swing.power * 100)}%`, 790, 1558, 48, '#F1D58B', 'right');
+    text(`${Math.round(swing.power * 100)}%`, 790, 1423, 48, '#F1D58B', 'right');
   }
-  if (game.penalty && (!toast || now >= toastUntil)) text('OUT OF BOUNDS  +1', 540, 300, 48, '#F4DA94', 'center');
+  if (game.penalty && (!toast || now >= toastUntil)) text(game.penaltyKind === 'water' ? 'WATER  +1  /  REPLAY SHOT' : 'OUT OF BOUNDS  +1', 540, 300, 48, '#F4DA94', 'center');
 }
 function draw(now: number, dt: number) {
   drawPortrait(ctx);
@@ -183,14 +204,14 @@ function draw(now: number, dt: number) {
   view.draw(ctx, game, now, dt, mode === 'title' || mode === 'setup' || mode === 'howto');
   if (mode === 'play' && fp) {
     // Explicit person-requested exception: the club connects to the real front edge.
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); drawPieceClub(ctx, fp, selectedClub === 'PUTTER'); ctx.restore();
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); drawPieceClub(ctx, fp, selectedClub); ctx.restore();
   }
   if (mode === 'title') {
     ctx.fillStyle = 'rgba(6,37,35,0.3)'; ctx.fillRect(0, 0, 1080, 1920);
     text('SEABREEZE LINKS', 540, 220, 40, '#E8E0BE', 'center');
     drawTitle(ctx, {x: 48, y: 320, width: 984, height: 460});
-    text('ONE HOLE. MAKE IT COUNT.', 540, 900, 48, '#F4DA94', 'center');
-    text('150 YARDS  /  PAR 3', 540, 990, 48, '#FFFFFF', 'center');
+    text('THREE HOLES. EVERY SHOT COUNTS.', 540, 900, 48, '#F4DA94', 'center');
+    text('PAR 3 + PAR 4 + PAR 5', 540, 990, 48, '#FFFFFF', 'center');
     text('Place any Sports player to tee off', 540, 1840, 48, '#FFFFFF', 'center');
     drawButton(ctx, HELP, 'HOW TO PLAY');
     if (saved) drawButton(ctx, CONTINUE, 'CONTINUE ROUND');
@@ -198,7 +219,7 @@ function draw(now: number, dt: number) {
     ctx.fillStyle = 'rgba(6,37,35,0.6)'; ctx.fillRect(0, 0, 1080, 1920);
     text('YOUR TEE TIME', 540, 360, 80, '#F4DA94', 'center');
     if (player) nameLines(player.name, 540, 520, 900);
-    text('SOLO  /  HOLE 01  /  PAR 3', 540, 800, 48, '#FFFFFF', 'center');
+    text('SOLO  /  3 HOLES  /  PAR 12', 540, 800, 48, '#FFFFFF', 'center');
     text(player ? 'Place your player on the open grass' : 'Choose a player to begin', 540, 930, 48, '#FFFFFF', 'center');
     if (!controller.observedPiece) text('Place the player on the open grass', 540, 1840, 48, '#FFFFFF', 'center');
     drawButton(ctx, PLAYER, player ? 'CHANGE PLAYER' : 'CHOOSE PLAYER');
@@ -222,7 +243,7 @@ function update(now: number, dt: number) {
     else if (tapped(CONTINUE) && player && (controller.piece || controller.confirmPlacement())) { playCue('button'); startRound(!!saved); }
   } else if (mode === 'howto' && tapped(BACK_BUTTON)) { playCue('button'); leaveHelp(); }
   else if (mode === 'over') {
-    if (tapped(REMATCH)) { playCue('button'); startRound(); }
+    if (tapped(REMATCH)) { playCue('button'); if (isFinalHole(game)) startRound(); else nextHole(); }
     else if (tapped(SETUP)) { playCue('button'); changeSetup(); }
   } else if (mode === 'play' && game.phase === 'ready') {
     for (const {club, box} of CLUB_BOXES) if (tapped(box)) { selectedClub = club.id; controller.resetStroke(); playCue('button'); }
@@ -238,25 +259,39 @@ function update(now: number, dt: number) {
     if (animation.impact) playCue(animation.putting ? 'putt' : 'swing', game.shotPower);
     const before = game.phase; stepGame(game, animation.ballDt);
     if (before !== game.phase) {
-      if (before === 'flight' && game.phase === 'rolling') playCue(terrainAt(game.ball.x, game.ball.z) === 'bunker' ? 'sand' : 'land');
+      if (before === 'flight' && game.phase === 'rolling') playCue(terrainAt(game.ball.x, game.ball.z, holeFor(game)) === 'bunker' ? 'sand' : 'land');
       if (game.phase === 'ready') { freshLie(); if (game.penalty) playCue('penalty'); }
       if (game.phase === 'holed' || game.phase === 'limit') {
         mode = 'over'; resultAt = now; controller.setEnabled(false);
         if (game.phase === 'holed') {
           playCue('cup'); particles.burst(540, 640, {count: 120, color: '#F1D58B', speed: 420, life: 1.6, gravity: 220});
-          if (best === null || game.strokes < best) { best = game.strokes; BoardPlatform.state.progress.set(`bestStrokes:${player!.playerId}`, best); }
+
         } else playCue('penalty');
+        if (isFinalHole(game) && (best === null || roundStrokes(game) < best)) {
+          best = roundStrokes(game); BoardPlatform.state.progress.set(`bestRoundStrokes:${player!.playerId}`, best);
+        }
       }
       persist();
     }
     if (now - saveAt > 400) { persist(); saveAt = now; }
   }
   splashes.update(dt); particles.update(dt); taps = [];
-  const label = `${mode}. Solo golf. ${game.strokes} strokes. ${game.phase}. ${distanceToCup(game).toFixed(1)} yards to cup. ${selectedClub}. ${controller.piece ? 'Sports player present' : 'Place Sports player on the open grass'}. ${controller.swing.stage}. ${Math.round(controller.swing.power * 100)}% power.`;
+  const label = `${mode}. Solo golf. Hole ${game.holeIndex + 1} of ${HOLES.length}, par ${holeFor(game).par}. ${game.strokes} strokes. ${game.phase}. ${distanceToCup(game).toFixed(1)} yards to cup. ${selectedClub}. ${controller.piece ? 'Sports player present' : 'Place Sports player on the open grass'}. ${controller.swing.stage}. ${Math.round(controller.swing.power * 100)}% power.`;
   if (label !== lastLabel) { canvas.setAttribute('aria-label', label); lastLabel = label; }
 }
-function frame(now: number) { if (paused) return; const dt = Math.min(.05, last ? (now - last) / 1000 : 0); last = now; update(now, dt); draw(now, dt); requestAnimationFrame(frame); }
-Board.application.onResume(() => { controller.resume(performance.now()); if (paused) { paused = false; last = 0; if (booted) requestAnimationFrame(frame); } });
+function scheduleFrame() {
+  if (booted && !paused && pendingFrame === null) pendingFrame = requestAnimationFrame(frame);
+}
+function frame(now: number) {
+  pendingFrame = null;
+  if (paused) return;
+  const dt = Math.min(.05, last ? (now - last) / 1000 : 0);
+  last = now; update(now, dt); draw(now, dt); scheduleFrame();
+}
+Board.application.onResume(() => {
+  if (!paused) return;
+  controller.resume(performance.now()); paused = false; last = 0; scheduleFrame();
+});
 async function loadSportsArt() {
   return new Promise<void>(resolve => {
     const img = new Image();
@@ -269,8 +304,8 @@ void (async () => {
   await BoardPlatform.state.ready(); syncRoster(); readSaved();
   Board.session.onPlayersChanged(syncRoster);
   BoardPlatform.state.onRestore(() => { syncRoster(); readSaved(); });
-  BoardPlatform.menu.setButtons([{id: 'help', title: 'How to swing', icon: 'square'}, {id: 'restart', title: 'Restart hole', icon: 'circular_arrow'}, {id: 'setup', title: 'Change setup', icon: 'left_arrow'}]);
+  BoardPlatform.menu.setButtons([{id: 'help', title: 'How to swing', icon: 'square'}, {id: 'restart', title: 'Restart round', icon: 'circular_arrow'}, {id: 'setup', title: 'Change setup', icon: 'left_arrow'}]);
   BoardPlatform.menu.onButton(id => { if (id === 'help') showHelp(); if (id === 'restart') startRound(); if (id === 'setup') changeSetup(); });
   [footprints] = await Promise.all([loadPieceFootprints(), loadTitleFont(), loadSportsArt()]);
-  view.reset(game); booted = true; requestAnimationFrame(frame);
+  view.reset(game); booted = true; scheduleFrame();
 })();

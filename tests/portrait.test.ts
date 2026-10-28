@@ -63,11 +63,13 @@ test('Sports placement includes the native football location and a broad open co
   // Actual rejected contact from the Board log: football player at portrait (301,1233).
   assert.deepEqual(toPortrait({x: 687, y: 301}), {x: 301, y: 1233});
   assert.equal(isPiecePlacement({x: 687, y: 301}), true);
+  assert.equal(isPiecePlacement({x: 647, y: 306}), true, 'the observed drift during the football turn keeps its address');
   assert.equal(isPiecePlacement(toNative({x: 283, y: 1231})), true, 'a small move from the logged football placement stays playable');
   assert.equal(isPiecePlacement(toNative({x: 140, y: 400})), true);
-  assert.equal(isPiecePlacement(toNative({x: 940, y: 1530})), true);
-  for (const point of [{x: 139, y: 1000}, {x: 941, y: 1000}, {x: 540, y: 399}, {x: 540, y: 1531},
-    {x: 540, y: 1805}, {x: 144, y: 1595}, {x: 936, y: 1595}]) {
+  assert.equal(isPiecePlacement(toNative({x: 940, y: 1240})), true);
+  assert.equal(isPiecePlacement(toNative({x: 540, y: 1430})), true);
+  for (const point of [{x: 139, y: 1000}, {x: 941, y: 1000}, {x: 540, y: 399}, {x: 540, y: 1431},
+    {x: 540, y: 1530}, {x: 144, y: 1400}, {x: 936, y: 1400}, {x: 540, y: 1805}, {x: 144, y: 1595}, {x: 936, y: 1595}]) {
     assert.equal(isPiecePlacement(toNative(point)), false, 'buttons and margins cannot bind a player');
   }
 });

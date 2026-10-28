@@ -141,3 +141,43 @@
 - Removed temporary native geometry diagnostics as required by the device-debug workflow. No gameplay, camera, input thresholds, assets, or package identity changed in this cleanup.
 - Verification: `npm test` — 181 total, 178 passed, 0 failed, 3 catalog skips. `npm run pack` passed with 18 files, bundle `index-DB2vOyzY.js`, platform build `d6c05ace441382a6`. The preceding installed playtest build remains on Board; this logging-only cleanup was build-tested locally.
 - Scope: source, tests, Sports model/art/footprints, simulator, documentation, and screenshots are included. Scratch logs, dependencies, build output, and the install ZIP remain outside Git.
+
+## October 27, 2026 — Bugs and correctness review
+
+- Asked for: review the app for bugs and correctness issues.
+- Source: reviewed the current game, input controller, runtime, seating, save validation, physics, rendering, simulator, and related tests. No gameplay or asset files changed.
+- Existing automated checks: `npm test` passed with 178 passes, zero failures, and three full-catalog skips. `npm run build` passed TypeScript and Vite.
+- Confirmed P2, slow returns: `src/piece-control.ts:290` counts a return sample only when its reverse movement exceeds 0.5 degrees. An isolated controller probe used a 60-degree backswing and a 30-degree-per-second return. At 20/30 Hz it committed; at 60/120 Hz it reached address without a shot. This speed exceeds the configured 25-degree-per-second minimum. Measure accumulated reverse movement and add sample-rate coverage.
+- Confirmed P2, scoring depends on frame timing: `src/rules.ts:148–154` keeps the position beyond the exact ground crossing before reducing velocity. A straight 7-iron shot at power 0.997 holes at 59/61 FPS but stops at z=148.9906503333 at 60 FPS. At power 0.9977, fixed 60 FPS misses; alternating `1/60 - 0.001` and `1/60 + 0.001` seconds holes. Resolve ground contact within the step or use a persistent fixed-step accumulator. Add uneven-frame coverage.
+- Confirmed P2, duplicate rendering loops: `src/main.ts:258–259` schedules a new frame on resume without canceling an earlier pending frame. A probe booted the real main module with a queue that retained every animation-frame callback. Pause and resume before executing the pending callback increased callbacks per frame from one to two; a second cycle increased them to three. Each duplicate continued scheduling itself. Track and cancel the pending frame. The current boot test stores only one callback and cannot detect this.
+- Coverage gaps: actual native sample rates and pause scheduling, native save/profile behavior, sustained rendering performance, and long-name layout remain unverified. Malformed saves can contain inconsistent phase/stroke combinations; normal gameplay does not produce the inspected examples.
+- Evidence level: source, existing tests, production build, and isolated automated reproductions. No new browser, Board, or human playtest. No package installation or publication. Findings remain open.
+
+
+## October 27, 2026 — Three holes, hazards, driver, and 5 iron
+
+- Asked for: two additional holes, a par 4 and par 5 with hazards, plus clubs including a driver and 5 iron.
+- Delivered: Lagoon Bend, a 340-yard par 4, and Pelican Reach, a 510-yard par 5. Both have water and sand hazards. The original 150-yard par 3 remains first.
+- Round flow: three holes, total par 12, an explicit Next hole choice, per-hole scores, accumulated totals, and a final Rematch or Change setup choice. Each hole retains the ten-stroke cap.
+- Clubs: driver approximately 250 yards and 5 iron approximately 185 yards. Existing 7 iron, 9 iron, wedge, and putter remain selectable. The driver has a rounded head and longer attached shaft.
+- Source review: hazards share the renderer's hole geometry. Water applies only on ground contact; recovery adds one penalty and restores the preceding safe lie. Sand takes precedence where bunkers cut into greens. Terrain caches change with the hole.
+- Save review: existing version-1 single-hole saves migrate to hole 1. New saves retain the current hole, preceding scores, ball state, and fractional physics step. Three-hole best scores use a separate progress key; old single-hole records remain intact.
+- Existing work preserved: imported the current golf branch and its uncommitted slow-return, fixed-step physics, and pause-loop fixes into this initially older worktree. No primary-checkout edits were made.
+- Automated evidence: `npm test` — 211 total, 208 passed, zero failures, three full-catalog skips. Coverage includes all three completed holes through real main-module contacts, explicit advancement, all clubs, rematch, water/sand, old and new saves, and inconsistent-save rejection. Regression checks retain the observed football position and turning drift.
+- Layout evidence: actual Kabel font measurements fit the six controls, hole names, help, hazard cue, totals, and scorecard columns. Reserved placement space clears the new controls; power appears as a fixed percentage beside the default piece.
+- Browser evidence: inspected title, help, six-club layout, all three tee views, and the longer-hole camera. A real pointer-driven full 5-iron shot on the par 5 landed in water, returned to the tee, and showed two strokes including the penalty. A full driver carried the lake and rested 259.1 yards from the cup with one stroke. No errors appeared in the ordinary game preview.
+- Browser result evidence: developer-only validated save fixtures showed the second-hole scorecard, Next hole entering the par 5, the 12-stroke/par-12 final scorecard, and Rematch returning to hole 1. These fixture views do not claim a manual full-round playthrough; the full round is covered by the automated contact journey.
+- Evidence images: `docs/screenshots/three-hole-par4-tee.png`, `three-hole-water-recovery.png`, `three-hole-par5-carry.png`, `three-hole-scorecard.png`, and `three-hole-round-result.png`.
+- Build evidence: TypeScript, Vite, and `npm run pack` pass. The 18-file package uses `index-BwgBIobr.js`, platform build `04ce0759370c492b`, the unchanged Sports model, and unchanged app/package IDs. Developer fixtures and browser simulator are excluded.
+- Package SHA-256: `fdb86a9948b525e71a62053cc7991131d8985ad5f97ca671a086d583c70d87b3`.
+- Board: this revision was not installed or played on hardware. Human checks remain open for physical driver clearance, hazard readability at the table, club feel, and three-hole pacing.
+
+
+## October 27, 2026 — Install the three-hole build on KT's Board
+
+- Asked for: install the new holes and clubs on the person's Board for playtesting.
+- Installed and launched the previously verified package through Board Connect on KT's Board. Existing app/package IDs were retained; no app removal or save deletion occurred.
+- Package: SHA-256 `fdb86a9948b525e71a62053cc7991131d8985ad5f97ca671a086d583c70d87b3`, 18 files, bundle `index-BwgBIobr.js`. Package inspection confirms both new hole definitions, driver, and 5 iron, with no developer fixture or browser simulator.
+- Native startup: platform state became ready at 21:32:00; the new bundle reported running audio at 21:32:01. Logs included optional favicon and game-font.json 404 warnings; the bundled Kabel font rendered correctly.
+- Native screenshot: `docs/screenshots/three-hole-board-installed.png` shows hole 1/3, par 3, zero strokes, and all six club controls. The game is waiting for a Sports piece.
+- Evidence limit: installation, launch, current bundle, and native rendering are verified. New-hole play, physical driver clearance, hazard readability, and round pacing still require the person's playtest.

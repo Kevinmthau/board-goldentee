@@ -38,7 +38,7 @@ export function drawHowTo(ctx: CanvasRenderingContext2D, now: number) {
   const steps = [
     ['1  PLACE YOUR PLAYER', 'Hold still on the open grass.'],
     ['2  TURN BACK, THEN HIT', 'Return the club to the ball to strike.'],
-    ['3  CHOOSE YOUR CLUB', 'A full 7 iron reaches this 150-yard hole.'],
+    ['3  CHOOSE YOUR CLUB', 'Carry water or lay up. Water costs +1.'],
   ];
   for (let i = 0; i < steps.length; i++) {
     const y = 320 + i * 440;
@@ -60,9 +60,9 @@ export function drawHowTo(ctx: CanvasRenderingContext2D, now: number) {
       text(ctx, t < .55 ? '↶' : '↷', 740, y + 200, 100, '#F1D899');
       text(ctx, 'Larger turn = more power', 540, y + 285, 40, '#B1C5A4');
     } else {
-      drawButton(ctx, {x: 170, y: y + 128, width: 330, height: 120}, '7 IRON');
-      drawButton(ctx, {x: 580, y: y + 128, width: 330, height: 120}, 'PUTTER');
-      text(ctx, 'Use the arrows to adjust your aim.', 540, y + 290, 40, '#B1C5A4');
+      drawButton(ctx, {x: 170, y: y + 128, width: 330, height: 120}, 'DRIVER');
+      drawButton(ctx, {x: 580, y: y + 128, width: 330, height: 120}, '5 IRON');
+      text(ctx, 'Three holes. Six clubs. Use arrows to aim.', 540, y + 290, 40, '#B1C5A4');
     }
   }
   drawButton(ctx, BACK_BUTTON, 'BACK'); ctx.restore();

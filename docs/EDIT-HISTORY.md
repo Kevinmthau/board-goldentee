@@ -122,3 +122,27 @@
 - Removed temporary contact-geometry logging before publication; retained gameplay behavior and the playtest evidence in this document set.
 - Updated README to the verified Sports behavior and current screenshot. Tests pass (178 passed, 3 catalog skips), and the final publication package builds successfully.
 - Publish the committed game subtree to the existing `golden-tee` remote's `main`, keeping game files at the root of the standalone repository.
+
+## October 27, 2026 — Bugs and correctness review
+
+- Person requested a review of app bugs and correctness issues.
+- Reviewed input, physics, scoring, saves, seating, lifecycle, rendering, and existing coverage. Existing tests and the production build pass.
+- Isolated probes confirmed sample-rate-dependent slow swings, frame-timing-dependent scoring, and duplicate rendering loops after pause/resume before a pending frame executes.
+- Recorded reproduction steps and suggested corrections in the acceptance ledger. Added open items to the plan and checklist. No gameplay, test, or asset files changed.
+
+
+## October 27, 2026 — Two more holes and longer clubs
+
+- Person requested two additional holes, a par 4 and a par 5 with hazards, plus clubs including a driver and 5 iron.
+- Retain the 150-yard par 3. Add a 340-yard par 4 and a 510-yard par 5 with water and bunkers.
+- Builder chose a three-hole round with total par 12. Each result waits for Next hole; the final scorecard offers Rematch or Change setup.
+- Extend club selection to six clubs. The driver has a larger rounded head; the 5 iron has a longer metal shaft.
+- Water adds one penalty and returns the ball to its previous lie. Airborne shots can carry it.
+- Preserve existing one-hole saves as hole 1, with round progress retained in new saves.
+- Focused physical-club tests pass (7 tests). Full-suite, browser, package, and native evidence belong in the acceptance ledger.
+
+Integration review aligned sand rendering with bunker physics where hazards cut into greens. The six-club layout preserves the observed football placement and turn while keeping physical footprints clear of touch controls. Power remains a fixed percentage beside the piece. Existing local fixes for slow swings, frame timing, and pause/resume were preserved.
+
+## October 27, 2026 — Install three-hole build
+
+The person requested installation on their Board. Installed and launched the verified package on KT's Board, then confirmed the bundle in logs and the six clubs in a native screenshot. No gameplay code or package identity changed. Physical play remains for the person.

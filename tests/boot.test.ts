@@ -11,7 +11,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Board, BoardContactPhase, BoardContactType, BoardPlayerType, type BoardContact } from "@board.fun/web-sdk";
-import { createGame, distanceToCup, terrainAt, type GolfState } from "../src/rules";
+import { createGame, distanceToCup, terrainAt, CLUBS, strike, stepGame, holeFor, roundStrokes, type GolfState } from "../src/rules";
 import { toNative } from "../src/portrait";
 import { TURN_SWING } from "../src/piece-control";
 
@@ -54,11 +54,12 @@ const param = () => ({ value: 1, setValueAtTime() {}, linearRampToValueAtTime() 
 const node = () => ({ connect() {}, disconnect() {}, start() {}, stop() {}, gain: param(), frequency: param(), detune: param(), Q: param() });
 
 const g = globalThis as unknown as Record<string, unknown>;
-let raf: ((ms: number) => void) | null = null;
+const raf = new Map<number, (ms: number) => void>();
+let nextRafId = 1;
 let nowMs = 1000;
 Object.defineProperty(performance, "now", { value: () => nowMs, configurable: true }); // frames and the game share one clock
-g.requestAnimationFrame = (cb: (ms: number) => void) => { raf = cb; return 1; };
-g.cancelAnimationFrame = () => { raf = null; };
+g.requestAnimationFrame = (cb: (ms: number) => void) => { const id = nextRafId++; raf.set(id, cb); return id; };
+g.cancelAnimationFrame = (id: number) => { raf.delete(id); };
 g.document = { title: "", hidden: false, fonts: { add() {}, size: 0, ready: Promise.resolve() },
   querySelector: () => fakeCanvas(), createElement: () => fakeCanvas(), addEventListener: listen, removeEventListener() {} };
 g.Image = class { onload: (() => void) | null = null; onerror: (() => void) | null = null; width = 329; height = 337; naturalWidth = 329; naturalHeight = 337; complete = true; set src(_value: string) { queueMicrotask(() => this.onload?.()); } };
@@ -112,12 +113,13 @@ process.on("unhandledRejection", e => errors.push(e));
 function run(seconds: number) { // frames at 60 fps, the way a browser runs them
   for (let i = 0; i < Math.round(seconds * 60); i++) {
     nowMs += 1000 / 60;
-    const frame = raf;
-    raf = null;
-    if (!frame) return;
-    calls = [];
-    frame(nowMs);
-    frames.push(calls);
+    // Like the browser, retain every scheduled callback and defer new requests to the next frame.
+    for (const [id, frame] of [...raf]) {
+      if (!raf.delete(id)) continue;
+      calls = [];
+      frame(nowMs);
+      frames.push(calls);
+    }
   }
 }
 let nextId = 1;
@@ -161,7 +163,7 @@ function firstMove(x: number, y: number) {
 }
 
 // One test: it is one walk through the game in one process.
-test("portrait Sports golf restores, twists, selects clubs, survives pauses and completes a rematch", async () => {
+test("portrait Sports golf restores, selects all clubs, survives pauses and completes a three-hole round and rematch", async t => {
   // The real platform's load() remains its startup snapshot after save(). Reproduce that
   // contract so menu visits and canceled selectors cannot accidentally resurrect old progress.
   await import("../src/platform-stub");
@@ -173,13 +175,17 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
   type Run = { version: number; playerId: string; game: GolfState };
   const savedRuns: Run[] = [];
   let latestRun = structuredClone(restoredRun);
+  let finishRestore: () => void = () => assert.fail("restore promise not initialized");
+  const ready = new Promise<{ restored: boolean }>(resolve => {
+    finishRestore = () => resolve({ restored: true });
+  });
   let menuAction: (id: string) => void = () => assert.fail("game did not register menu actions");
   const platform = g.BoardPlatform as {
     state: { progress: { get: (key: string) => unknown } };
     menu: Record<string, unknown>;
   };
   stub(platform.state, {
-    ready: async () => ({ restored: true, reason: "restored" }),
+    ready: () => ready,
     load: () => structuredClone(restoredRun),
     save: (value: Run) => { latestRun = structuredClone(value); savedRuns.push(latestRun); },
   });
@@ -187,14 +193,42 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
     onButton: (handler: (id: string) => void) => { menuAction = handler; return () => {}; },
   });
   await import("../src/main");
-  for (let i = 0; i < 20 && !raf; i++) await new Promise(resolve => setTimeout(resolve, 10)); // ready(), fonts, footprints
-  assert.ok(raf, "nothing asked for a frame, so the game never started");
+  await t.test("boot completed while paused waits for resume before scheduling a frame", async () => {
+    for (const pause of pauses) pause();
+    finishRestore();
+    // All mocked asset loads complete in microtasks; drain them before checking paused boot.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(raf.size, 0, "finishing boot under the menu must not schedule rendering");
+    for (const resume of resumes) resume();
+    assert.equal(raf.size, 1, "resume starts the completed boot exactly once");
+  });
+  assert.equal(raf.size, 1, "boot schedules exactly one frame");
 
   run(2.5);
   const title = frames[frames.length - 1];
   assert.ok(title.some(c => c.name === "fillText" || c.name === "drawImage"), "the title frame draws no text or image");
   assert.ok(title.length > 5, `the title frame made only ${title.length} drawing calls: a blank screen`);
   assert.deepEqual(errors, [], "the title threw");
+
+  await t.test("pause and resume before the pending frame runs keep one rendering loop", () => {
+    for (let cycle = 0; cycle < 3; cycle++) {
+      for (const pause of pauses) pause();
+      for (const resume of resumes) resume();
+      assert.equal(raf.size, 1, "resume must replace the pending frame, not add another loop");
+      const before = frames.length;
+      run(0.1);
+      assert.equal(frames.length - before, 6, "each display frame draws the game once");
+      assert.equal(raf.size, 1, "one loop remains scheduled");
+    }
+    for (const pause of pauses) pause();
+    assert.equal(raf.size, 0, "pause cancels the pending frame");
+    const pausedFrames = frames.length;
+    run(1);
+    assert.equal(frames.length, pausedFrames, "the menu cannot advance rendering");
+    for (const resume of resumes) resume();
+    for (const resume of resumes) resume();
+    assert.equal(raf.size, 1, "duplicate resume notifications do not add a loop");
+  });
 
   for (const pause of pauses) pause();
   run(0.3);
@@ -229,6 +263,12 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
   const turningFootball = {...football, x: football.x - 40, y: football.y + 5, orientation: football.orientation + 60, phase: BoardContactPhase.Moved};
   onBatch!([turningFootball]); run(0.6);
   assert.match(gameLabel, /backswing/, 'the camera check includes an actual armed physical turn');
+  await t.test("duplicate resume while active retains the armed swing", () => {
+    for (const resume of resumes) resume();
+    run(0.1);
+    assert.match(gameLabel, /backswing/, "a redundant resume cannot discard a live swing");
+    assert.equal(raf.size, 1);
+  });
   onBatch!([{...turningFootball, phase: BoardContactPhase.Ended}]); run(0.5);
   assert.equal(frames.slice(cameraCheckStart).flat().filter(c => c.name === 'clearRect' && c.args[2] === 1080 && c.args[3] === 1920).length,
     0, 'placement, a turning piece with translation, and lifting never reproject the course camera');
@@ -251,11 +291,11 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
   onBatch!([piece(535, 540, BoardContactPhase.Began, id)]);
   run(0.6);
   assert.match(gameLabel, /play.*0 strokes.*ready.*7 IRON.*Sports player present.*ready/, "a roster player and a settled Sports piece enter the hole");
-  tap(414, 1805); // Select 9 iron, then return to the 150-yard 7 iron.
+  tap(204, 1805); // Select 9 iron, then return to the 150-yard 7 iron.
   assert.match(gameLabel, /9 IRON/, "club buttons select a club independently of the current lie");
-  tap(162, 1805);
+  tap(876, 1655);
   assert.match(gameLabel, /7 IRON/);
-  tap(936, 1595); // Aim two degrees right so the first stroke leaves a playable putt.
+  tap(936, 1425); // Aim two degrees right so the first stroke leaves a playable putt.
   run(0.5);
   let checkedImpactPause=false;
   const turn = (angle: number, seconds = 0.05) => {
@@ -269,6 +309,10 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
       const atPause = latestRun.game.ball.z;
       run(1);
       assert.equal(latestRun.game.ball.z, atPause, 'a native menu freezes a committed ball');
+      for(const resume of resumes)resume();
+      run(1 / 60);
+      for(const pause of pauses)pause();
+      assert.equal(latestRun.game.ball.z, atPause, 'the first resumed frame excludes paused wall time');
       for(const resume of resumes)resume();
       run(0.05);
       for(const pause of pauses)pause();
@@ -314,10 +358,62 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
   assert.match(gameLabel, /over.*2 strokes.*holed/, "the physical gesture can finish the hole");
   run(5);
   assert.match(gameLabel, /over.*2 strokes.*holed/, "the result waits for a shared choice");
-  tap(540, 1100);
+  // The result waits, then advances explicitly while preserving the seated piece and scorecard.
+  tap(540, 1340);
   run(0.5);
-  assert.match(gameLabel, /play.*0 strokes.*ready.*Sports player present/, "rematch resets the hole with the piece left down");
-  assert.equal(platform.state.progress.get("bestStrokes:p1"), 2, "the completed round records this golfer's personal best");
+  assert.match(gameLabel, /play.*Hole 2 of 3, par 4.*0 strokes.*ready.*DRIVER.*Sports player present/);
+  assert.deepEqual(latestRun.game.completedStrokes, [2]);
+  assert.equal(platform.state.progress.get("bestRoundStrokes:p1"), undefined, "one hole cannot count as a complete round best");
+
+  const chooseClub = (club: typeof CLUBS[number]['id']) => {
+    const index = CLUBS.findIndex(option => option.id === club);
+    tap(48 + (index % 3) * 336 + 156, 1590 + Math.floor(index / 3) * 150 + 65);
+    assert.ok(gameLabel.includes(club), `club selection should choose ${club}`);
+  };
+  chooseClub('5 IRON');
+  chooseClub('DRIVER');
+  for (let holeIndex = 1; holeIndex < 3; holeIndex++) {
+    assert.equal(latestRun.game.holeIndex, holeIndex);
+    // Deliberately play the new driver from each tee through the actual contact path.
+    chooseClub('DRIVER'); swing(TURN_SWING.fullBackswingDeg); run(18);
+    assert.equal(latestRun.game.strokes, 1, 'the driver clears the water and counts one stroke');
+    assert.equal(latestRun.game.penalty, false);
+    assert.equal(latestRun.game.phase, 'ready');
+    let shots = 1;
+    while (latestRun.game.phase === 'ready' && shots < 10) {
+      // Search legal clean shots in the rule model, then execute the same chosen gesture in main.
+      const source = latestRun.game;
+      let bestShot: { club: typeof CLUBS[number]['id']; power: number; distance: number } | null = null;
+      const clubs = terrainAt(source.ball.x, source.ball.z, holeFor(source)) === 'green'
+        ? CLUBS.filter(c => c.id === 'PUTTER') : CLUBS.filter(c => c.id !== 'PUTTER');
+      for (const club of clubs) for (let percent = 8; percent <= 100; percent++) {
+        const trial = structuredClone(source);
+        strike(trial, {power: percent / 100, angle: 0}, club.id);
+        for (let frame = 0; frame < 40 && (trial.phase === 'flight' || trial.phase === 'rolling'); frame++) stepGame(trial, 1);
+        const distance = trial.penalty ? Infinity : trial.phase === 'holed' ? -1 : distanceToCup(trial);
+        if (!bestShot || distance < bestShot.distance) bestShot = {club: club.id, power: percent / 100, distance};
+      }
+      assert.ok(bestShot && Number.isFinite(bestShot.distance), 'each lie has a playable next stroke');
+      chooseClub(bestShot.club);
+      const turnDegrees = TURN_SWING.backswingDeg - 8 + bestShot.power * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + 8);
+      swing(turnDegrees); run(18); shots++;
+    }
+    assert.equal(latestRun.game.phase, 'holed', `hole ${holeIndex + 1} can be finished with the real swing`);
+    assert.match(gameLabel, /^over/);
+    const finishedScore = latestRun.game.strokes;
+    run(3);
+    assert.equal(latestRun.game.holeIndex, holeIndex, 'results never auto-advance');
+    if (holeIndex === 1) {
+      tap(540, 1340); run(0.5);
+      assert.deepEqual(latestRun.game.completedStrokes, [2, finishedScore]);
+      assert.match(gameLabel, /Hole 3 of 3, par 5/);
+    }
+  }
+  const total = roundStrokes(latestRun.game);
+  assert.equal(platform.state.progress.get("bestRoundStrokes:p1"), total, "the complete three-hole round records its total");
+  tap(540, 1340); run(0.5);
+  assert.match(gameLabel, /play.*Hole 1 of 3.*0 strokes.*ready.*Sports player present/, "rematch resets the round with the piece left down");
+  assert.deepEqual(latestRun.game.completedStrokes, []);
 
   menuAction("setup"); run(0.1);
   assert.match(gameLabel, /^setup/);

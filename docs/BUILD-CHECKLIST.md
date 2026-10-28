@@ -107,3 +107,31 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 
 - [x] Remove temporary native diagnostics and refresh the README evidence.
 - [x] Final verification: 178 tests pass, 3 catalog-only skips; production package builds.
+
+## Correctness review — October 27, 2026
+
+- [x] Review input, lifecycle, physics, save validation, rendering, and UI; run existing tests and the production build.
+- [x] Reproduce three defects with isolated automated probes and record them in the acceptance ledger.
+- [x] Make slow return swings work across input sample rates; add regression coverage.
+- [x] Make landing and scoring consistent across uneven frame durations; add regression coverage.
+- [x] Keep one rendering loop through pause/resume before a pending frame executes; add regression coverage.
+
+
+## Three holes and six clubs — October 27, 2026
+
+- [x] Record the requested par 4, par 5, hazards, driver, and 5 iron in the plan.
+- [x] Give the driver a larger rounded head and longer shaft; keep all club attachments outside each Sports footprint.
+- [x] Verify driver and 5-iron geometry and disappearance on lift across all eight Sports pieces (7 focused tests pass).
+- [x] Update help for the longer clubs, three-hole round, and water penalty.
+- [x] Verify all three holes, playable routes, water carries, penalties, sand, and recommended club distances.
+- [x] Verify Next hole, accumulated scoring, final scorecard, rematch, and the ten-stroke limit on each hole.
+- [x] Verify old saves on hole 1 and new saves on holes 2 and 3.
+- [x] Run the complete test suite and pack the final three-hole build.
+- [x] Browser: inspect all six club controls, all three courses, hazards, hole transitions, and final results.
+- [ ] Board: play the new courses and check the larger driver attachment on the glass.
+- [ ] Human: confirm useful club distances, readable hazards, and comfortable three-hole pacing.
+
+- [x] Actual-font layout checks cover six club buttons, both new hole names, scorecards, round totals, help, and hazard cues.
+- [x] Keep the default piece and observed football turn playable while reserving clearance for the expanded controls.
+
+- [x] Native: install and launch the three-hole package on KT's Board; confirm current bundle and all six club controls.

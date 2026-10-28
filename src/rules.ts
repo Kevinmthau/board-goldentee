@@ -1,15 +1,19 @@
 /** Golf uses yards for x/z and height. Input uses the Board's unscaled screen pixels. */
 export type Phase = "ready" | "flight" | "rolling" | "holed" | "limit";
-export type Terrain = "fairway" | "rough" | "bunker" | "green" | "out";
-export type Club = "7 IRON" | "9 IRON" | "WEDGE" | "PUTTER";
+export type Terrain = "fairway" | "rough" | "bunker" | "green" | "water" | "out";
+export type Club = "DRIVER" | "5 IRON" | "7 IRON" | "9 IRON" | "WEDGE" | "PUTTER";
 /** Approximate full-shot total distance from a clean lie (putter distance is on the green). */
 export const CLUBS: readonly { id: Club; label: string; distanceYards: number }[] = [
+  { id: "DRIVER", label: "DRIVER", distanceYards: 250 },
+  { id: "5 IRON", label: "5 IRON", distanceYards: 185 },
   { id: "7 IRON", label: "7 IRON", distanceYards: 150 },
   { id: "9 IRON", label: "9 IRON", distanceYards: 125 },
   { id: "WEDGE", label: "WEDGE", distanceYards: 60 },
   { id: "PUTTER", label: "PUTTER", distanceYards: 37 },
 ];
 const CLUB_LAUNCH: Record<Club, { speedMin: number; speedGain: number; liftMin: number; liftGain: number }> = {
+  "DRIVER": { speedMin: 8, speedGain: 47, liftMin: 5, liftGain: 30 },
+  "5 IRON": { speedMin: 7, speedGain: 38, liftMin: 5, liftGain: 27 },
   "7 IRON": { speedMin: 6, speedGain: 33, liftMin: 5, liftGain: 24 },
   "9 IRON": { speedMin: 5, speedGain: 30, liftMin: 5, liftGain: 23 },
   "WEDGE": { speedMin: 4, speedGain: 17, liftMin: 6, liftGain: 17 },
@@ -18,25 +22,100 @@ const CLUB_LAUNCH: Record<Club, { speedMin: number; speedGain: number; liftMin: 
 export interface Shot { power: number; angle: number }
 export interface Ball { x: number; z: number; y: number; vx: number; vz: number; vy: number }
 export interface GolfState {
+  holeIndex: number;
+  /** One entry per completed hole, excluding the current hole. */
+  completedStrokes: number[];
   ball: Ball;
   strokes: number;
   phase: Phase;
   lastSafe: { x: number; z: number };
   penalty: boolean;
+  penaltyKind: "water" | "out" | null;
   shotPower: number;
   shotAngle: number;
+  /** Unsimulated active time, retained across frames and saves. */
+  stepRemainder: number;
 }
 
-export const HOLE = {
-  par: 3,
-  maxStrokes: 10,
-  tee: { x: 0, z: 0 },
-  flag: { x: 0, z: 150 },
-  green: { x: 0, z: 150, rx: 24, rz: 20 },
-  bunker: { x: -20, z: 123, rx: 10, rz: 12 },
-  bounds: { left: -58, right: 58, near: -12, far: 190 },
-  cupRadius: 0.85,
-} as const;
+export const PHYSICS_STEP_SECONDS = 1 / 120;
+const PHYSICS_TIME_EPSILON = 1e-12;
+
+export interface Ellipse { x: number; z: number; rx: number; rz: number }
+export interface Hole {
+  id: string;
+  name: string;
+  par: number;
+  maxStrokes: number;
+  tee: { x: number; z: number };
+  flag: { x: number; z: number };
+  green: Ellipse;
+  /** First bunker remains available for the original single-hole callers. */
+  bunker: Ellipse;
+  bunkers: readonly Ellipse[];
+  water: readonly Ellipse[];
+  bounds: { left: number; right: number; near: number; far: number };
+  cupRadius: number;
+  fairway: readonly { x: number; z: number; width: number }[];
+}
+
+const seabreezeBunker = { x: -20, z: 123, rx: 10, rz: 12 };
+const lagoonBunkers = [
+  { x: -21, z: 235, rx: 10, rz: 16 },
+  { x: -22, z: 318, rx: 11, rz: 12 },
+  { x: 24, z: 336, rx: 9, rz: 13 },
+];
+const pelicanBunkers = [
+  { x: -24, z: 254, rx: 10, rz: 17 },
+  { x: -23, z: 476, rx: 12, rz: 14 },
+  { x: 24, z: 511, rx: 10, rz: 16 },
+];
+export const HOLES: readonly Hole[] = [
+  {
+    id: "seabreeze", name: "Seabreeze", par: 3, maxStrokes: 10,
+    tee: { x: 0, z: 0 }, flag: { x: 0, z: 150 },
+    green: { x: 0, z: 150, rx: 24, rz: 20 },
+    bunker: seabreezeBunker, bunkers: [seabreezeBunker], water: [],
+    bounds: { left: -58, right: 58, near: -12, far: 190 }, cupRadius: 0.85,
+    fairway: [{ x: 0, z: 0, width: 19 }, { x: 5, z: 70, width: 24 }, { x: -1, z: 150, width: 19 }],
+  },
+  {
+    id: "lagoon-bend", name: "Lagoon Bend", par: 4, maxStrokes: 10,
+    tee: { x: 0, z: 0 }, flag: { x: 0, z: 340 },
+    green: { x: 0, z: 340, rx: 22, rz: 21 },
+    bunker: lagoonBunkers[0], bunkers: lagoonBunkers,
+    water: [{ x: -25, z: 148, rx: 23, rz: 37 }, { x: 35, z: 280, rx: 19, rz: 30 }],
+    bounds: { left: -72, right: 72, near: -12, far: 385 }, cupRadius: 0.85,
+    fairway: [{ x: 0, z: 0, width: 24 }, { x: 12, z: 135, width: 27 },
+      { x: 7, z: 245, width: 29 }, { x: -5, z: 300, width: 25 }, { x: 0, z: 340, width: 22 }],
+  },
+  {
+    id: "pelican-reach", name: "Pelican Reach", par: 5, maxStrokes: 10,
+    tee: { x: 0, z: 0 }, flag: { x: 0, z: 510 },
+    green: { x: 0, z: 510, rx: 23, rz: 22 },
+    bunker: pelicanBunkers[0], bunkers: pelicanBunkers,
+    water: [{ x: 0, z: 170, rx: 29, rz: 27 }, { x: 34, z: 385, rx: 23, rz: 42 }],
+    bounds: { left: -78, right: 78, near: -12, far: 555 }, cupRadius: 0.85,
+    fairway: [{ x: 0, z: 0, width: 25 }, { x: -9, z: 110, width: 29 },
+      { x: -24, z: 175, width: 30 }, { x: 0, z: 250, width: 30 },
+      { x: -8, z: 370, width: 29 }, { x: -3, z: 450, width: 26 }, { x: 0, z: 510, width: 23 }],
+  },
+];
+/** Compatibility alias: old single-hole saves and callers start on Seabreeze. */
+export const HOLE = HOLES[0];
+export function holeFor(game: GolfState): Hole { return HOLES[game.holeIndex] ?? HOLE; }
+export function isFinalHole(game: GolfState): boolean { return game.holeIndex === HOLES.length - 1; }
+export function roundStrokes(game: GolfState): number {
+  return game.completedStrokes.reduce((sum, strokes) => sum + strokes, game.strokes);
+}
+export function roundPar(game: GolfState): number {
+  return HOLES.slice(0, game.holeIndex + 1).reduce((sum, hole) => sum + hole.par, 0);
+}
+/** The result screen waits for an explicit choice before calling this function. */
+export function advanceHole(game: GolfState): boolean {
+  if ((game.phase !== "holed" && game.phase !== "limit") || isFinalHole(game)) return false;
+  Object.assign(game, createGame(game.holeIndex + 1, [...game.completedStrokes, game.strokes]));
+  return true;
+}
 
 export const SWING = {
   settleMs: 300,
@@ -54,41 +133,64 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 const ellipseContains = (x: number, z: number, e: { x: number; z: number; rx: number; rz: number }) =>
   ((x - e.x) / e.rx) ** 2 + ((z - e.z) / e.rz) ** 2 <= 1;
 
-export function createGame(): GolfState {
+export function createGame(holeIndex = 0, completedStrokes: readonly number[] = []): GolfState {
+  const hole = HOLES[holeIndex];
+  if (!hole) throw new RangeError("Unknown golf hole");
   return {
-    ball: { x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0 },
-    strokes: 0, phase: "ready", lastSafe: { ...HOLE.tee }, penalty: false, shotPower: 0, shotAngle: 0,
+    holeIndex, completedStrokes: [...completedStrokes],
+    ball: { ...hole.tee, y: 0, vx: 0, vz: 0, vy: 0 },
+    strokes: 0, phase: "ready", lastSafe: { ...hole.tee }, penalty: false, penaltyKind: null,
+    shotPower: 0, shotAngle: 0, stepRemainder: 0,
   };
 }
 
-export function terrainAt(x: number, z: number): Terrain {
-  const b = HOLE.bounds;
+/** Fairway geometry is shared by collision and the course renderer. Width is the half-width. */
+export function fairwayAt(z: number, hole: Hole = HOLE): { x: number; width: number } {
+  if (hole.id === "seabreeze") {
+    return { x: Math.sin(z / 45) * 5, width: 19 + Math.sin(clamp(z / 150, 0, 1) * Math.PI) * 5 };
+  }
+  const nodes = hole.fairway;
+  if (z <= nodes[0].z) return { x: nodes[0].x, width: nodes[0].width };
+  for (let i = 1; i < nodes.length; i++) {
+    if (z <= nodes[i].z) {
+      const a = nodes[i - 1], b = nodes[i], t = (z - a.z) / (b.z - a.z);
+      return { x: a.x + (b.x - a.x) * t, width: a.width + (b.width - a.width) * t };
+    }
+  }
+  const end = nodes[nodes.length - 1];
+  return { x: end.x, width: end.width };
+}
+
+export function terrainAt(x: number, z: number, hole: Hole = HOLE): Terrain {
+  const b = hole.bounds;
   if (x < b.left || x > b.right || z < b.near || z > b.far) return "out";
-  if (ellipseContains(x, z, HOLE.green)) return "green";
-  if (ellipseContains(x, z, HOLE.bunker)) return "bunker";
-  const center = Math.sin(z / 45) * 5;
-  return Math.abs(x - center) <= 19 + Math.sin(clamp(z / 150, 0, 1) * Math.PI) * 5
-    ? "fairway" : "rough";
+  if (hole.water.some(e => ellipseContains(x, z, e))) return "water";
+  if (hole.bunkers.some(e => ellipseContains(x, z, e))) return "bunker";
+  if (ellipseContains(x, z, hole.green)) return "green";
+  const fairway = fairwayAt(z, hole);
+  return Math.abs(x - fairway.x) <= fairway.width ? "fairway" : "rough";
 }
 
 export function distanceToCup(game: GolfState): number {
-  return Math.hypot(HOLE.flag.x - game.ball.x, HOLE.flag.z - game.ball.z);
+  const hole = holeFor(game);
+  return Math.hypot(hole.flag.x - game.ball.x, hole.flag.z - game.ball.z);
 }
 
 export function clubFor(game: GolfState): Club {
-  if (terrainAt(game.ball.x, game.ball.z) === "green") return "PUTTER";
+  if (terrainAt(game.ball.x, game.ball.z, holeFor(game)) === "green") return "PUTTER";
   const distance = distanceToCup(game);
-  return distance <= 55 ? "WEDGE" : distance <= 125 ? "9 IRON" : "7 IRON";
+  return distance <= 55 ? "WEDGE" : distance <= 125 ? "9 IRON" : distance <= 155 ? "7 IRON" : distance <= 195 ? "5 IRON" : "DRIVER";
 }
 
 /** The selected club wins over the recommendation. Angle is relative to the cup: positive goes right. */
 export function strike(game: GolfState, shot: Shot, club: Club = clubFor(game)): boolean {
-  if (game.phase !== "ready" || game.strokes >= HOLE.maxStrokes ||
+  const hole = holeFor(game);
+  if (game.phase !== "ready" || game.strokes >= hole.maxStrokes ||
       !Number.isFinite(shot.power) || !Number.isFinite(shot.angle) ||
       !CLUBS.some(option => option.id === club)) return false;
   const power = clamp(shot.power, 0, 1);
-  const direction = Math.atan2(HOLE.flag.x - game.ball.x, HOLE.flag.z - game.ball.z) + shot.angle;
-  const terrain = terrainAt(game.ball.x, game.ball.z);
+  const direction = Math.atan2(hole.flag.x - game.ball.x, hole.flag.z - game.ball.z) + shot.angle;
+  const terrain = terrainAt(game.ball.x, game.ball.z, holeFor(game));
   const lie = terrain === "bunker" ? 0.58 : terrain === "rough" ? 0.76 : 1;
   const launch = CLUB_LAUNCH[club];
   const speed = (launch.speedMin + launch.speedGain * power) * (club === "PUTTER" ? 1 : lie);
@@ -100,8 +202,10 @@ export function strike(game: GolfState, shot: Shot, club: Club = clubFor(game)):
   game.strokes += 1;
   game.phase = club === "PUTTER" ? "rolling" : "flight";
   game.penalty = false;
+  game.penaltyKind = null;
   game.shotPower = power;
   game.shotAngle = shot.angle;
+  game.stepRemainder = 0;
   return true;
 }
 
@@ -109,35 +213,39 @@ function stopBall(game: GolfState): void {
   game.ball.vx = game.ball.vz = game.ball.vy = game.ball.y = 0;
 }
 
-function recoverOut(game: GolfState): void {
-  game.strokes = Math.min(HOLE.maxStrokes, game.strokes + 1);
+function recoverHazard(game: GolfState, kind: "out" | "water"): void {
+  const hole = holeFor(game);
+  game.strokes = Math.min(hole.maxStrokes, game.strokes + 1);
   game.ball.x = game.lastSafe.x;
   game.ball.z = game.lastSafe.z;
   stopBall(game);
   game.penalty = true;
-  game.phase = game.strokes >= HOLE.maxStrokes ? "limit" : "ready";
+  game.penaltyKind = kind;
+  game.phase = game.strokes >= holeFor(game).maxStrokes ? "limit" : "ready";
 }
 
 function settleBall(game: GolfState): void {
   stopBall(game);
   game.lastSafe = { x: game.ball.x, z: game.ball.z };
-  game.phase = game.strokes >= HOLE.maxStrokes ? "limit" : "ready";
+  game.phase = game.strokes >= holeFor(game).maxStrokes ? "limit" : "ready";
 }
 
-function crossesCup(ax: number, az: number, bx: number, bz: number): boolean {
+function crossesCup(ax: number, az: number, bx: number, bz: number, hole: Hole): boolean {
   const dx = bx - ax, dz = bz - az;
   const length2 = dx * dx + dz * dz;
-  const t = length2 ? clamp(((HOLE.flag.x - ax) * dx + (HOLE.flag.z - az) * dz) / length2, 0, 1) : 0;
-  return Math.hypot(ax + dx * t - HOLE.flag.x, az + dz * t - HOLE.flag.z) <= HOLE.cupRadius;
+  const t = length2 ? clamp(((hole.flag.x - ax) * dx + (hole.flag.z - az) * dz) / length2, 0, 1) : 0;
+  return Math.hypot(ax + dx * t - hole.flag.x, az + dz * t - hole.flag.z) <= hole.cupRadius;
 }
 
-/** Substeps prevent a fast ball tunnelling across the cup and keep frame rates equivalent. */
+/** Fixed steps make landing, terrain changes and cup capture independent of render timing. */
 export function stepGame(game: GolfState, dtSeconds: number): void {
   if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
-  let remaining = Math.min(dtSeconds, 1);
-  while (remaining > 1e-9 && (game.phase === "flight" || game.phase === "rolling")) {
-    const dt = Math.min(remaining, 1 / 120);
-    remaining -= dt;
+  if (game.phase !== "flight" && game.phase !== "rolling") return;
+  const hole = holeFor(game);
+  let remaining = game.stepRemainder + Math.min(dtSeconds, 1);
+  while (remaining + PHYSICS_TIME_EPSILON >= PHYSICS_STEP_SECONDS && (game.phase === "flight" || game.phase === "rolling")) {
+    const dt = PHYSICS_STEP_SECONDS;
+    remaining = Math.max(0, remaining - dt);
     const ball = game.ball;
     const oldX = ball.x, oldZ = ball.z;
     if (game.phase === "flight") {
@@ -147,14 +255,15 @@ export function stepGame(game: GolfState, dtSeconds: number): void {
       ball.vy -= 18 * dt;
       if (ball.y <= 0 && ball.vy < 0) {
         ball.y = ball.vy = 0;
-        const landing = terrainAt(ball.x, ball.z);
+        const landing = terrainAt(ball.x, ball.z, hole);
         const retention = landing === "bunker" ? 0.1 : landing === "rough" ? 0.2 : 0.32;
         ball.vx *= retention;
         ball.vz *= retention;
         game.phase = "rolling";
       }
     } else {
-      const terrain = terrainAt(ball.x, ball.z);
+      const terrain = terrainAt(ball.x, ball.z, hole);
+      if (terrain === "water" || terrain === "out") { recoverHazard(game, terrain); break; }
       const friction = terrain === "green" ? 3 : terrain === "rough" ? 9 : terrain === "bunker" ? 18 : 4.2;
       const speed = Math.hypot(ball.vx, ball.vz);
       if (speed < 0.14) { settleBall(game); break; }
@@ -166,21 +275,25 @@ export function stepGame(game: GolfState, dtSeconds: number): void {
       ball.vx *= nextSpeed / speed;
       ball.vz *= nextSpeed / speed;
     }
-    if (terrainAt(ball.x, ball.z) === "out") { recoverOut(game); break; }
+    const surface = terrainAt(ball.x, ball.z, hole);
+    if (surface === "out" || (surface === "water" && ball.y <= 0)) { recoverHazard(game, surface); break; }
     if (game.phase === "rolling" && Math.hypot(ball.vx, ball.vz) <= 6 &&
-        crossesCup(oldX, oldZ, ball.x, ball.z)) {
-      ball.x = HOLE.flag.x;
-      ball.z = HOLE.flag.z;
+        crossesCup(oldX, oldZ, ball.x, ball.z, hole)) {
+      ball.x = hole.flag.x;
+      ball.z = hole.flag.z;
       stopBall(game);
       game.phase = "holed";
       break;
     }
   }
+  // A completed shot must not donate its unused frame time to the next stroke.
+  game.stepRemainder = (game.phase === "flight" || game.phase === "rolling") && remaining > PHYSICS_TIME_EPSILON ? remaining : 0;
 }
 
-export function scoreLabel(strokes: number): string {
+export function scoreLabel(strokes: number, par = HOLE.par): string {
   if (strokes === 1) return "Hole in one";
-  const over = strokes - HOLE.par;
+  const over = strokes - par;
+  if (over <= -3) return "Albatross";
   if (over <= -2) return "Eagle";
   if (over === -1) return "Birdie";
   if (over === 0) return "Par";

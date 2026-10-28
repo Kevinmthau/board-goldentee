@@ -8,6 +8,18 @@ function finish(game: GolfState, dt = 1 / 60) {
   assert.ok(game.phase !== "flight" && game.phase !== "rolling", "every shot eventually resolves");
 }
 
+const FRAME_PATTERNS = [
+  [1 / 59], [1 / 60], [1 / 61], [1 / 90], [1 / 144],
+  [1 / 60 - 0.001, 1 / 60 + 0.001],
+];
+
+function finishWithFrames(game: GolfState, frames: readonly number[]) {
+  for (let i = 0; i < 3000 && (game.phase === "flight" || game.phase === "rolling"); i++) {
+    stepGame(game, frames[i % frames.length]);
+  }
+  assert.ok(game.phase !== "flight" && game.phase !== "rolling", "every shot eventually resolves");
+}
+
 function settledSwing() {
   const swing = createSwing();
   for (const time of [0, 100, 200, 300]) sampleSwing(swing, { x: 960, y: 800, time });
@@ -47,7 +59,8 @@ test("a full 7 iron reaches the 150-yard par 3 with capped power", () => {
 
 test("selectable irons and wedge have distinct full-shot distances", () => {
   for (const club of CLUBS.filter(option => option.id !== "PUTTER")) {
-    const game = createGame();
+    // The longer clubs need the par-4 landing area to measure a clean full shot.
+    const game = club.id === "DRIVER" || club.id === "5 IRON" ? createGame(1, [3]) : createGame();
     assert.equal(strike(game, { power: 1, angle: 0.015 }, club.id), true);
     finish(game);
     assert.ok(Math.abs(Math.hypot(game.ball.x, game.ball.z) - club.distanceYards) < 2,
@@ -142,6 +155,65 @@ test("simulation agrees across common frame rates", () => {
   finish(a, 1 / 30); finish(b, 1 / 120);
   assert.ok(Math.hypot(a.ball.x - b.ball.x, a.ball.z - b.ball.z) < 0.01);
   assert.equal(a.strokes, b.strokes);
+});
+
+test("near-cup iron shots have the same score and lie with uneven frame timing", () => {
+  for (const power of [0.997, 0.9977, 1]) {
+    const expected = createGame();
+    strike(expected, { power, angle: 0 }, "7 IRON");
+    finish(expected);
+    for (const frames of FRAME_PATTERNS) {
+      const game = createGame();
+      strike(game, { power, angle: 0 }, "7 IRON");
+      finishWithFrames(game, frames);
+      assert.deepEqual(game, expected, `power ${power}, frame durations ${frames}`);
+    }
+  }
+});
+
+test("terrain, penalties and putting resolve identically across frame timing", () => {
+  const cases = [
+    { name: "sand landing", x: 0, z: 0, club: "7 IRON", power: 0.97, angle: Math.atan2(-20, 123), terrain: "bunker", phase: "ready", strokes: 1 },
+    { name: "rough landing", x: 0, z: 0, club: "7 IRON", power: 0.8, angle: 0.35, terrain: "rough", phase: "ready", strokes: 1 },
+    { name: "out of bounds", x: 12, z: 25, club: "7 IRON", power: 1, angle: Math.PI / 2, terrain: "fairway", phase: "ready", strokes: 2 },
+    { name: "putt into cup", x: 0, z: 140, club: "PUTTER", power: 0.49, angle: 0, terrain: "green", phase: "holed", strokes: 1 },
+    { name: "fast putt leaves green", x: 0, z: 145, club: "PUTTER", power: 1, angle: 0, terrain: "fairway", phase: "ready", strokes: 1 },
+  ] as const;
+  for (const scenario of cases) {
+    const start = () => {
+      const game = createGame();
+      game.ball.x = scenario.x; game.ball.z = scenario.z;
+      strike(game, scenario, scenario.club);
+      return game;
+    };
+    const expected = start();
+    finish(expected);
+    assert.equal(terrainAt(expected.ball.x, expected.ball.z), scenario.terrain, scenario.name);
+    assert.equal(expected.phase, scenario.phase, scenario.name);
+    assert.equal(expected.strokes, scenario.strokes, scenario.name);
+    for (const frames of FRAME_PATTERNS) {
+      const game = start();
+      finishWithFrames(game, frames);
+      assert.deepEqual(game, expected, `${scenario.name}, frame durations ${frames}`);
+    }
+  }
+});
+
+test("time after a completed shot and while resting does not advance the next stroke", () => {
+  const game = createGame();
+  strike(game, { power: 0, angle: 0 }, "PUTTER");
+  stepGame(game, 0.75);
+  assert.equal(game.phase, "ready");
+  assert.equal(game.stepRemainder, 0);
+  const expected = { ...game, ball: { ...game.ball }, lastSafe: { ...game.lastSafe } };
+  stepGame(game, 0.75);
+  assert.deepEqual(game, expected);
+  strike(game, { power: 0.5, angle: 0 }, "7 IRON");
+  strike(expected, { power: 0.5, angle: 0 }, "7 IRON");
+  stepGame(game, 0.004);
+  stepGame(game, 0.021);
+  stepGame(expected, 0.025);
+  assert.deepEqual(game, expected);
 });
 
 test("golf score labels use this hole's par", () => {

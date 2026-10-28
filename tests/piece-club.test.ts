@@ -73,3 +73,32 @@ test('no observed piece produces no club or canvas operations', () => {
   drawPieceClub(ctx, null);
   drawPieceClub(ctx, null, true);
 });
+
+
+test('driver and 5 iron keep the front attachment with distinct proportional reach', () => {
+  for (let glyph = 1; glyph <= 8; glyph++) for (const facing of [0, 90, 181, 359]) {
+    const footprint = pose(glyph, facing);
+    const iron = pieceClubGeometry(footprint, '7 IRON')!;
+    const five = pieceClubGeometry(footprint, '5 IRON')!;
+    const driver = pieceClubGeometry(footprint, 'DRIVER')!;
+    for (const club of [five, driver]) {
+      near(club.grip.x, iron.grip.x); near(club.grip.y, iron.grip.y);
+      near(distance(club.grip, club.head), club.shaftLength);
+      assert.ok(club.shaftLength > iron.shaftLength);
+    }
+    assert.ok(driver.shaftLength > five.shaftLength);
+    assert.ok(driver.headWidth > five.headWidth);
+    assert.ok(driver.headDepth > five.headDepth);
+    assert.equal(driver.kind, 'driver'); assert.equal(five.kind, 'iron');
+    assert.deepEqual(pieceClubGeometry(footprint, 'PUTTER'), pieceClubGeometry(footprint, true));
+  }
+});
+
+test('new clubs disappear with a lifted piece', () => {
+  const ctx = new Proxy({} as CanvasRenderingContext2D, {
+    get() { assert.fail('an absent piece cannot draw a driver or 5 iron'); },
+    set() { assert.fail('an absent piece cannot draw a driver or 5 iron'); },
+  });
+  drawPieceClub(ctx, null, 'DRIVER');
+  drawPieceClub(ctx, null, '5 IRON');
+});

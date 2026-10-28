@@ -1,11 +1,11 @@
 # Plan: Golden Tee
 
 Updated: October 27, 2026.
-Status: Sports-piece portrait game installed and under native playtest. Physical detection and two rotation-to-shot events are confirmed; placement and turn tolerance are being corrected from logs. Human feel and sustained performance remain open.
+Status: Three-hole build passes automated and browser checks. The three-hole package is installed and launched on KT's Board. New-hole physical play remains open.
 
 ## Summary
 
-Golden Tee is a solo coastal par-3 golf game. Take a swing, find the green, and finish in the fewest strokes.
+Golden Tee is a solo coastal golf game with three holes and a total par of 12. Finish the round in the fewest strokes.
 Use the Board Studio TypeScript, Vite, and Canvas 2D starter with the vendored SDK.
 The physical Sports player replaces the Bloogs ring and digital golfer. Its visible club is attached to the center front of the real piece and exists only while that piece is detected.
 
@@ -17,19 +17,24 @@ The physical Sports player replaces the Bloogs ring and digital golfer. Its visi
 4. Reverse the twist and return the club to the ball to hit. A larger backswing gives more power. Use a small turn for a short putt.
 
 Keep hold of the piece. Placement, translation alone, and lifting do not hit the ball.
-The grip attaches just outside the center front of the footprint; the shaft extends in the piece's actual facing direction. Iron shafts are 1.25 piece widths long; the putter is 1.1 widths. The address camera, terrain, and digital ball stay fixed when the piece is placed, translated, or turned. Only the attached club follows the piece. The camera may follow the ball after a committed shot.
+The grip attaches just outside the center front of the footprint; the shaft extends in the piece's actual facing direction. The driver shaft is 1.45 piece widths long; the 5 iron is 1.32 widths. Other iron shafts are 1.25 widths; the putter is 1.1 widths. The address camera, terrain, and digital ball stay fixed when the piece is placed, translated, or turned. Only the attached club follows the piece. The camera may follow the ball after a committed shot.
 
 ## Scope and rules
 
-- One original 150-yard par-3 hole, with tee, fairway, rough, sand, green, ball flight, rolling, and putting.
-- Club buttons offer 7 iron, 9 iron, wedge, and putter. The default tee club is the 7 iron.
+- A three-hole round: the original 150-yard par 3, a 340-yard par 4, and a 510-yard par 5. Total par is 12.
+- The new holes include water hazards and multiple bunkers. Fairways provide room to lay up or carry the water.
+- Club buttons offer driver, 5 iron, 7 iron, 9 iron, wedge, and putter. Recommendations follow the current lie and distance.
+- Approximate full-shot distances are 250, 185, 150, 125, and 60 yards; a full putter rolls 111 feet on the green.
 - A full 7 iron reaches the green from the tee. Terrain can reduce distance.
 - Club choices apply explicitly to the next shot. Recommend a club at each new lie.
 - Fixed left and right aim controls adjust direction separately from swing power.
-- Each deliberate shot adds one stroke. Out of bounds adds a penalty and returns to the last safe lie.
-- The cup captures a slowly rolling ball. A ten-stroke limit ends the prototype.
-- The result waits for one shared Rematch or Change setup choice.
-- Rematch retains the roster and detected piece, but resets the hole and unfinished gesture.
+- Each deliberate shot adds one stroke. Out of bounds or grounded water contact adds one penalty and returns to the last safe lie.
+- Airborne balls can carry water. Sand reduces flight distance from the lie and absorbs the landing and roll.
+- The cup captures a slowly rolling ball. Each hole has a ten-stroke limit.
+- Each completed hole waits for an explicit Next hole choice. The last result shows all three scores and the round total.
+- The final result waits for one shared Rematch or Change setup choice.
+- Rematch retains the roster and detected piece, but resets the full round and unfinished gesture.
+- Saves retain the current hole, preceding scores, and live ball state. Earlier one-hole saves resume on hole 1.
 - Change setup releases the piece binding and requires confirmation before replay.
 
 ## Input and ownership
@@ -39,7 +44,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Keep native contacts and the canvas at 1920 × 1080. Rotate the logical 1080 × 1920 scene onto that surface.
 - Convert positions and facing into the portrait view with a rigid quarter turn, never a native-coordinate scale.
 - Wait for BoardPlatform.state.ready(). Read and refresh the solo roster through src/seats.ts.
-- An eligible Sports piece on the open course binds to the signed-in solo player. The permitted portrait area is x140–940, y400–1530; the suggested position is near (540,1385). Club choices begin at y1740.
+- An eligible Sports piece on the open course binds to the signed-in solo player. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). Club choices begin at y1590 in two rows.
 - Require a stable initial address, then calibrate to that angle. Do not require a hidden compass direction. Small orientation noise stays inside a dead band.
 - Either twist direction can wind back toward the player. Reverse that direction and return within 10 degrees of the address to strike once. Merely beginning the reversal does not launch the ball.
 - Launch the ball and hit sound when the physical turn returns to address, with no additional animated downswing delay. Placement and rotation never reframe the course or move the resting ball.
@@ -60,7 +65,8 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 | Next lie | Choose club and swing | Distance, club recommendation, fresh address cue | Next shot |
 | Putting | Make a small backswing | Shorter attached putter and distance in feet | Cup capture |
 | Menu return | Return to the starting angle and settle | Fresh address cue, no automatic shot | New gesture |
-| Result | Rematch or Change setup | Strokes and score relative to par | Explicit choice |
+| Hole result | Next hole | Hole score and accumulated round score | Explicit choice |
+| Round result | Rematch or Change setup | Three-hole scorecard and total relative to par 12 | Explicit choice |
 
 The optional help demonstrates the same twist used in play. It also explains the club selector.
 Browser controls simulate the same Sports contacts, including orientation, and show a browser-only piece proxy.
@@ -94,7 +100,13 @@ Audio uses gameAudio(); saves use BoardPlatform.state. Keep existing appId and p
 | Broad open-grass placement | Builder | Native input showed ordinary placement and small movements crossing the previous hidden boundary |
 | Backswing sets power; return to address commits | Builder | Makes short putts controllable and places physical contact at the strike |
 | Separate aim buttons | Builder | Rotation is reserved for swing intent |
-| 7 iron, 9 iron, wedge, putter | Builder | Useful distances for one par-3 hole |
+| Add a par 4 and par 5 with hazards | Person | Current request |
+| Add driver and 5 iron | Person | Current request |
+| 340-yard par 4 and 510-yard par 5 | Builder | Longer approaches give the new clubs useful roles |
+| Water and bunkers on both new holes | Builder | Visible hazards reward club choice and aim |
+| Three-hole round, total par 12 | Builder | Retain the original hole and make both additions reachable in normal play |
+| Next hole requires a tap | Builder | Preserve deliberate progression and a readable scorecard |
+| Six clubs with distinct driver head | Builder | Fit the longer holes while retaining the existing short game |
 | Solo roster and one shared result | Person, retained | Prior agreed solo scope |
 | Approved implementation and native installation scope | Person | Change, installation, and log-watching requests authorize this revision |
 
@@ -108,6 +120,26 @@ Test club attachment and proportional size across all eight Sports footprints, n
 Inspect title, setup, help, club selection, swing, flight, next lie, putting, result, rematch, and menu return in the browser.
 Pack with the Sports model only and preserve package identity.
 
-The final attached-club, native-tolerance, and fixed-camera revision passes 178 automated checks, with three full-catalog checks skipped. Its 18-file package is installed and launched on Board, as recorded in the acceptance ledger.
+The earlier attached-club, native-tolerance, and fixed-camera revision passed 178 automated checks, with three full-catalog checks skipped. Its 18-file package is installed and launched on Board, as recorded in the acceptance ledger.
 Browser inspection confirms the attached club's size and disappearance on lift, with the course and resting ball fixed through placement and a full backswing. The absent-piece character placeholder is removed. Native logs from the fixed-camera build confirm five further hits at 91%, 48%, 17%, 100%, and 64%, followed by cup capture and rematch. None of those armed swings canceled.
 Native physical alignment, comfortable full swing/putting, sustained performance, platform behavior, and uncoached teaching remain open. Earlier ring-build evidence does not validate those Sports checks.
+
+## Prior correctness findings — October 27, 2026
+
+The requested source and automated review found three reproducible issues. The review did not change gameplay code.
+
+- A 30-degree-per-second return from a 60-degree backswing commits at 20/30 Hz but fails at 60/120 Hz. The per-event reverse-motion threshold excludes valid slow returns. Measure reverse movement over time and verify the same gesture at different sensor rates.
+- Landing timing changes shot outcomes. A straight 99.7% 7-iron shot holes at 59/61 FPS but misses at 60 FPS. Uneven frame times with the same average rate can also change the result. Resolve ground contact at the correct time or use persistent fixed simulation steps.
+- Resume can schedule another rendering loop while an earlier frame is pending. Two pause/resume cycles before pending frames execute increase callbacks per frame from one to three. Keep one scheduled frame and cancel it on pause.
+
+Reproduction details and evidence limits are in the acceptance ledger. The original suite did not cover these failures. The resolution and new regression coverage are recorded below.
+
+The expanded club controls reserve physical clearance at the bottom and beside the aim buttons. The default placement and previously observed football position remain playable. Power stays in the fixed right-side percentage.
+
+## Correctness findings resolved in the three-hole worktree
+
+The latest local fixes were preserved when this worktree was brought forward from the older tennis revision.
+Regression tests now verify slow returns across sensor rates, fixed-step ball physics, and one rendering loop through repeated pause/resume.
+The earlier review section records the original findings; these three findings are resolved in this handover.
+
+Three-hole acceptance: 208 tests pass, with three catalog-only skips. The 18-file package builds with unchanged identity and Sports model. Browser checks confirm the expanded controls, both new courses, a failed water carry, a successful driver carry, scorecards, Next hole, and rematch.

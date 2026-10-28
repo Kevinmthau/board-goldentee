@@ -1,10 +1,10 @@
 # Golden Tee — Board web prototype
 
-A solo 150-yard par-3 golf hole controlled with any physical Sports player. Built from the Board Studio starter with TypeScript, Vite, and Canvas 2D. Play in portrait orientation from Board’s left short edge.
+A solo three-hole coastal golf round controlled with any physical Sports player. Play a 150-yard par 3, a 340-yard par 4, and a 510-yard par 5. Built from the Board Studio starter with TypeScript, Vite, and Canvas 2D. Play in portrait orientation from Board’s left short edge.
 
-Place the piece on the open grass and hold it still to set your starting angle. Turn it back toward yourself, then return the club to the ball to hit. Backswing sets power. Select a 7 iron, 9 iron, wedge, or putter, and use the arrows to aim. The club appears only with the piece, attached to its center front and sized to its footprint. The camera and resting ball stay fixed while you place or turn the piece; the camera follows the ball after a hit.
+Place the piece on the open grass and hold it still to set your starting angle. Turn it back toward yourself, then return the club to the ball to hit. Backswing sets power. Select a driver, 5 iron, 7 iron, 9 iron, wedge, or putter, and use the arrows to aim. The club appears only with the piece, attached to its center front and sized to its footprint. The camera and resting ball stay fixed while you place or turn the piece; the camera follows the ball after a hit.
 
-![Portrait Sports golf](docs/screenshots/sports-attached-ready.png)
+![Portrait Sports golf](docs/screenshots/three-hole-par5-carry.png)
 
 ## Play in a browser
 
@@ -20,7 +20,10 @@ Open the local address Vite prints. The browser toolbar is a simulator and does 
 1. Click **Place sports player**, or Shift-click on the open grass, then hold still briefly.
 2. Drag sideways across the simulated player to bring the club back.
 3. Grab it again and drag the other way until the club returns to the ball. A larger backswing gives more power.
-4. Select a club and use the aim arrows before the next swing. A full 7 iron reaches the green.
+4. Select a club and use the aim arrows before the next swing. A full 7 iron reaches the first green.
+5. Choose **Next hole** after each of the first two holes. The last scorecard totals the round against par 12.
+
+Water costs one penalty stroke and returns the ball to its previous lie. Carry it in the air or use a shorter club to lay up. Sand reduces carry and roll. Each hole has a ten-stroke limit.
 
 At the next lie, hold the piece still to set your new starting angle before swinging again.
 Lifting the piece removes the club and leaves the course clear, with no replacement character graphic.
@@ -47,11 +50,11 @@ Use any Sports player (glyphs 1–8). Keep hold of it while twisting. Native Boa
 - packageId: `fun.board.dev.goldentee.e087aaee`
 - SDK: vendored `1.0.0-beta.8`; keep its tarball and the lockfile.
 
-The native system menu provides How to swing, Restart hole, and Change setup. The platform owns audio, saves, and exit.
+The native system menu provides How to swing, Restart round, and Change setup. The platform owns audio, saves, and exit.
 
 ## Design and evidence
 
 See [the plan](docs/PLAN.md), [build checklist](docs/BUILD-CHECKLIST.md), and [acceptance ledger](docs/ACCEPTANCE-LEDGER.md).
-The Sports revision passes 178 automated checks (3 catalog-only checks skipped), including input, physics, saves, browser simulation, and the complete game. Browser checks cover club selection, twists, putting, results, rematch, and a fixed camera with no character after lift. Native playtests include repeated football-piece swings, two full-power shots that finished in the cup, and rematch. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
+The earlier one-hole Sports revision passed automated and browser checks and was played on Board. The three-hole revision adds new course, scoring, save, and club checks; current results are recorded in the acceptance ledger. The new holes and larger driver still require a physical Board playtest. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
 
 Artwork, the Board SDK, font, platform layer, and piece-set assets have separate provenance and terms; see the [asset manifest](docs/ASSET-MANIFEST.md). Keep the vendored SDK and package lockfile so a fresh checkout uses the tested SDK version.

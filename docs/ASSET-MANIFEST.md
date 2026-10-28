@@ -22,8 +22,8 @@ Model SHA-256: 4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9.
 
 | Source | Role | Origin and licence |
 |---|---|---|
-| src/course-view.ts | Dynamic terrain, cup, flag, ball, camera, and generated-art composition; procedural image-failure fallback | Original project code and Canvas artwork |
-| src/piece-club.ts | Club attached to the live Sports footprint’s center front, scaled to its physical width | Original project code and Canvas artwork |
+| src/course-view.ts | Three-hole terrain, water and sand hazards, cup, flag, ball, camera, and generated-art composition; procedural image-failure fallback | Original project code and Canvas artwork |
+| src/piece-club.ts | Six-club visuals, including a rounded driver, attached to the Sports footprint’s center front and scaled to its width | Original project code and Canvas artwork |
 | src/course-art.ts | Cached natural foliage, turf/sand fallback materials, and soft shadows | Original seeded procedural Canvas artwork |
 | src/howto.ts | Animated control lesson and buttons | Original project drawing; Sports render retains Board source above |
 | src/sound.ts | Placement, swing, putt, landing, sand, cup, button, and penalty cues | Original deterministic synthesized audio; no sampled recordings |
@@ -49,7 +49,7 @@ Vite assigns content hashes to the two bundle filenames. The package inventory b
 ```text
 art/coastal-sky.png
 art/fairway-turf.png
-assets/index-DB2vOyzY.js
+assets/index-BwgBIobr.js
 assets/index-DXc9XbkK.css
 board-platform.js
 fonts/itc-kabel-ultra.otf
@@ -66,3 +66,9 @@ piece-art/7.png
 piece-art/8.png
 piece-footprints.json
 ```
+
+
+October 27, 2026 three-hole revision adds original procedural course and club artwork in the sources listed above.
+No external images, audio recordings, fonts, models, or dependencies were added. The inventory above reflects the final 18-file package. Developer fixtures and screenshots under artifacts/ are excluded from the package.
+
+Final three-hole package SHA-256: `fdb86a9948b525e71a62053cc7991131d8985ad5f97ca671a086d583c70d87b3`.

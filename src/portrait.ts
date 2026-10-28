@@ -7,5 +7,7 @@ export function portraitFacing(degrees: number) { return (degrees + 270) % 360; 
 export function drawPortrait(ctx: CanvasRenderingContext2D) { ctx.setTransform(0, 1, -1, 0, 1920, 0); }
 export function isPiecePlacement(native: { x: number; y: number }) {
   const p = toPortrait(native);
-  return p.x >= 140 && p.x <= 940 && p.y >= 400 && p.y <= 1530;
+  // Leave room for the physical footprint above the two club rows and beside the aim buttons.
+  const clearOfAim = p.y < 1250 || (p.x >= 300 && p.x <= 780);
+  return p.x >= 140 && p.x <= 940 && p.y >= 400 && p.y <= 1430 && clearOfAim;
 }
