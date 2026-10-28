@@ -1,6 +1,10 @@
 # Golden Tee — Board web prototype
 
-A solo par-3 golf hole controlled with the physical Save the Bloogs ring. The golfer appears in third person.
+A solo par-3 golf hole controlled with the physical Save the Bloogs ring. Built from the Board Studio starter with TypeScript, Vite, a Canvas 2D course, and an articulated 3D golfer.
+
+Slide the ring back, then forward to swing. Speed sets power and the forward path sets direction. Play through the fairway, rough, bunker, green, and cup, then choose Rematch or Change setup.
+
+![The continuous golfer swing](docs/screenshots/solid-swing-backswing.png)
 
 ## Play in a browser
 
@@ -44,4 +48,6 @@ The native system menu provides How to swing, Restart hole, and Change setup. Th
 ## Design and evidence
 
 See [the plan](docs/PLAN.md), [build checklist](docs/BUILD-CHECKLIST.md), and [acceptance ledger](docs/ACCEPTANCE-LEDGER.md).
-Board sensing and human swing feel remain untested until a real-device playtest.
+The current build has 137 passing tests (3 catalog-only checks skipped), a complete browser playthrough, and a verified Board installation and title screen. Physical ring sensing, sustained native performance, and human swing feel still need a full device playtest.
+
+Artwork, the Board SDK, font, platform layer, and piece-set assets have separate provenance and terms; see the [asset manifest](docs/ASSET-MANIFEST.md). Keep the vendored SDK and package lockfile so a fresh checkout uses the tested SDK version.
