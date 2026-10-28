@@ -9,6 +9,8 @@ Slide the ring back, then forward to swing. Speed sets power and the forward pat
 ## Play in a browser
 
 ```sh
+git clone https://github.com/Kevinmthau/board-goldentee.git
+cd board-goldentee
 npm ci
 npm run dev
 ```

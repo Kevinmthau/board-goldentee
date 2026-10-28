@@ -71,3 +71,10 @@
 
 - Person requested installation on the Board.
 - Installed and launched the verified current package using Board Connect. Confirmed native title rendering and recorded the screenshot/startup logs in the acceptance ledger. No game code or package identity changed.
+
+## October 27, 2026 — Public GitHub repository
+
+- Person requested committing and pushing all changes and creating a public GitHub repository.
+- Published the golf project at https://github.com/Kevinmthau/board-goldentee on `main`, preserving the game-specific commit history with `git subtree split`. The public repository has the game files at its root.
+- Updated the README with a screenshot, clone/run instructions, current validation, and the asset-provenance link.
+- In the original parent checkout, remote `golden-tee` targets the public repository and `codex/golden-tee-public` tracks its `main`. Future publication from that parent checkout uses `git subtree push --prefix=board-goldentee golden-tee main` after committing game changes. A standalone clone uses ordinary Git commits and pushes.

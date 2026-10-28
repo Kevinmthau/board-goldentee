@@ -55,3 +55,8 @@
 ## Native installation
 - [x] Current package installed and launched through Board Connect; title screen and 3D golfer confirmed in a native screenshot.
 - [ ] Complete the remaining Board sensing, performance, native platform, and human play checks above.
+
+## Public repository
+- [x] Commit the complete golf project and preserve its game-specific history in a standalone public repository.
+- [x] Push `main` and verify public visibility and the remote tree against the local game subtree.
+- [x] Document clone/run commands, asset provenance, and the original checkout's subtree publishing path.

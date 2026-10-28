@@ -2,6 +2,7 @@
 
 Status: solo first playable and closer, realistic artwork pass complete in the browser. Native Board and human play checks remain open.
 Updated: October 27, 2026.
+Public repository: [Kevinmthau/board-goldentee](https://github.com/Kevinmthau/board-goldentee), default branch `main`.
 
 ## Summary
 

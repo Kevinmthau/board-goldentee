@@ -68,3 +68,11 @@
 - Device: `board-connect status` reported `ready: true`. `board-connect install golden-tee.webapp.zip --launch` confirmed installation and launch of e087aaee-903b-43a2-b2b9-bbd4189601b2.
 - Native startup evidence: `docs/screenshots/board-first-launch.png` shows the title screen, course, rendered 3D golfer, and Bloogs ring instruction on the Board at 1920×1080. Startup logs report platform state ready, no-save. The only warnings are 404s for the optional game-font.json and favicon.ico; no game exception is reported.
 - Scope: installation, launch, and initial native rendering are verified. Physical ring sensing, sustained animation performance, native pause/saves/audio, and an uncoached human playthrough remain open.
+
+## October 27, 2026 — Public repository handover
+
+- Asked for: “commit and push all changes and create a public github repo.”
+- Delivered: https://github.com/Kevinmthau/board-goldentee with public visibility and default branch `main`. Game-specific history is preserved; the repository root contains the complete golf project.
+- Verification: GitHub repository metadata confirms PUBLIC/main. The pushed commit matches the locally split branch, and the remote root tree matches the local game's subtree. Source, docs, art, screenshots, vendor SDK, package lockfile, Board configuration, and tests are included. Generated dist, dependencies, and the install ZIP remain ignored.
+- Publication check: tracked current files, historical game blobs, and the vendored SDK archive were checked for obvious credentials/private keys and oversized files; none were found.
+- Validation: game code and the installed package are unchanged from the preceding verified build (137 tests passed, 3 catalog-only skips). This handover adds publication documentation and README improvements; no new runtime test pass was required.
