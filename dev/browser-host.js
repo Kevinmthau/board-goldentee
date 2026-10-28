@@ -145,6 +145,8 @@ function installBrowserHost(win         = window)          {
   let pending         = [];
   let lastBatch         = [];
   let nextId = 1;
+  let selectorOpen = false;
+  let cancelSelector = () => {};
   const push = (c      , p        ) => {
     let prev                  ;
     for (let i = pending.length - 1; i >= 0 && !prev; i--) if (pending[i].id === c.id) prev = pending[i];
@@ -175,7 +177,7 @@ function installBrowserHost(win         = window)          {
   };
   const flush = () => {
     // The native overlay switches the detector off: nothing crosses the wire.
-    if (menuOpen) return void (pending = []);
+    if (menuOpen || selectorOpen) return void (pending = []);
     if (redetectIn > 0 && --redetectIn === 0) redetect();
     blip();
     const events = pending;
@@ -219,7 +221,7 @@ function installBrowserHost(win         = window)          {
   const pickupRadius = (glyph) => ({ 1: 18.7, 2: 19.8, 3: 19.4, 4: 21.8, 5: 24.4, 6: 18.3, 7: 18.7, 8: 18.5 }[glyph] ?? 18.7) * 3.6;
   const pointerAnchor = (e, p, c) => ({ x: p.x - c.x, y: p.y - c.y, startAcross: p.y, orientation: c.o, translate: Boolean(e.altKey) });
   const onDown = (e) => {
-    if (menuOpen || fromShim(e)) return;
+    if (menuOpen || selectorOpen || fromShim(e)) return;
     const p = toWorld(e);
     if (!p || p.x < 0 || p.x > 1920 || p.y < 0 || p.y > 1080) return;
     let c;
@@ -309,11 +311,11 @@ function installBrowserHost(win         = window)          {
     liftButton.disabled = ![...live.values()].some(c => c.resting);
   };
   placeButton.addEventListener("click", () => {
-    if (menuOpen || [...live.values()].some(c => c.resting && c.g === 1)) return;
+    if (menuOpen || selectorOpen || [...live.values()].some(c => c.resting && c.g === 1)) return;
     const c = { id: nextId++, x: 535, y: 540, o: 0, p: 1, g: 1, touched: 0, resting: true };
     live.set(c.id, c); push(c, 1); renderPieces();
   });
-  liftButton.addEventListener("click", () => { if (!menuOpen) { liftResting(); renderPieces(); } });
+  liftButton.addEventListener("click", () => { if (!menuOpen && !selectorOpen) { liftResting(); renderPieces(); } });
   win.addEventListener("resize", renderPieces);
 
   const renderMenu = () => {
@@ -323,7 +325,7 @@ function installBrowserHost(win         = window)          {
     menu.innerHTML = `<div class="bs-card"><h2>${esc(ctx.gameName ?? "Game")} · system menu (simulated)</h2><div><button data-act="resume">Resume · Enter</button><button data-act="quit">Quit · Q</button>${save}</div><div>${custom.join("")}</div><div>${audio.join("")}</div></div>`;
   };
   const openMenu = () => {
-    if (menuOpen) return;
+    if (menuOpen || selectorOpen) return;
     (menuOpen = true), (tracksChanged = false);
     // A native overlay steals the touches and restarts the detector epoch: drop
     // fingers silently (no synthetic lift) and keep resting Pieces on the table.
@@ -352,6 +354,10 @@ function installBrowserHost(win         = window)          {
     (tracksChanged = true), renderMenu();
   };
   const onKey = (e               ) => {
+    if (selectorOpen) {
+      if (e.key === "Escape") { e.preventDefault(); cancelSelector(); }
+      return;
+    }
     if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target                  )?.tagName ?? "")) return;
     const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
     if (!menuOpen) {
@@ -404,7 +410,8 @@ function installBrowserHost(win         = window)          {
     return out;
   };
   const seen = (p        )         => ({ ...p, playerId: sessionIdOf(p.playerId) });
-  let nextRequest = 1, nextSession = 2;
+  let nextRequest = 1, nextSession = 2, nextGuest = 2;
+  let aiTypes = [];
   const later = (produce               )         => {
     const id = nextRequest++;
     setTimeout(() => {
@@ -412,10 +419,97 @@ function installBrowserHost(win         = window)          {
     }, 0);
     return id;
   };
-  const guest = (sessionId        )         => ({ playerId: `sim-guest-${sessionId}`, sessionId, name: `Guest ${sessionId}`, type: "guest", avatarId: "0" });
+  const guest = (sessionId) => {
+    const identity = nextGuest++;
+    return { playerId: `sim-guest-${identity}`, sessionId, name: `Guest ${identity}`, type: "guest", avatarId: "0" };
+  };
   const playersChanged = () => board()?.onPlayersChanged();
   const calls                            = {};
   const record = (name        , args           ) => void (calls[name] ??= []).push(args.length > 1 ? args : args[0]);
+
+  // This overlay is a browser-only stand-in for the native selector. All choices
+  // mutate the host roster itself, including identity changes on replacement.
+  const choosePlayer = (replaceSessionId, allowedAi = []) => {
+    const seatIndex = players.findIndex(p => p.sessionId === replaceSessionId);
+    if (selectorOpen || menuOpen || (replaceSessionId !== undefined && seatIndex < 0)) return later(() => false);
+    const requestId = nextRequest++;
+    selectorOpen = true;
+    live.forEach(c => { if (!c.resting) live.delete(c.id); else c.touched = 0; });
+    byPointer.clear(); pointerOffsets.clear(); rests.clear(); pending = []; redetectIn = 0;
+    board()?.onAppVisibility(false);
+    const overlay = doc.createElement("div");
+    overlay.className = "bs-menu";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", replaceSessionId === undefined ? "Add golf player" : "Change golf player");
+    const card = doc.createElement("section");
+    card.className = "bs-card";
+    Object.assign(card.style, { width: "min(440px, 88vw)", boxSizing: "border-box", padding: "24px", font: "18px system-ui,sans-serif" });
+    const title = doc.createElement("h2");
+    title.textContent = replaceSessionId === undefined ? "Add golf player" : `Change ${players[seatIndex].name}`;
+    title.style.fontSize = "24px";
+    const hint = doc.createElement("p");
+    hint.textContent = "Up to four players take turns from the same short edge.";
+    card.append(title, hint);
+    const finish = (changed) => {
+      if (!selectorOpen) return;
+      selectorOpen = false;
+      overlay.remove();
+      cancelSelector = () => {};
+      if (changed) playersChanged();
+      board()?.resolve(requestId, JSON.stringify(changed));
+      board()?.onAppVisibility(true);
+      redetectIn = REDETECT_FRAMES;
+    };
+    const option = (label, action) => {
+      const button = doc.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      Object.assign(button.style, { display: "block", width: "100%", marginTop: "12px", padding: "16px", fontSize: "20px" });
+      button.addEventListener("click", action);
+      card.append(button);
+    };
+    const select = makePlayer => {
+      if (replaceSessionId === undefined) {
+        if (players.length >= 4) return finish(false);
+        while (players.some(p => p.sessionId === nextSession)) nextSession++;
+        players.push(makePlayer(nextSession++));
+      } else {
+        const current = players.findIndex(p => p.sessionId === replaceSessionId);
+        if (current < 0) return finish(false);
+        players[current] = makePlayer(replaceSessionId);
+      }
+      finish(true);
+    };
+    if (replaceSessionId !== undefined || players.length < 4) {
+      if (!players.some(p => p.playerId === activeProfile.playerId && p.sessionId !== replaceSessionId)) {
+        option(`${activeProfile.name} · Profile`, () => select(sessionId => ({ ...activeProfile, sessionId, type: "profile" })));
+      }
+      option("Local guest", () => select(guest));
+      let indices = allowedAi;
+      if (typeof indices === "string") { try { indices = JSON.parse(indices); } catch { indices = []; } }
+      aiTypes.forEach((type, index) => {
+        if (Array.isArray(indices) && indices.length && !indices.includes(index)) return;
+        option(type.name, () => select(sessionId => ({
+          playerId: `sim-ai-${nextGuest++}`, sessionId, name: type.name, type: "ai", avatarId: "0", aiTypeIndex: index,
+        })));
+      });
+    } else {
+      hint.textContent = "Four players are already seated. Change a player to replace or remove them.";
+    }
+    if (seatIndex >= 0 && players[seatIndex].playerId !== activeProfile.playerId) {
+      option("Remove player", () => {
+        const current = players.findIndex(p => p.sessionId === replaceSessionId);
+        if (current < 0) return finish(false);
+        players.splice(current, 1);
+        finish(true);
+      });
+    }
+    option("Cancel", () => finish(false));
+    cancelSelector = () => finish(false);
+    overlay.append(card); root.append(overlay);
+    return requestId;
+  };
 
   // --- Board.save simulation ---
   // Saves outlive a reload of the page, as they outlive a relaunch on a Board: kept in this
@@ -442,7 +536,8 @@ function installBrowserHost(win         = window)          {
     const all = readSaves();
     const old = id ? all[id] : undefined;
     if (id && !old) throw new Error(`Save ${id} not found`);
-    const roster = players.map((p)             => ({ playerId: p.playerId, name: p.name, avatarId: Number(p.avatarId) || 0, type: p.type }));
+    const roster = players.map((p) => ({ playerId: p.playerId, name: p.name, avatarId: Number(p.avatarId) || 0, type: p.type,
+      ...(p.aiTypeIndex === undefined ? {} : { aiTypeIndex: p.aiTypeIndex }) }));
     // A save's players are fixed when it is created; an update never changes them.
     const savePlayers = old ? old.meta.players : roster;
     if (!savePlayers.some((p) => p.type === "profile")) throw new Error("A save needs at least one profile");
@@ -468,7 +563,8 @@ function installBrowserHost(win         = window)          {
   // Loading a save reseats the session to the save's players.
   const reseat = (s      ) => {
     players.length = 0;
-    for (const p of s.meta.players) players.push({ playerId: p.playerId, sessionId: nextSession++, name: p.name, type: p.type, avatarId: String(p.avatarId) });
+    for (const p of s.meta.players) players.push({ playerId: p.playerId, sessionId: nextSession++, name: p.name, type: p.type, avatarId: String(p.avatarId),
+      ...(p.aiTypeIndex === undefined ? {} : { aiTypeIndex: p.aiTypeIndex }) });
     playersChanged();
   };
   const coverMethods = profile.covers
@@ -505,7 +601,12 @@ function installBrowserHost(win         = window)          {
     },
     getPlayers: () => JSON.stringify(players.map(seen)),
     getPlayerCount: () => players.length,
-    addGuest: (sessionId) => (players.push(guest(sessionId)), playersChanged()),
+    addGuest: (sessionId) => {
+      if (players.some(p => p.sessionId === sessionId)) return;
+      players.push(guest(sessionId));
+      nextSession = Math.max(nextSession, sessionId + 1);
+      playersChanged();
+    },
     removePlayer(sessionId) {
       const i = players.findIndex((p) => p.sessionId === sessionId);
       if (i > 0) players.splice(i, 1), playersChanged();
@@ -522,10 +623,12 @@ function installBrowserHost(win         = window)          {
     isReady: () => true,
     areServicesReady: () => Date.now() - startedAt >= servicesDelayMs,
     getCurrentContacts: () => JSON.stringify(lastBatch.map((c) => ({ contactId: c.id, positionX: c.x, positionY: c.y, orientation: c.o, phaseId: c.p, glyphId: c.g, isTouched: c.touched }))),
-    // The OS selector overlays are simulated as "a guest joined" / "dismissed".
-    presentAddPlayerSelector: () => later(() => (host.addGuest(nextSession++), true)),
-    presentReplacePlayerSelector: () => later(() => false),
-    setAIPlayerTypes() {},
+    presentAddPlayerSelector: (allowedAi) => choosePlayer(undefined, allowedAi),
+    presentReplacePlayerSelector: (sessionId, allowedAi) => choosePlayer(sessionId, allowedAi),
+    setAIPlayerTypes(json) {
+      try { aiTypes = JSON.parse(json); } catch { aiTypes = []; }
+      if (!Array.isArray(aiTypes)) aiTypes = [];
+    },
     createSave: (d, data, t, v) => later(() => store(null, d, data, t, v, null)),
     loadSave: (id) => later(() => { const s = saved(id); saveLog.push({ op: "load", id, at: Date.now() }); reseat(s); return { data: s.data }; }),
     listSaves: () => later(() => Object.values(readSaves()).map((s) => s.meta)),

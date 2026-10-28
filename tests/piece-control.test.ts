@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BoardContactPhase as Phase, BoardContactType as Type, type BoardContact } from "@board.fun/web-sdk";
-import { PieceController, isSportsPiece, TURN_SWING, PUTT_SWING, swingPowerFor } from "../src/piece-control";
+import { PieceController, isSportsPiece, TURN_SWING } from "../src/piece-control";
+import { createGame, strike, type Shot } from "../src/rules";
 
 const contact = (id: number, orientation = 270, phase = Phase.Moved, glyphId = 5, x = 960, y = 800): BoardContact =>
   ({ contactId: id, x, y, phase, glyphId, orientation, type: Type.Glyph, isTouched: true });
@@ -434,107 +435,30 @@ test("late returns and returns outside the rebind radius are new arrivals", () =
   assert.ok(TURN_SWING.forwardDeg < TURN_SWING.backswingDeg);
 });
 
-const flatPuttFeet = (power: number) => (1 + 14 * power) ** 2 / 2;
-
-test("putting spreads short distances across the turn while retaining a quarter-turn maximum", () => {
-  assert.equal(swingPowerFor(0, true), 0);
-  assert.equal(swingPowerFor(90, true), 1);
-  assert.equal(swingPowerFor(140, true), 1);
-  assert.ok(flatPuttFeet(swingPowerFor(30, true)) < 1);
-  assert.ok(flatPuttFeet(swingPowerFor(45, true)) > 2);
-  assert.ok(flatPuttFeet(swingPowerFor(45, true)) < 3);
-  assert.ok(flatPuttFeet(swingPowerFor(60, true)) > 10);
-  assert.ok(flatPuttFeet(swingPowerFor(60, true)) < 11);
-  for (let degrees = PUTT_SWING.backswingDeg; degrees < 60; degrees++) {
-    const distance = flatPuttFeet(swingPowerFor(degrees, true));
-    const next = flatPuttFeet(swingPowerFor(degrees + 1, true));
-    assert.ok(next > distance, `one additional degree increases distance at ${degrees} degrees`);
-    assert.ok(next - distance < 1, `one-degree adjustment stays below one foot at ${degrees} degrees`);
-  }
-});
-
-test("precision putts strike once from a twelve-degree backswing with slow returns across wrap and contact rates", () => {
-  for (const backswing of [12, 30, 60, 90]) {
-    for (const hz of [20, 30, 60, 120]) for (const speed of [9, 15, 60]) for (const direction of [-1, 1]) {
-      const { controller, address, frame } = rig();
-      controller.setPutting(true);
-      address(1, 5, 359);
-      for (let degrees = Math.min(backswing, 30); degrees <= backswing; degrees += 30) {
-        frame(350 + degrees, contact(1, 359 + direction * degrees));
+test("putts use the original arming threshold and linear quarter-turn power", () => {
+  for (const [backswing, expectedPower] of [[12, null], [30, null], [39, null], [40, 2 / 27], [60, 4 / 9], [90, 1]] as const) {
+    for (const direction of [-1, 1]) {
+      const {controller, address, frame} = rig(); address();
+      frame(350, contact(1, 270 + direction * backswing));
+      const shots: Shot[] = [];
+      for (let sample = 1; sample <= Math.ceil(backswing / 8) + 1; sample++) {
+        const remaining = Math.max(0, backswing - sample * 8);
+        const shot = frame(350 + sample * 40, contact(1, 270 + direction * remaining)).shot;
+        if (shot) shots.push(shot);
       }
-      const start = 400 + backswing;
-      const powers: number[] = [];
-      for (let sample = 1; sample <= Math.ceil(backswing / speed * hz) + 1; sample++) {
-        const remaining = Math.max(0, backswing - sample * speed / hz);
-        const shot = frame(start + sample * 1000 / hz, contact(1, 359 + direction * remaining)).shot;
-        if (shot) powers.push(shot.power);
+      const game = createGame();
+      if (expectedPower === null) {
+        assert.equal(shots.length, 0, `${backswing} degrees cannot arm the old putting stroke`);
+        assert.equal(controller.swing.stage, 'ready');
+        assert.equal(game.strokes, 0);
+      } else {
+        assert.equal(shots.length, 1, `${backswing} degrees commits once`);
+        assert.ok(Math.abs(shots[0].power - expectedPower) < 1e-12);
+        assert.equal(strike(game, shots[0], 'PUTTER'), true);
+        assert.equal(game.phase, 'rolling');
+        assert.equal(game.strokes, 1);
+        assert.equal(game.shotPower, expectedPower);
       }
-      const context = `${backswing} degree putt, ${speed} degrees/s, ${hz} Hz, direction ${direction}`;
-      assert.equal(powers.length, 1, context);
-      assert.ok(Math.abs(powers[0] - swingPowerFor(backswing, true)) < 1e-10, context);
     }
-  }
-});
-
-test("putting noise, translation, a single reversal, and very slow drift never strike", () => {
-  const { controller, address, frame } = rig();
-  controller.setPutting(true); address();
-  for (let sample = 1; sample <= 80; sample++) {
-    const result = frame(300 + sample * 40, contact(1, 270 + Math.sin(sample) * 4,
-      Phase.Moved, 5, 960 + Math.cos(sample) * 10));
-    assert.equal(result.shot, null);
-    assert.equal(controller.swing.stage, 'ready');
-  }
-  frame(3600, contact(1, 300));
-  assert.equal(frame(3650, contact(1, 270)).shot, null);
-  for (let sample = 1; sample <= 20; sample++) {
-    assert.equal(frame(3650 + sample * 50, contact(1, 270 - sample * 0.2)).shot, null);
-  }
-});
-
-test("changing putting mode cancels an armed stroke and same-mode calls preserve a fresh stroke", () => {
-  const { controller, address, frame } = rig(); address();
-  frame(350, contact(1, 330));
-  assert.equal(controller.swing.stage, 'backswing');
-  controller.setPutting(true);
-  controller.tick(700);
-  assert.equal(controller.swing.stage, 'settling');
-  assert.equal(controller.addressFacing, 270);
-  assert.equal(frame(750, contact(1, 300)).shot, null);
-  assert.equal(frame(800, contact(1, 270)).shot, null);
-  controller.tick(1100);
-  assert.equal(controller.swing.stage, 'ready');
-  frame(1150, contact(1, 300));
-  controller.setPutting(true);
-  assert.equal(controller.swing.stage, 'backswing');
-  frame(1200, contact(1, 290)); frame(1250, contact(1, 280));
-  assert.ok(frame(1300, contact(1, 270)).shot);
-  controller.setPutting(false);
-  controller.tick(1600);
-  frame(1650, contact(1, 300));
-  assert.equal(controller.swing.stage, 'ready', 'full shots keep the original arming threshold');
-  assert.equal(frame(1700, contact(1, 270)).shot, null);
-});
-
-test("pause and tracking rebind cancel a precision putt without a stale stroke or arrival", () => {
-  for (const pause of [false, true]) {
-    const { controller, active, address, frame } = rig();
-    controller.setPutting(true); address(1, 5, 359);
-    frame(350, contact(1, 389));
-    if (pause) {
-      controller.pause(400); active.clear(); controller.resume(800);
-    } else frame(400, contact(1, 389, Phase.Ended));
-    const returned = frame(850, contact(2, 389, Phase.Began));
-    assert.equal(returned.shot, null);
-    assert.equal(returned.arrivals.length, 0);
-    controller.tick(1200);
-    assert.equal(controller.swing.stage, 'settling');
-    assert.equal(frame(1250, contact(2, 374)).shot, null);
-    assert.equal(frame(1300, contact(2, 359)).shot, null);
-    controller.tick(1600);
-    assert.equal(controller.swing.stage, 'ready');
-    frame(1650, contact(2, 389));
-    frame(1700, contact(2, 379)); frame(1750, contact(2, 369));
-    assert.ok(frame(1800, contact(2, 359)).shot);
   }
 });

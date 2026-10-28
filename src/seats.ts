@@ -89,3 +89,10 @@ export function activeSeat(): BoardPlayer | undefined {
   const active = Board.isOnDevice ? Board.session.getActiveProfile() : null;
   return active ? seated().find((p) => p.playerId === active.playerId) : undefined;
 }
+
+/** An explicit setup removal uses the session service; keep at least the primary seat. */
+export function removeSeatedPlayer(sessionId: number): boolean {
+  const roster = seated();
+  if (roster.length <= 1 || roster[0]?.sessionId === sessionId || !roster.some(p => p.sessionId === sessionId)) return false;
+  try { Board.session.removePlayer(sessionId); return true; } catch { return false; }
+}

@@ -237,3 +237,42 @@ The person requested installation on their Board. Installed and launched the ver
 - Installed and launched the verified twelve-club package through Board Connect, retaining the existing app identity and data.
 - Verified platform startup and the native title screen. No game code or package contents changed.
 - Physical putting feel, green reading, and sustained Board play remain unverified.
+
+## October 28, 2026 — Add up to four players
+
+- Request: add up to four players.
+- Preserved the latest clubs, precision putting, greens, wind, and nine-hole course in a separate managed worktree.
+- Added roster-based group setup, independent balls and scorecards, explicit shot handoffs, shared hole progression, and tied winners.
+- Added version-2 multiplayer saves and compatible solo restoration. Roster replacements cannot take another participant's score.
+- Added explicit named guest recovery for native session changes, with cancellation and identity regressions.
+- Extended the browser selector and headless journey. Verified 265 passing tests, browser interaction, and the Board package.
+- No model, identity, or external asset change. This revision has not been installed on Board or published.
+
+## October 28, 2026 — Install the four-player build
+
+- Request: install the new build on the person's Board.
+- Installed and launched the verified four-player package, preserving app identity and existing data.
+- Verified platform startup and the native title with its 1–4-player label and Players button.
+- No game code or package contents changed. Physical multiplayer play remains unverified.
+
+## October 28, 2026 — Restore original putting
+
+- Request: go back to the old way of putting.
+- Restored the pre-precision swing controller, two-degree aim, percentage power feedback, and original putting instructions.
+- Kept four-player support, the twelve-club bag, green slopes and reading arrows, wind, and all nine holes.
+- Verified 261 passing tests, the browser controls, and the unchanged 18-file package inventory.
+- Installed and launched the corrected build on the person's Board and verified native startup. Physical putting feel remains unverified.
+
+## October 28, 2026 — Remove putting arrows
+
+- Request: get rid of the putting arrows.
+- Removed the downhill arrows across greens and replaced their instructions with green-slope guidance.
+- Kept contour grids, slope physics, aiming controls, original swing response, all clubs, and four-player rounds.
+- Verified 260 passing tests, the browser putting view, package identity/model, and successful installation and launch on Board.
+
+## October 28, 2026 — Commit, publish, and install all changes
+
+- Request: commit and push all changes and install.
+- Include the complete twelve-club revision, one-to-four-player rounds, restored original putting response, removed downhill arrows, tests, documentation, and evidence screenshots.
+- Publish the committed game subtree to the existing `golden-tee` remote's `main`, keeping game files at the standalone repository root.
+- Reinstalled and launched the verified package on Board. Dependencies, build output, local QA files, and install ZIPs stay ignored as in the established publishing workflow.

@@ -26,7 +26,7 @@ test('all nine authored greens have distinct, smooth undulations and bounded slo
       const gz = (sampleGreen(x, z + epsilon, hole).height - sampleGreen(x, z - epsilon, hole).height) / (2 * epsilon);
       assert.ok(Math.abs(gx - sample.gradient.x) < 1e-8);
       assert.ok(Math.abs(gz - sample.gradient.z) < 1e-8);
-      assert.ok(sample.downhill.x * gx + sample.downhill.z * gz <= 0, 'arrows point downhill');
+      assert.ok(sample.downhill.x * gx + sample.downhill.z * gz <= 0, 'acceleration points downhill');
     }
     assert.ok(Math.max(...heights) - Math.min(...heights) > .10, `${hole.name} has visible elevation changes`);
     assert.ok(Math.max(...directions) - Math.min(...directions) > 1, `${hole.name} has changing break across the green`);
@@ -39,7 +39,7 @@ test('all nine authored greens have distinct, smooth undulations and bounded slo
   }
 });
 
-test('green roll initially bends in the exact direction shown by slope arrows', () => {
+test('green roll initially bends in the downhill direction of the surface', () => {
   for (let index = 0; index < HOLES.length; index++) {
     const game = createGame(index, HOLES.slice(0, index).map(hole => hole.par)), hole = holeFor(game);
     game.ball.x = hole.green.x;

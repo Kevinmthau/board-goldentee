@@ -27,8 +27,8 @@ Model SHA-256: 4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9.
 | src/holes.ts | Nine authored coastal hole layouts, yardages, pars, and hazards | Original project course data |
 | src/scorecard.ts | Traditional golf card, table, and scoring marks | Original project code and Canvas artwork |
 | src/wind-view.ts | Fixed wind indicator and camera-relative arrow | Original project code and Canvas artwork |
-| src/green.ts | Shared green elevation, slope, and downhill acceleration; source for procedural mesh and arrows | Original project code and course data |
-| src/club-picker.ts | Full-size twelve-club bag layout, fine aim labels, and level-green putt reference | Original project code |
+| src/green.ts | Shared green elevation, slope, and downhill acceleration; source for procedural mesh and contours | Original project code and course data |
+| src/club-picker.ts | Full-size twelve-club bag layout and two-degree aim controls | Original project code |
 | src/course-art.ts | Cached natural foliage, turf/sand fallback materials, and soft shadows | Original seeded procedural Canvas artwork |
 | src/howto.ts | Animated control lesson and buttons | Original project drawing; Sports render retains Board source above |
 | src/sound.ts | Placement, swing, putt, landing, sand, cup, button, and penalty cues | Original deterministic synthesized audio; no sampled recordings |
@@ -98,3 +98,22 @@ Current package SHA-256: `c857f0c2f9c6d2dd85deb39593ddddb7495ffb730b8dbee81f2614
 The Sports model retains the recorded hash. Browser screenshots and development fixtures remain outside the package.
 
 `docs/screenshots/precision-putting-board-installed.png` records the October 28 native installation of this package. It is evidence and does not ship.
+
+October 28, 2026 four-player revision adds original procedural interface and round logic in `src/multiplayer-view.ts`, `src/multiplayer.ts`, and `src/main.ts`.
+No external art, fonts, audio, models, or dependencies were added. The existing 18-file shipped inventory still applies.
+The generated JavaScript bundle is `assets/index-CglAoTkU.js`. Package SHA-256: `3163e12494c27c78e655afd23a74754b259924ba362ddec71b7928ee2ba4fb05`.
+The `four-player-*.png` screenshots are local browser evidence and are excluded from the package.
+
+`docs/screenshots/four-player-board-installed.png` records the October 28 native installation. It is evidence and is not packaged.
+
+October 28, 2026 original-putting restoration changes only original game code and generated runtime assets.
+No external art, font, model, audio, or dependency was added. The existing 18-file shipped inventory still applies.
+The generated JavaScript bundle is `assets/index-Cmy9XbX_.js`. Package SHA-256: `9b8923459506d1aefef6deb75df5495c20fb5f90db5ecb73002b00b6a9b12cef`.
+`docs/screenshots/original-putting-controls.png` and `original-putting-board-installed.png` record browser controls and native installation. They are evidence and do not ship.
+
+October 28, 2026 putting-arrow removal deletes original procedural arrow drawing and updates game text.
+No external assets or dependencies changed. The existing 18-file inventory still applies.
+Bundle: `assets/index-Bwtc59Ji.js`. Package SHA-256: `cabfd91e3292a8ab50a3c9531009063888454997cfb015fe15e75686fb0810d4`.
+`docs/screenshots/no-putting-arrows.png` and `no-putting-arrows-board-installed.png` are browser/native evidence and are excluded from the package.
+
+`docs/screenshots/published-four-player-board-installed.png` records the October 28 reinstall requested with publication. It is verification evidence and is not packaged. The shipped inventory and package SHA-256 remain unchanged from the putting-arrow removal revision.

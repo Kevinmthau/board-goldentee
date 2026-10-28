@@ -5,13 +5,13 @@ export interface GreenSample {
   height: number;
   /** Rise/run in the course's x and z directions. */
   gradient: { x: number; z: number };
-  /** Downhill acceleration in yards/second², shared by roll physics and arrows. */
+  /** Downhill acceleration in yards/second², used by roll physics. */
   downhill: { x: number; z: number };
 }
 
 const GRAVITY_YARDS = 10.73;
 
-/** One surface supplies the visible contours, break arrows, and ball acceleration. */
+/** One surface supplies the visible contours and ball acceleration. */
 export function sampleGreen(x: number, z: number, hole: Hole): GreenSample {
   const dx = x - hole.green.x, dz = z - hole.green.z;
   const r2 = (dx / hole.green.rx) ** 2 + (dz / hole.green.rz) ** 2;

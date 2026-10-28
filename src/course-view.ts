@@ -84,31 +84,6 @@ function treesFor(hole: Hole) {
   return trees;
 }
 
-export interface GreenBreakArrow {
-  tail: { x: number; z: number };
-  tip: { x: number; z: number };
-  strength: number;
-}
-
-/** World-anchored arrows sample the same downhill force that bends a rolling ball. */
-export function greenBreakArrows(hole: Hole, ball?: { x: number; z: number }): GreenBreakArrow[] {
-  const arrows: GreenBreakArrow[] = [], green = hole.green;
-  const spacing = 4.8;
-  for (let row = -4; row <= 4; row++) for (let column = -5; column <= 5; column++) {
-    const x = green.x + column * spacing, z = green.z + row * spacing;
-    if (terrainAt(x, z, hole) !== 'green' || Math.hypot(x - hole.flag.x, z - hole.flag.z) < 3 ||
-        (ball && Math.hypot(x - ball.x, z - ball.z) < 3)) continue;
-    const { downhill } = sampleGreen(x, z, hole), strength = Math.hypot(downhill.x, downhill.z);
-    if (strength < 0.035) continue;
-    const half = clamp(0.55 + strength * 1.2, 0.55, 1.2);
-    const dx = downhill.x / strength * half, dz = downhill.z / strength * half;
-    const tail = { x: x - dx, z: z - dz }, tip = { x: x + dx, z: z + dz };
-    if (terrainAt(tail.x, tail.z, hole) !== 'green' || terrainAt(tip.x, tip.z, hole) !== 'green') continue;
-    arrows.push({ tail, tip, strength });
-  }
-  return arrows;
-}
-
 type GreenCell = { points: Point[]; center: Point; color: string };
 
 export class CourseView {
@@ -130,8 +105,6 @@ export class CourseView {
   private textures = new Map<Surface, CanvasPattern>();
   private softShadow: HTMLCanvasElement | null = null;
   private greenCells: GreenCell[] = [];
-  private breakArrows: GreenBreakArrow[] = [];
-  private breakKey = '';
   private greenRead: HTMLCanvasElement | null = null;
   private greenReadKey = '';
 
@@ -187,7 +160,6 @@ export class CourseView {
   reset(game: GolfState) {
     this.hole = holeFor(game);
     this.buildGreenMesh();
-    this.breakKey = '';
     this.greenReadKey = '';
     const close = clubFor(game) === 'PUTTER';
     this.camera = {
@@ -389,7 +361,7 @@ export class CourseView {
     ctx.fillStyle=footer;ctx.fillRect(0,1440,1080,90);
     ctx.fillStyle='#12392C';ctx.fillRect(0,1530,1080,390);
     ctx.save();ctx.beginPath();ctx.rect(0,0,1080,COURSE_LAYOUT.swingTop);ctx.clip();
-    if (!preview && game.phase === 'ready' && (this.selectedPutter || distanceToCup(game) < 35)) this.drawGreenRead(ctx, game);
+    if (!preview && game.phase === 'ready' && (this.selectedPutter || distanceToCup(game) < 35)) this.drawGreenRead(ctx);
     if(!preview&&game.phase==='ready')this.drawAim(ctx,game,now);
     this.drawFlag(ctx,now);
     if(this.priorPhase==='flight'&&game.phase==='rolling')this.landing={x:game.ball.x,z:game.ball.z,at:now};
@@ -416,19 +388,19 @@ export class CourseView {
     ctx.restore();
   }
 
-  private drawGreenRead(ctx: CanvasRenderingContext2D, game: GolfState): void {
+  private drawGreenRead(ctx: CanvasRenderingContext2D): void {
     this.greenRead ??= canvasLayer(1080,1320,() => {});
-    const key = `${this.terrainKey}|${game.ball.x}|${game.ball.z}`;
+    const key = this.terrainKey;
     if (key !== this.greenReadKey) {
       const layer = this.greenRead.getContext('2d')!;
       layer.clearRect(0,0,1080,1320);
-      this.paintGreenRead(layer, game);
+      this.paintGreenRead(layer);
       this.greenReadKey = key;
     }
     ctx.drawImage(this.greenRead,0,0);
   }
 
-  private paintGreenRead(ctx: CanvasRenderingContext2D, game: GolfState): void {
+  private paintGreenRead(ctx: CanvasRenderingContext2D): void {
     const g = this.hole.green;
     ctx.save();
     // Clip the reading marks to the real green, including the near camera plane.
@@ -436,7 +408,7 @@ export class CourseView {
     if (edge.length < 3) { ctx.restore(); return; }
     ctx.beginPath(); edge.forEach((p,i) => i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.clip();
     ctx.beginPath(); ctx.rect(48,430,984,880); ctx.clip();
-    // The bending grid gives height context; arrows communicate downhill explicitly.
+    // The bending grid follows the same height surface as the rolling ball.
     ctx.strokeStyle = '#DDEAB4'; ctx.lineWidth = 2; ctx.globalAlpha = 0.26;
     for (const across of [false, true]) for (let offset = -20; offset <= 20; offset += 4.8) {
       let started = false;
@@ -448,28 +420,6 @@ export class CourseView {
         if (started) ctx.lineTo(p.x,p.y); else { ctx.moveTo(p.x,p.y); started = true; }
       }
       ctx.stroke();
-    }
-    const key = `${game.holeIndex}|${game.ball.x}|${game.ball.z}`;
-    if (key !== this.breakKey) { this.breakArrows = greenBreakArrows(this.hole, game.ball); this.breakKey = key; }
-    const ball = this.project(this.onSurface(game.ball)), cup = this.project(this.onSurface(this.hole.flag));
-    for (const arrow of this.breakArrows) {
-      const tail = this.project(this.onSurface(arrow.tail)), tip = this.project(this.onSurface(arrow.tip));
-      if (tail.depth < 3 || tip.depth < 3) continue;
-      const x = (tail.x + tip.x) / 2, y = (tail.y + tip.y) / 2;
-      if (x < 48 || x > 1032 || y < 460 || y > 1290 ||
-          Math.hypot(x-ball.x,y-ball.y) < 55 || Math.hypot(x-cup.x,y-cup.y) < 52) continue;
-      const dx = tip.x-tail.x, dy = tip.y-tail.y, projectedLength = Math.hypot(dx,dy);
-      if (projectedLength < 1) continue;
-      const length = clamp(projectedLength,28,66), ux = dx/projectedLength, uy = dy/projectedLength;
-      const ax = x-ux*length/2, ay = y-uy*length/2, bx = x+ux*length/2, by = y+uy*length/2;
-      const head = Math.min(14,length*0.38);
-      ctx.globalAlpha = clamp(0.7 + arrow.strength * 0.5,0.7,1);
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by);
-      ctx.moveTo(bx-ux*head-uy*head*0.65,by-uy*head+ux*head*0.65); ctx.lineTo(bx,by);
-      ctx.lineTo(bx-ux*head+uy*head*0.65,by-uy*head-ux*head*0.65);
-      ctx.strokeStyle = '#345B37'; ctx.lineWidth = 8; ctx.stroke();
-      ctx.strokeStyle = '#F2E7AF'; ctx.lineWidth = 4; ctx.stroke();
     }
     ctx.restore();
   }

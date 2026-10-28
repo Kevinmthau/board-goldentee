@@ -192,3 +192,44 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Install and launch the verified twelve-club package on Board; inspect startup logs and the native title screen.
 - [ ] Board: verify sensing, saves, audio, performance, club alignment, and green reading with native input.
 - [ ] Human: confirm putting precision, useful club gaps, and readable break arrows.
+
+## One to four players — October 28, 2026
+
+- [x] Add one-to-four-person setup through the native roster selector, with explicit replacement, removal, and cancellation.
+- [x] Retain separate balls, strokes, penalties, and completed holes for each player.
+- [x] Rotate after each resolved shot, skip finished players, and require Ready before another person swings.
+- [x] Wait for everyone before Next hole. Show shared scorecards, winners, ties, and rematch controls.
+- [x] Preserve version-1 solo saves and validate version-2 multiplayer saves, identities, and active turn.
+- [x] Pause for missing players. Restore ephemeral guests only through an explicit named selector choice.
+- [x] Verify a full solo round, four-player hole through real simulated contacts, full model round, and rematch/reset.
+- [x] Run 265 passing tests, with zero failures and three existing catalog-only skips.
+- [x] Run TypeScript, Vite, packaging, model/identity checks, and diff whitespace checks.
+- [x] Browser: inspect setup, player selector, shared piece, a real tee shot, next-player handoff, pause/resume, and shared scorecard.
+- [x] Board: install and launch this revision; verify startup and the native 1–4-player title screen.
+- [ ] Board: verify native selection, turn handoffs, save restoration, and performance.
+- [ ] Human: confirm comfortable shared-piece play, clear player identity, and four-person round pacing.
+
+## Restore original putting — October 28, 2026
+
+- [x] Restore the original shared swing response, two-degree aim, and percentage power display.
+- [x] Update putting help while retaining twelve clubs, green slopes/arrows, and one-to-four-player rounds.
+- [x] Verify original putter thresholds/power, complete solo-round integration, and four-player contact progression.
+- [x] Run 261 passing tests, zero failures, and three existing catalog-only skips; build and pack successfully.
+- [x] Browser: verify putter selection, two-degree aim, percentage feedback, and one committed putt.
+- [x] Board: install and launch the corrected package; inspect startup logs and native title screen.
+- [ ] Board/human: confirm physical putting feel, multiplayer handoffs, native saves, and sustained performance.
+
+## Remove putting arrows — October 28, 2026
+
+- [x] Remove downhill green arrows and their teaching text; keep the grid, slope physics, and aiming controls.
+- [x] Verify grid rendering/cache checks and 260 passing automated checks, with zero failures and three existing catalog-only skips.
+- [x] Browser: reach the green through a tee shot and inspect the resting putting view without arrows.
+- [x] Build and pack; verify unchanged identity/model and the 18-file inventory.
+- [x] Board: install and launch the updated package; inspect native startup.
+- [ ] Human: assess green readability without the downhill arrows during physical play.
+
+## Publication and reinstall — October 28, 2026
+
+- [x] Review all pending source/tests/docs/screenshots and confirm the existing game repository publication path.
+- [x] Verify the completed test/build evidence and unchanged package hash, identity, model, and inventory.
+- [x] Reinstall and launch the verified build on Board; inspect startup logs and native title.

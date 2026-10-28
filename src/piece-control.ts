@@ -21,7 +21,7 @@ export const TURN_SWING = {
   addressToleranceDeg: 30,
   backswingDeg: 40,
   fullBackswingDeg: 90,
-  // Start the full-shot power ramp just before arming.
+  // Start the power ramp just before arming so the shortest putt stays near 7%.
   powerLeadDeg: 4,
   forwardDeg: 24,
   impactToleranceDeg: 10,
@@ -30,17 +30,6 @@ export const TURN_SWING = {
   sampleWindowMs: 160,
   maxStepDeg: 120,
   maxTurnDeg: 210,
-} as const;
-
-/** A short, slow stroke and a gentle power curve give putts their own feel. */
-export const PUTT_SWING = {
-  ...TURN_SWING,
-  restAngleDeg: 4,
-  addressToleranceDeg: 8,
-  backswingDeg: 12,
-  forwardDeg: 8,
-  impactToleranceDeg: 4,
-  minSpeed: 8,
 } as const;
 
 export interface TurnSwingState {
@@ -72,14 +61,8 @@ const angleDelta = (from: number, to: number) => ((to - from + 540) % 360 + 360)
 export const isSportsPiece = (contact: BoardContact): boolean =>
   contact.type === BoardContactType.Glyph && Number.isInteger(contact.glyphId) && contact.glyphId >= 1 && contact.glyphId <= 8;
 const emptySwing = (): TurnSwingState => ({ stage: "settling", windup: 0, power: 0, backswingDeg: 0, forwardDeg: 0 });
-/** Putts reserve most of the physical turn for small distance adjustments near the cup. */
-export function swingPowerFor(degrees: number, putting = false): number {
-  if (!Number.isFinite(degrees)) return 0;
-  const profile = putting ? PUTT_SWING : TURN_SWING;
-  const fraction = clamp01((degrees - profile.backswingDeg + profile.powerLeadDeg) /
-    (profile.fullBackswingDeg - profile.backswingDeg + profile.powerLeadDeg));
-  return putting ? fraction ** 3 : fraction;
-}
+const powerFor = (degrees: number) => clamp01((degrees - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg) /
+  (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg));
 
 /** Observation, seat authority, and deliberate twist intent remain separate. */
 export class PieceController {
@@ -88,7 +71,6 @@ export class PieceController {
   private owner: Identity | null = null;
   private readonly gesture = emptySwing();
   private enabled = false;
-  private putting = false;
   private paused = false;
   private clock = 0;
   private anchor: { x: number; y: number; facing: number } | null = null;
@@ -104,7 +86,6 @@ export class PieceController {
   get piece(): BoardContact | null { return !this.paused && this.owner?.live ? this.owner.contact : null; }
   get swing(): Readonly<TurnSwingState> { return this.gesture; }
   get addressFacing(): number | null { return this.owner?.addressFacing ?? null; }
-  private get profile() { return this.putting ? PUTT_SWING : TURN_SWING; }
   get observedPiece(): BoardContact | null {
     if (this.piece) return this.piece;
     const pieces = this.identities.filter(i => i.live && isSportsPiece(i.contact));
@@ -117,13 +98,6 @@ export class PieceController {
     // A new turn or return from help can address at a comfortable new angle.
     // Pause and tracking rebind do not toggle enabled, so they retain the old zero.
     this.resetStroke(enabled);
-  }
-
-  /** Changing clubs cannot carry a partly armed stroke into a different power curve. */
-  setPutting(putting: boolean): void {
-    if (this.putting === putting) return;
-    this.putting = putting;
-    this.resetStroke();
   }
 
   resetStroke(recalibrate = false): void {
@@ -185,18 +159,17 @@ export class PieceController {
     this.clock = now;
     const piece = this.piece;
     if (!piece || !this.enabled) return;
-    const profile = this.profile;
     if (this.gesture.stage === "settling") {
       const facing = this.facing(piece);
       const address = this.owner?.addressFacing ?? null;
       if (facing === null || !this.options.isPlacement(piece) ||
-          (address !== null && Math.abs(angleDelta(address, facing)) > profile.addressToleranceDeg)) {
+          (address !== null && Math.abs(angleDelta(address, facing)) > TURN_SWING.addressToleranceDeg)) {
         this.anchor = null;
         this.restSince = now;
         return;
       }
       if (!this.anchor || separation(piece, this.anchor) > TURN_SWING.restRadius ||
-          Math.abs(angleDelta(this.anchor.facing, facing)) > profile.restAngleDeg) this.seed(piece);
+          Math.abs(angleDelta(this.anchor.facing, facing)) > TURN_SWING.restAngleDeg) this.seed(piece);
       if (now - this.restSince >= TURN_SWING.settleMs) {
         if (this.owner && this.owner.addressFacing === null) this.owner.addressFacing = this.anchor!.facing;
         this.gesture.stage = "ready";
@@ -274,7 +247,6 @@ export class PieceController {
 
   private sample(contact: BoardContact, now: number): Shot | null {
     const swing = this.gesture;
-    const profile = this.profile;
     if (swing.stage === "committed" || swing.stage === "settling") return null;
     const facing = this.facing(contact);
     if (facing === null || !this.anchor || !this.options.isPlacement(contact) ||
@@ -291,12 +263,12 @@ export class PieceController {
     const last = this.last;
     const sample = { angle: this.turn, time: now };
     this.last = sample;
-    swing.windup = clamp01((Math.abs(this.turn) - profile.deadbandDeg) /
-      (profile.fullBackswingDeg - profile.deadbandDeg));
+    swing.windup = clamp01((Math.abs(this.turn) - TURN_SWING.deadbandDeg) /
+      (TURN_SWING.fullBackswingDeg - TURN_SWING.deadbandDeg));
     if (swing.stage === "ready") {
       swing.backswingDeg = Math.abs(this.turn);
-      swing.power = swingPowerFor(swing.backswingDeg, this.putting);
-      if (swing.backswingDeg >= profile.backswingDeg) {
+      swing.power = powerFor(swing.backswingDeg);
+      if (swing.backswingDeg >= TURN_SWING.backswingDeg) {
         swing.stage = "backswing";
         this.direction = Math.sign(this.turn);
         this.history = [sample];
@@ -308,7 +280,7 @@ export class PieceController {
     if (extent >= swing.backswingDeg) {
       swing.backswingDeg = extent;
       swing.forwardDeg = 0;
-      swing.power = swingPowerFor(extent, this.putting);
+      swing.power = powerFor(extent);
       this.forwardSamples = 0;
       this.history = [sample];
       return null;
@@ -323,8 +295,8 @@ export class PieceController {
     // contact feed still qualify. A single jump followed by slow jitter does not.
     const sampleSeconds = (now - last.time) / 1000;
     const returnSpeed = sampleSeconds > 0 ? -delta * this.direction / sampleSeconds : 0;
-    if (returnSpeed >= profile.minSpeed) this.forwardSamples += 1;
-    else if (delta * this.direction > profile.deadbandDeg) {
+    if (returnSpeed >= TURN_SWING.minSpeed) this.forwardSamples += 1;
+    else if (delta * this.direction > TURN_SWING.deadbandDeg) {
       this.forwardSamples = 0;
       this.history = [sample];
     }
@@ -333,9 +305,9 @@ export class PieceController {
     const start = this.history[0];
     const elapsed = (now - start.time) / 1000;
     const speed = elapsed > 0 ? (start.angle - sample.angle) * this.direction / elapsed : 0;
-    if (this.forwardSamples >= 2 && swing.forwardDeg >= profile.forwardDeg &&
-        extent <= profile.impactToleranceDeg &&
-        elapsed >= 0.016 && speed >= profile.minSpeed) {
+    if (this.forwardSamples >= 2 && swing.forwardDeg >= TURN_SWING.forwardDeg &&
+        extent <= TURN_SWING.impactToleranceDeg &&
+        elapsed >= 0.016 && speed >= TURN_SWING.minSpeed) {
       swing.stage = "committed";
       return { power: swing.power, angle: 0 };
     }

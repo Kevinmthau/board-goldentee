@@ -1,11 +1,11 @@
 # Plan: Golden Tee
 
 Updated: October 28, 2026.
-Status: Twelve clubs, precision putting, and undulating greens pass 238 automated checks, browser inspection, and packaging. Installed and launched on Board; native play remains open.
+Status: One-to-four-player support with restored original putting controls and no green arrows is installed and launched on Board. Automated, browser, and native startup checks are recorded in the acceptance ledger. Physical multiplayer play and putting feel remain open.
 
 ## Summary
 
-Golden Tee is a solo coastal golf game with nine holes and a total par of 36. Finish the round in the fewest strokes.
+Golden Tee is a one-to-four-player coastal golf game with nine holes and a total par of 36. Finish the round in the fewest strokes.
 Use the Board Studio TypeScript, Vite, and Canvas 2D starter with the vendored SDK.
 The physical Sports player replaces the Bloogs ring and digital golfer. Its visible club is attached to the center front of the real piece and exists only while that piece is detected.
 
@@ -16,9 +16,8 @@ The physical Sports player replaces the Bloogs ring and digital golfer. Its visi
 3. Select a club. Turn the piece back toward yourself to bring the club back.
 4. Reverse the twist and return the club to the ball to hit. A larger backswing gives more power. Use a small turn for a short putt.
 
-A quarter turn (90 degrees) reaches full power. Woods, irons, and wedges arm at 40 degrees, giving about 7% power.
-Putting arms at 12 degrees. Its cubic response gives short putts more adjustment room, and a gentle return can strike.
-Putting aim changes by 0.25 degrees per tap. Other clubs retain two-degree aim steps.
+A quarter turn (90 degrees) reaches full power. All clubs, including the putter, arm at 40 degrees, giving about 7% power.
+The original linear power response applies to every club. Putting aim changes by two degrees per tap.
 
 Keep hold of the piece. Placement, translation alone, and lifting do not hit the ball.
 The grip attaches just outside the center front of the footprint; the shaft extends in the piece's actual facing direction. The driver shaft is 1.45 piece widths long; the 3 wood is 1.41 widths. Long irons range from 1.29 to 1.38 widths, other irons use 1.25 widths, sand wedge uses 1.18, and putter uses 1.1. The address camera, terrain, and digital ball stay fixed when the piece is placed, translated, or turned. Only the attached club follows the piece. The camera may follow the ball after a committed shot.
@@ -32,8 +31,8 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Tap the selected club to open the bag. Choosing a club returns to play and requires a settled address.
 - Recommendations include all twelve clubs. Sand wedge retains more speed from a bunker lie.
 - Each green has distinct smooth swells and slopes. Grounded rolls bend downhill and travel farther downhill than uphill.
-- Curved grid lines and arrows appear near the green or with the putter selected. Arrows point downhill using the same surface as physics.
-- During a putter backswing, the footer shows estimated feet on a level green. Slopes and other terrain change the actual distance.
+- Curved grid lines appear near the green or with the putter selected. The green uses the same surface for its visible contours and ball physics.
+- During every backswing, including a putt, show the power percentage. Slopes and other terrain change the actual distance.
 - A full 7 iron reaches the first green from the tee. Terrain can reduce distance.
 - Club choices apply explicitly to the next shot. Recommend a club at each new lie.
 - Fixed left and right aim controls adjust direction separately from swing power.
@@ -53,10 +52,10 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Read facing and dimensions through pieceFootprint(). Sports uses a zero-degree facing offset.
 - Keep native contacts and the canvas at 1920 × 1080. Rotate the logical 1080 × 1920 scene onto that surface.
 - Convert positions and facing into the portrait view with a rigid quarter turn, never a native-coordinate scale.
-- Wait for BoardPlatform.state.ready(). Read and refresh the solo roster through src/seats.ts.
-- An eligible Sports piece on the open course binds to the signed-in solo player. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). The club-bag button begins at y1590. Its separate twelve-club selector disables swing input.
+- Wait for BoardPlatform.state.ready(). Read and refresh the roster through src/seats.ts.
+- An eligible Sports piece on the open course controls the active roster player after their turn is confirmed. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). The club-bag button begins at y1590. Its separate twelve-club selector disables swing input.
 - Require a stable initial address, then calibrate to that angle. Do not require a hidden compass direction. Small orientation noise stays inside a dead band.
-- Either twist direction can wind back toward the player. Reverse and return within ten degrees of address to strike; putting requires four degrees.
+- Either twist direction can wind back toward the player. Reverse and return within ten degrees of address to strike.
 - Launch the ball and hit sound when the physical turn returns to address, with no additional animated downswing delay. Placement and rotation never reframe the course or move the resting ball.
 - Turning through the angular wrap must stay continuous. A short tracking gap and pause retain the calibrated rotation zero. A fresh lie or explicit new setup can calibrate a new address.
 - Placement, translation alone, lift, redetection, and pause return cannot create a shot. The translation guard must allow the center drift seen when a person turns a Sports piece; deliberate dragging still cancels intent.
@@ -74,7 +73,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 | Backswing | Return the club to the ball | Club follows the physical turn, power fills | Deliberate return to address |
 | Flight | Watch the ball | Flight, landing, sound | Ball rests |
 | Next lie | Choose club and swing | Distance, club recommendation, fresh address cue | Next shot |
-| Putting | Read downhill arrows, fine-tune aim, turn gently | Shorter putter, quarter-degree aim, level-green distance in feet | Cup capture |
+| Putting | Read the green contours, aim, turn back and return | Shorter putter, two-degree aim, power percentage | Cup capture |
 | Menu return | Return to the starting angle and settle | Fresh address cue, no automatic shot | New gesture |
 | Hole result | Next hole | Hole score and accumulated round score | Explicit choice |
 | Round result | Rematch or Change setup | Nine-hole scorecard and total relative to par 36 | Explicit choice |
@@ -125,7 +124,7 @@ Audio uses gameAudio(); saves use BoardPlatform.state. Keep existing appId and p
 | Three-hole round, total par 12 | Builder | Retain the original hole and make both additions reachable in normal play |
 | Next hole requires a tap | Builder | Preserve deliberate progression and a readable scorecard |
 | Six clubs with distinct driver head | Builder | Fit the longer holes while retaining the existing short game |
-| Solo roster and one shared result | Person, retained | Prior agreed solo scope |
+| Solo roster and one shared result | Person, superseded | The October 28 request expands play to four people; results remain shared |
 | Approved implementation and native installation scope | Person | Change, installation, and log-watching requests authorize this revision |
 
 Earlier sliding-ring, digital-golfer, and separate digital-ball-club decisions are superseded. Their evidence remains in the acceptance ledger and edit history.
@@ -222,3 +221,46 @@ New green shapes apply when resuming old runs, so an unfinished roll follows the
 Green scenery and reading marks are cached. No model, dependency, external art, or audio asset is added.
 Automated checks cover club selection, slow putts, slope direction, frame timing, saved rolling state, all nine holes, and explicit results.
 Browser checks and packaging results belong in the acceptance ledger. Physical sensing, fine-control feel, and Board performance require a playtest.
+
+## One to four players — October 28, 2026
+
+- By person: add support for up to four players. This supersedes the earlier solo scope.
+- By builder: retain the portrait course and one shared swing station at Board’s left short edge. Players take turns using a Sports piece.
+- By builder: add and replace participants through the Board player selector. The roster supplies every name and identity; never create anonymous seats.
+- By builder: each participant has a separate ball, strokes, penalties, and nine-hole scorecard. Rotate turns after each resolved shot, skipping players who finished the hole.
+- By builder: show the next player and wait for Ready before enabling a fresh swing. A shared piece may stay on the glass; the turn confirmation clears unfinished input.
+- By builder: all players finish before Next hole is available. The final result names the lowest total, including ties, with shared Rematch and Change setup controls.
+- By builder: retain human play with physical Sports pieces. This revision extends the existing physical swing game; it does not add an automated swing mode.
+- By builder: preserve version-1 solo saves and add version-2 round saves containing every player’s state and active turn. Missing participants pause the round until restored or a new setup is explicitly confirmed.
+- By builder: keep the latest twelve clubs, precision putting, green slopes, wind, app identity, and native model.
+
+| State | Next action | Signal | Ends |
+|---|---|---|---|
+| Player setup | Add up to four roster players, then tee off | Named player rows and native selector controls | Explicit Tee Off |
+| Handoff | Pass the Sports piece or share it at the left short edge | Active player name and Ready | Explicit Ready, then settled address |
+| Play | Twist through the ball | Active player label, their own lie and strokes | Shot resolves |
+| Hole complete | Review everyone’s strokes | Shared nine-hole scorecard | Explicit Next hole |
+| Round complete | Review winner or tie | Shared scorecard and result | Rematch or Change setup |
+
+Verification must cover one, two, three, and four players; identity changes; pause and tracking recovery; turn guards; score isolation; ties; saves; and rematch.
+Native four-player pacing and comfortable handoffs require a physical playtest.
+
+Guest recovery is explicit: Restore Players names a missing numbered seat before opening the selector.
+Only that confirmed choice can reconnect an ephemeral guest to an old score. Automatic roster refresh never transfers scores.
+
+## Restore earlier putting controls — October 28, 2026
+
+- By person: go back to the old way of putting. This supersedes the precision-putting controls introduced earlier today.
+- By builder: restore the control behavior from `d411e7c`, immediately before the precision revision.
+- Putts use the same linear power response as other clubs: arm at 40 degrees, reach full power at 90 degrees, then return to address.
+- Restore the original return-speed guard, ten-degree strike window, two-degree aim buttons, and percentage power display.
+- Keep the twelve-club bag, green slopes and break arrows, wind, nine holes, and one-to-four-player support.
+- Update the teaching text to match the restored controls. Keep the current save schema, app identity, and native model.
+- Validate the real swing journey and multiplayer handoffs before updating the already installed Board build.
+
+## Remove putting arrows — October 28, 2026
+
+- By person: get rid of the putting arrows.
+- By builder: remove the downhill arrows drawn across the green and their teaching text. Keep the curved grid, slopes, original putting response, and aim buttons.
+- Preserve the one-to-four-player round, twelve clubs, wind indicator, saves, and app identity.
+- Verify the rendering and existing automated checks, then update the person's Board.

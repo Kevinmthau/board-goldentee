@@ -337,3 +337,80 @@
 - Native startup: platform state became ready at 16:51:08 in the device log. The existing optional favicon and game-font.json 404 warnings recurred.
 - Screenshot: `docs/screenshots/precision-putting-board-installed.png` confirms the native title screen, nine-hole/par-36 text, and Sports placement cue.
 - Evidence limit: installation, launch, platform startup, and title rendering are verified. Physical input, putting feel, saves/audio, and sustained performance remain open.
+
+## October 28, 2026 — One to four players
+
+- Asked for: add up to four players.
+- Baseline: retained the completed twelve-club, precision-putting, and green-slope revision in commit `a7ec419`.
+- Workspace: `codex/golf-four-players` in the managed `golf-four-players` worktree. No publication or hardware installation was requested.
+- Source: the native selector supplies one to four named participants. All players use the existing left-edge swing station.
+- Source: each participant has an independent ball, strokes, penalties, wind, and completed-hole scores. Turns rotate after resolved shots.
+- Source: Ready gates each handoff. Finished players wait; everyone must finish before the shared Next hole choice.
+- Source: scorecards show all four rows. Lowest totals win, including ties. Rematch resets every participant and unfinished gesture.
+- Saves: version-1 solo saves migrate without changing their lie. Version-2 saves validate all participants and the active turn.
+- Saves: roster replacement does not inherit scores. Missing players pause play. Explicit guest rejoin can reconnect an ephemeral identity.
+- Automated: 268 total checks, 265 passed, zero failures, three pre-existing catalog-only skips.
+- Integration: retains the complete solo nine-hole journey. Forty real simulated putting gestures complete a four-player hole.
+- Integration: verifies two/three/four-player setup, per-player score isolation, Ready guards, pause/rebind, scorecards, joint progression, and reset.
+- Integration: verifies late multiplayer restore, retained-piece entry, canceled selectors, replacement protection, and new-session guest recovery.
+- Model: a complete four-player round covers scoring, skipped players, explicit progression, wins, ties, save round-trips, and rematch.
+- Browser: added four players through the simulated native selector and inspected actual-font setup, handoff, live identity, and scorecard layouts.
+- Browser: a pointer-controlled full 7-iron tee shot advanced from player one to player two. Only player one's stroke count changed.
+- Browser: pause/resume retained the pending second turn. Ready and scorecard Back returned to player two's original tee lie.
+- Browser: improved the active-player label's contrast against the sky with a fixed dark backing.
+- Evidence: `docs/screenshots/four-player-setup.png`, `four-player-handoff.png`, and `four-player-scorecard.png`.
+- Build: TypeScript, Vite, and the 18-file package pass. Final bundle: `assets/index-CglAoTkU.js`; platform build `79b78742916fe5cc`.
+- Package SHA-256: `3163e12494c27c78e655afd23a74754b259924ba362ddec71b7928ee2ba4fb05`. Sports model and app/package IDs are unchanged. No simulator, tests, or screenshots ship.
+- Board: not installed or tested for this revision. Native roster interaction, persistence, tracking handoffs, and sustained performance remain open.
+- Human: no four-person physical playtest. Browser evidence establishes simulated behavior only.
+
+## October 28, 2026 — Install the four-player build on Board
+
+- Asked for: install the new build on the person's Board.
+- Board Connect reported ready, with web-app installation, launch, logs, and screenshot capabilities.
+- Installed and launched app `e087aaee-903b-43a2-b2b9-bbd4189601b2`. No uninstall or data deletion occurred.
+- Package SHA-256: `3163e12494c27c78e655afd23a74754b259924ba362ddec71b7928ee2ba4fb05`, identical to the tested package.
+- Independent artifact inspection and scratch rebuild confirmed matching assets, multiplayer code, app identity, Sports model, and platform build.
+- Native startup: platform state became ready at 17:02:16 in the device log. Existing optional favicon and game-font.json warnings recurred.
+- Screenshot: `docs/screenshots/four-player-board-installed.png` confirms the native title, 1–4-player label, and Players button.
+- Evidence limit: installation, launch, startup, and title rendering are verified. Physical multiplayer interaction, native saves, and sustained performance remain open.
+
+## October 28, 2026 — Restore original putting and update Board
+
+- Asked for: go back to the old way of putting.
+- Source: restored `src/piece-control.ts` exactly from `d411e7c`. Putting again uses the shared linear swing response: 40-degree arming, 90-degree full power, original return speed and impact window.
+- Source: restored two-degree aim taps and percentage power feedback. Removed the precision-putting and level-green distance cues; updated help.
+- Retained one-to-four-player rounds, all twelve clubs, green slopes and reading arrows, wind, and the nine-hole course.
+- Automated: 264 total checks, 261 passed, zero failures, three pre-existing catalog-only skips. Includes actual-putter threshold and power regressions, a complete solo round, and a four-player hole through simulated contacts.
+- Browser: selected the putter, verified an aim tap shows R 2 degrees, armed a percentage-power swing, and committed one putt from the tee. No browser errors or warnings were reported. This is control evidence, not a physical green playtest.
+- Evidence: `docs/screenshots/original-putting-controls.png`.
+- Build: TypeScript, Vite, and the 18-file package pass. Bundle `assets/index-Cmy9XbX_.js`; platform build `cbd0dfec2bcb041a`.
+- Package SHA-256: `9b8923459506d1aefef6deb75df5495c20fb5f90db5ecb73002b00b6a9b12cef`. App/package identity and Sports model are unchanged. Independent package inspection confirms the retained multiplayer/bag and removed precision cues.
+- Board: installed and launched the updated package. Platform state became ready at 17:07:04 in the device log. The existing optional favicon and game-font.json 404 warnings recurred.
+- Native screenshot: `docs/screenshots/original-putting-board-installed.png` confirms the title screen and 1–4-player setup.
+- Evidence limit: native startup is verified. Physical putting feel, native multiplayer handoffs, save restoration, and sustained performance remain open.
+
+## October 28, 2026 — Remove putting arrows
+
+- Asked for: get rid of the putting arrows.
+- Source: removed the downhill arrow generation, cache, and rendering across the greens, plus obsolete arrow instructions in the HUD, accessibility description, help, and README.
+- Retained the curved green grid, green physics, aim buttons, original putting controls, twelve-club bag, and one-to-four-player rounds.
+- Automated: 263 total checks, 260 passed, zero failures, three existing catalog-only skips. Removed the obsolete arrow-generation test and kept the renderer's grid visibility/cache checks across all nine greens and four viewing sides.
+- Browser: a full 7-iron tee shot reached the first green. The resting 15-foot putting view has grid lines and no downhill arrows; updated guidance and aim controls are visible. No console warnings/errors were reported.
+- Evidence: `docs/screenshots/no-putting-arrows.png`.
+- Build: TypeScript, Vite, and the 18-file package pass. Bundle `assets/index-Bwtc59Ji.js`; platform build `d2e34a8c05a0b15e`.
+- Package SHA-256: `cabfd91e3292a8ab50a3c9531009063888454997cfb015fe15e75686fb0810d4`. App/package identity and Sports model are unchanged. Package inspection confirms the removed arrow graphics/cues and retained multiplayer/club bag.
+- Board: installation and launch succeeded. Platform state became ready at 17:10:25. Existing optional favicon and game-font.json 404 warnings recurred.
+- Native screenshot: `docs/screenshots/no-putting-arrows-board-installed.png` records startup. Physical green readability and native play remain unverified.
+
+## October 28, 2026 — Commit, publish, and reinstall the completed game
+
+- Asked for: commit and push all changes and install.
+- Scope: all completed game source, tests, docs, assets, and screenshots, including twelve clubs, one-to-four-player rounds, original putting controls, and removal of downhill green arrows.
+- Publication target: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the established game-subtree workflow. The fetched remote still matches the nine-hole baseline; no remote changes need merging.
+- Verification retained: 263 total tests, 260 passed, zero failures, three pre-existing catalog-only skips; TypeScript, Vite, and packaging pass. No runtime code changed after these checks.
+- Read-only review: no material blocker in save validation, roster identity protection, handoffs, hole progression, original swing controls, or removed arrow rendering.
+- Rechecked package: 18 files, bundle `assets/index-Bwtc59Ji.js`, platform build `d2e34a8c05a0b15e`; unchanged app/package identity and Sports model.
+- Installed package SHA-256: `cabfd91e3292a8ab50a3c9531009063888454997cfb015fe15e75686fb0810d4`, identical to the previously tested and visually verified package.
+- Board Connect confirmed installation and launch. Native platform state became ready at 17:17:01; the existing optional favicon and game-font.json warnings recurred.
+- Screenshot: `docs/screenshots/published-four-player-board-installed.png` confirms the native 1–4-player title. Physical multiplayer pacing and putting feel remain open.

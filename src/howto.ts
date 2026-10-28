@@ -38,7 +38,7 @@ export function drawHowTo(ctx: CanvasRenderingContext2D, now: number) {
   const steps = [
     ['1  PLACE YOUR PLAYER', 'Hold still on the open grass.'],
     ['2  TURN BACK, THEN HIT', 'Return the club to the ball to strike.'],
-    ['3  READ THE GREEN', 'Green arrows show the downhill break.'],
+    ['3  READ THE GREEN', 'The grid shows the green\'s slopes.'],
   ];
   for (let i = 0; i < steps.length; i++) {
     const y = 320 + i * 440;
@@ -60,8 +60,8 @@ export function drawHowTo(ctx: CanvasRenderingContext2D, now: number) {
       text(ctx, t < .55 ? '↶' : '↷', 740, y + 200, 100, '#F1D899');
       text(ctx, 'Larger turn = more power', 540, y + 285, 40, '#B1C5A4');
     } else {
-      text(ctx, 'PUTTER: SMALL TURN, GENTLE RETURN', 540, y + 145, 40, '#F1D899');
-      text(ctx, 'Aim in 0.25° steps. Watch the feet.', 540, y + 215, 40, '#D9E5C7');
+      text(ctx, 'TURN BACK, THEN THROUGH', 540, y + 145, 40, '#F1D899');
+      text(ctx, 'Use arrows to aim. Watch the power.', 540, y + 215, 40, '#D9E5C7');
       text(ctx, 'Tap CLUB BAG to choose from 12 clubs.', 540, y + 290, 40, '#B1C5A4');
     }
   }

@@ -11,11 +11,9 @@ export const CLUB_BOXES = CLUBS.map((club, i) => ({
 export function clubDistanceLabel(club: typeof CLUBS[number]): string {
   return `${club.id === 'PUTTER' ? club.distanceYards * 3 : club.distanceYards} ${club.id === 'PUTTER' ? 'FT' : 'YD'}`;
 }
-export function aimStep(putting: boolean): number { return (putting ? 0.25 : 2) * Math.PI / 180; }
+export function aimStep(): number { return 2 * Math.PI / 180; }
 export function aimLabel(angle: number): string {
   const degrees = Math.round(Math.abs(angle) * 180 / Math.PI * 100) / 100;
   return `${degrees === 0 ? '' : angle < 0 ? 'L ' : 'R '}${degrees}°`;
 }
-/** Level-green reference, not a promise of distance on an uphill or downhill putt. */
-export function levelPuttFeet(power: number): number { return (1 + 14 * Math.max(0, Math.min(1, power))) ** 2 / 2; }
 export function clubById(id: Club) { return CLUBS.find(club => club.id === id)!; }
