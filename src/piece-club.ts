@@ -19,6 +19,7 @@ export interface PieceClubGeometry {
 export function pieceClubGeometry(footprint: Footprint | null, selection: Club | boolean = false): PieceClubGeometry | null {
   const putting = selection === true || selection === 'PUTTER';
   const driver = selection === 'DRIVER';
+  const wood = driver || selection === '3 WOOD';
   if (!footprint || footprint.outline.length < 3 || !Number.isFinite(footprint.facingDeg)) return null;
   const facingRadians = facingRotation(footprint, 'right');
   const forward = { x: Math.cos(facingRadians), y: Math.sin(facingRadians) };
@@ -31,7 +32,8 @@ export function pieceClubGeometry(footprint: Footprint | null, selection: Club |
   const width = right - left;
   if (!Number.isFinite(width) || width <= 0) return null;
   // Sports bases are 121–131 px across. The shaft is only a little longer than the base.
-  const shaftLength = width * (putting ? 1.1 : driver ? 1.45 : selection === '5 IRON' ? 1.32 : 1.25);
+  const reach = selection === '3 IRON' ? 1.38 : selection === '4 IRON' ? 1.35 : selection === '5 IRON' ? 1.32 : selection === '6 IRON' ? 1.29 : selection === 'SAND WEDGE' ? 1.18 : 1.25;
+  const shaftLength = width * (putting ? 1.1 : driver ? 1.45 : wood ? 1.41 : reach);
   const grip = frontPoint(footprint, 1);
   if (!Number.isFinite(grip.x) || !Number.isFinite(grip.y)) return null;
   return {
@@ -42,9 +44,9 @@ export function pieceClubGeometry(footprint: Footprint | null, selection: Club |
     shaftWidth: width * 0.028,
     gripLength: shaftLength * 0.23,
     gripWidth: width * 0.052,
-    headWidth: width * (putting ? 0.23 : driver ? 0.29 : 0.21),
-    headDepth: width * (putting ? 0.085 : driver ? 0.24 : 0.105),
-    kind: putting ? 'putter' : driver ? 'driver' : 'iron',
+    headWidth: width * (putting ? 0.23 : driver ? 0.29 : wood ? 0.26 : 0.21),
+    headDepth: width * (putting ? 0.085 : driver ? 0.24 : wood ? 0.19 : 0.105),
+    kind: putting ? 'putter' : wood ? 'driver' : 'iron',
   };
 }
 

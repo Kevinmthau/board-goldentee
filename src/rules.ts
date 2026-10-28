@@ -1,25 +1,38 @@
 import { HOLE, HOLES, type Hole } from './holes';
+import { sampleGreen } from './green';
 export { HOLE, HOLES, type Hole, type Ellipse } from './holes';
 
 /** Golf uses yards for x/z and height. Input uses the Board's unscaled screen pixels. */
 export type Phase = "ready" | "flight" | "rolling" | "holed" | "limit";
 export type Terrain = "fairway" | "rough" | "bunker" | "green" | "water" | "out";
-export type Club = "DRIVER" | "5 IRON" | "7 IRON" | "9 IRON" | "WEDGE" | "PUTTER";
+export type Club = "DRIVER" | "3 WOOD" | "3 IRON" | "4 IRON" | "5 IRON" | "6 IRON" | "7 IRON" | "8 IRON" | "9 IRON" | "WEDGE" | "SAND WEDGE" | "PUTTER";
 /** Approximate full-shot total distance from a clean lie (putter distance is on the green). */
 export const CLUBS: readonly { id: Club; label: string; distanceYards: number }[] = [
   { id: "DRIVER", label: "DRIVER", distanceYards: 250 },
+  { id: "3 WOOD", label: "3 WOOD", distanceYards: 225 },
+  { id: "3 IRON", label: "3 IRON", distanceYards: 210 },
+  { id: "4 IRON", label: "4 IRON", distanceYards: 195 },
   { id: "5 IRON", label: "5 IRON", distanceYards: 185 },
+  { id: "6 IRON", label: "6 IRON", distanceYards: 170 },
   { id: "7 IRON", label: "7 IRON", distanceYards: 150 },
+  { id: "8 IRON", label: "8 IRON", distanceYards: 140 },
   { id: "9 IRON", label: "9 IRON", distanceYards: 125 },
   { id: "WEDGE", label: "WEDGE", distanceYards: 60 },
+  { id: "SAND WEDGE", label: "SAND WEDGE", distanceYards: 40 },
   { id: "PUTTER", label: "PUTTER", distanceYards: 37 },
 ];
 const CLUB_LAUNCH: Record<Club, { speedMin: number; speedGain: number; liftMin: number; liftGain: number }> = {
   "DRIVER": { speedMin: 8, speedGain: 47, liftMin: 5, liftGain: 30 },
+  "3 WOOD": { speedMin: 8, speedGain: 44.25, liftMin: 5, liftGain: 28 },
+  "3 IRON": { speedMin: 7, speedGain: 42.8, liftMin: 5, liftGain: 27.5 },
+  "4 IRON": { speedMin: 7, speedGain: 41.35, liftMin: 5, liftGain: 26 },
   "5 IRON": { speedMin: 7, speedGain: 38, liftMin: 5, liftGain: 27 },
+  "6 IRON": { speedMin: 6.5, speedGain: 36.3, liftMin: 5, liftGain: 26 },
   "7 IRON": { speedMin: 6, speedGain: 33, liftMin: 5, liftGain: 24 },
+  "8 IRON": { speedMin: 5.5, speedGain: 31.8, liftMin: 5, liftGain: 24 },
   "9 IRON": { speedMin: 5, speedGain: 30, liftMin: 5, liftGain: 23 },
   "WEDGE": { speedMin: 4, speedGain: 17, liftMin: 6, liftGain: 17 },
+  "SAND WEDGE": { speedMin: 3, speedGain: 13, liftMin: 7, liftGain: 14 },
   "PUTTER": { speedMin: 1, speedGain: 14, liftMin: 0, liftGain: 0 },
 };
 export interface Shot { power: number; angle: number }
@@ -134,9 +147,16 @@ export function distanceToCup(game: GolfState): number {
 }
 
 export function clubFor(game: GolfState): Club {
-  if (terrainAt(game.ball.x, game.ball.z, holeFor(game)) === "green") return "PUTTER";
+  const terrain = terrainAt(game.ball.x, game.ball.z, holeFor(game));
+  if (terrain === "green") return "PUTTER";
   const distance = distanceToCup(game);
-  return distance <= 55 ? "WEDGE" : distance <= 125 ? "9 IRON" : distance <= 155 ? "7 IRON" : distance <= 195 ? "5 IRON" : "DRIVER";
+  if (terrain === "bunker" && distance <= 65) return "SAND WEDGE";
+  // Recommend the shortest club that comfortably covers the current approach.
+  for (let index = CLUBS.length - 1; index >= 0; index--) {
+    const club = CLUBS[index];
+    if (club.id !== "PUTTER" && distance <= club.distanceYards) return club.id;
+  }
+  return "DRIVER";
 }
 
 /** The selected club wins over the recommendation. Angle is relative to the cup: positive goes right. */
@@ -148,7 +168,7 @@ export function strike(game: GolfState, shot: Shot, club: Club = clubFor(game)):
   const power = clamp(shot.power, 0, 1);
   const direction = Math.atan2(hole.flag.x - game.ball.x, hole.flag.z - game.ball.z) + shot.angle;
   const terrain = terrainAt(game.ball.x, game.ball.z, holeFor(game));
-  const lie = terrain === "bunker" ? 0.58 : terrain === "rough" ? 0.76 : 1;
+  const lie = terrain === "bunker" ? (club === "SAND WEDGE" ? 0.82 : 0.58) : terrain === "rough" ? 0.76 : 1;
   const launch = CLUB_LAUNCH[club];
   const speed = (launch.speedMin + launch.speedGain * power) * (club === "PUTTER" ? 1 : lie);
   game.lastSafe = { x: game.ball.x, z: game.ball.z };
@@ -227,13 +247,14 @@ export function stepGame(game: GolfState, dtSeconds: number): void {
       const friction = terrain === "green" ? 3 : terrain === "rough" ? 9 : terrain === "bunker" ? 18 : 4.2;
       const speed = Math.hypot(ball.vx, ball.vz);
       if (speed < 0.14) { settleBall(game); break; }
+      const slope = terrain === "green" ? sampleGreen(ball.x, ball.z, hole).downhill : { x: 0, z: 0 };
       const movingTime = Math.min(dt, speed / friction);
       const distance = speed * movingTime - 0.5 * friction * movingTime ** 2;
-      ball.x += ball.vx / speed * distance;
-      ball.z += ball.vz / speed * distance;
+      ball.x += ball.vx / speed * distance + 0.5 * slope.x * movingTime ** 2;
+      ball.z += ball.vz / speed * distance + 0.5 * slope.z * movingTime ** 2;
       const nextSpeed = Math.max(0, speed - friction * dt);
-      ball.vx *= nextSpeed / speed;
-      ball.vz *= nextSpeed / speed;
+      ball.vx = ball.vx * nextSpeed / speed + slope.x * movingTime;
+      ball.vz = ball.vz * nextSpeed / speed + slope.z * movingTime;
     }
     const surface = terrainAt(ball.x, ball.z, hole);
     if (surface === "out" || (surface === "water" && ball.y <= 0)) { recoverHazard(game, surface); break; }

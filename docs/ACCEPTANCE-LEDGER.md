@@ -296,3 +296,44 @@
 - Validation: the preceding 225 passing tests, three catalog-only skips, browser journeys, package checks, and native installation cover the unchanged game code.
 - Destination: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the established golf-subtree publishing workflow.
 - Final review: whitespace checks pass. Generated builds, local QA scripts, logs, dependencies, and the install package remain excluded.
+
+## October 28, 2026 — Twelve clubs, precision putting, and green break
+
+- Asked for: add 3 iron, 4 iron, 6 iron, 3 wood, sand wedge, and 8 iron; improve putting precision; show green undulations with arrows.
+- Baseline: `d411e7c`, the latest nine-hole wind source. Its 225 automated checks passed, with three catalog-only skips, before edits.
+- Workspace: `/Users/kevinthau/.codex/worktrees/golf-putting-greens/Board-tennis/board-goldentee`, branch `codex/golf-putting-greens`.
+- Source: twelve clubs have distinct clean-lie distances and recommendations. Sand wedge retains more launch speed from bunkers.
+- Source: the full-size bag disables stroke input while open. Selecting a club returns to play and requires a settled address.
+- Source: putting arms at 12 degrees, uses a cubic power response, and accepts slow returns. Full swings retain the previous controls.
+- Source: putting aim changes by 0.25 degrees; other clubs retain two-degree steps. Backswing feedback reports estimated feet on a level green.
+- Source: nine authored surfaces share one height-and-gradient function for contours, arrows, and downhill rolling acceleration.
+- Compatibility: save schema, stored scores, package identity, and the Sports model remain unchanged. New slopes apply to unfinished restored rolls.
+- Automated: 241 tests total, 238 passed, zero failures, three existing catalog-only skips. TypeScript and Vite pass.
+- Integration: simulated contacts select all twelve clubs, finish a breaking putt, complete nine holes, and verify saves, scorecards, progression, and rematch.
+- Input tests: slow returns, short putts, both directions, angle wrap, 20/30/60/120 Hz, noise, mode changes, pause, and rebind pass.
+- Physics tests: derivative agreement, downhill direction, uphill/downhill distance, stopping, exact frame timing, and saved rolling state pass.
+- Rendering tests: green arrows follow the force on all nine holes; reading marks remain fixed through piece turns and avoid ball/cup positions.
+- Independent review: no actionable integration, save, or native-lifecycle defects found. Hardware performance was not measured.
+- Browser: inspected all twelve club buttons, the control lesson, quarter-degree aim, level-green distance feedback, and the green's grid and arrows.
+- Browser: actual pointer twists played a full 7 iron, followed by a 15.4-foot level-green reference putt aimed two degrees right. Hole one finished with birdie.
+- Browser: Next hole advanced explicitly, the new 3 wood selected correctly, and pause/resume retained the lie and club without a stroke.
+- Browser: no warning or error logs appeared during the final playthrough. Narrow portrait preview now centers the complete canvas.
+- Browser fixtures: inspected Seabreeze, Heron Marsh, and Lighthouse greens from different directions. These are render fixtures, not played holes.
+- Evidence: `docs/screenshots/twelve-club-bag.png`, `precision-putting-help.png`, `precision-putting-break.png`, and `precision-putting-birdie.png`.
+- Build: the 18-file package contains `index-CXCTlMpU.js`, `index-DcBmdo0M.css`, and platform build `1c5cc3af4c2c11fe`.
+- Package SHA-256: `c857f0c2f9c6d2dd85deb39593ddddb7495ffb730b8dbee81f2614fc7a2f7f52`.
+- Model SHA-256 remains `4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9`. No simulator, fixture, or screenshot enters the package.
+- Board: not installed or tested for this revision. Native sensing, physical alignment, saves/audio, and sustained performance remain open.
+- Human: putting comfort, useful club gaps, and green-reading clarity remain open. The local revision is not committed or published.
+
+## October 28, 2026 — Install the twelve-club build on Board
+
+- Asked for: install the new build on the person's Board.
+- Board Connect reported `ready: true`, with web-app installation, launch, logs, and screenshot capabilities.
+- Installed and launched app `e087aaee-903b-43a2-b2b9-bbd4189601b2` successfully. No uninstall or data deletion occurred.
+- Package SHA-256: `c857f0c2f9c6d2dd85deb39593ddddb7495ffb730b8dbee81f2614fc7a2f7f52`, identical to the tested package.
+- Independent artifact inspection confirmed all twelve clubs, precision putting, quarter-degree aim, and shared green slope logic.
+- The 18-file package retains the Sports model and app identity. Simulator and QA files are absent.
+- Native startup: platform state became ready at 16:51:08 in the device log. The existing optional favicon and game-font.json 404 warnings recurred.
+- Screenshot: `docs/screenshots/precision-putting-board-installed.png` confirms the native title screen, nine-hole/par-36 text, and Sports placement cue.
+- Evidence limit: installation, launch, platform startup, and title rendering are verified. Physical input, putting feel, saves/audio, and sustained performance remain open.

@@ -1,5 +1,6 @@
 import { HOLE, holeFor, fairwayAt, terrainAt, clubFor, distanceToCup, type GolfState, type Hole } from './rules';
 import { createTreeSprite, createGroundTexture, createSoftShadow } from './course-art';
+import { sampleGreen } from './green';
 
 /** Logical portrait coordinates. Main rotates this scene onto Board's native surface. */
 export const COURSE_LAYOUT = {
@@ -83,6 +84,33 @@ function treesFor(hole: Hole) {
   return trees;
 }
 
+export interface GreenBreakArrow {
+  tail: { x: number; z: number };
+  tip: { x: number; z: number };
+  strength: number;
+}
+
+/** World-anchored arrows sample the same downhill force that bends a rolling ball. */
+export function greenBreakArrows(hole: Hole, ball?: { x: number; z: number }): GreenBreakArrow[] {
+  const arrows: GreenBreakArrow[] = [], green = hole.green;
+  const spacing = 4.8;
+  for (let row = -4; row <= 4; row++) for (let column = -5; column <= 5; column++) {
+    const x = green.x + column * spacing, z = green.z + row * spacing;
+    if (terrainAt(x, z, hole) !== 'green' || Math.hypot(x - hole.flag.x, z - hole.flag.z) < 3 ||
+        (ball && Math.hypot(x - ball.x, z - ball.z) < 3)) continue;
+    const { downhill } = sampleGreen(x, z, hole), strength = Math.hypot(downhill.x, downhill.z);
+    if (strength < 0.035) continue;
+    const half = clamp(0.55 + strength * 1.2, 0.55, 1.2);
+    const dx = downhill.x / strength * half, dz = downhill.z / strength * half;
+    const tail = { x: x - dx, z: z - dz }, tip = { x: x + dx, z: z + dz };
+    if (terrainAt(tail.x, tail.z, hole) !== 'green' || terrainAt(tip.x, tip.z, hole) !== 'green') continue;
+    arrows.push({ tail, tip, strength });
+  }
+  return arrows;
+}
+
+type GreenCell = { points: Point[]; center: Point; color: string };
+
 export class CourseView {
   private hole: Hole = HOLE;
   private camera: Camera = { x: 0, z: 0, yaw: 0, ...ADDRESS_CAMERA };
@@ -101,6 +129,12 @@ export class CourseView {
   private impactSent = false;
   private textures = new Map<Surface, CanvasPattern>();
   private softShadow: HTMLCanvasElement | null = null;
+  private greenCells: GreenCell[] = [];
+  private breakArrows: GreenBreakArrow[] = [];
+  private breakKey = '';
+  private greenRead: HTMLCanvasElement | null = null;
+  private greenReadKey = '';
+
 
   private loadScenery() {
     const photo = new Image();
@@ -152,15 +186,46 @@ export class CourseView {
 
   reset(game: GolfState) {
     this.hole = holeFor(game);
+    this.buildGreenMesh();
+    this.breakKey = '';
+    this.greenReadKey = '';
     const close = clubFor(game) === 'PUTTER';
     this.camera = {
       x: game.ball.x, z: game.ball.z,
       yaw: Math.atan2(this.hole.flag.x - game.ball.x, this.hole.flag.z - game.ball.z),
       ...(close ? PUTT_CAMERA : ADDRESS_CAMERA),
+      height: (close ? PUTT_CAMERA : ADDRESS_CAMERA).height + this.surfaceHeight(game.ball),
     };
     this.initialized = true; this.trace = []; this.terrainKey = ''; this.landing = null;
     this.priorPhase = game.phase;
     this.shotElapsed=Infinity;this.aim=0;this.selectedPutter=close;this.impactSent=false;
+  }
+
+  private surfaceHeight(p: { x: number; z: number }): number {
+    return terrainAt(p.x, p.z, this.hole) === 'green' ? sampleGreen(p.x, p.z, this.hole).height : 0;
+  }
+
+  private onSurface(p: Point): Point {
+    return { ...p, y: (p.y ?? 0) + this.surfaceHeight(p) };
+  }
+
+  /** Small surface patches keep the actual rise and fall visible in perspective. */
+  private buildGreenMesh(): void {
+    this.greenCells = [];
+    const g = this.hole.green, rings = 10, slices = 48;
+    const point = (radius: number, angle: number): Point => {
+      const x = g.x + g.rx * radius * Math.cos(angle), z = g.z + g.rz * radius * Math.sin(angle);
+      return { x, z, y: sampleGreen(x, z, this.hole).height };
+    };
+    for (let ring = 0; ring < rings; ring++) for (let slice = 0; slice < slices; slice++) {
+      const a = slice / slices * TAU, b = (slice + 1) / slices * TAU;
+      const center = point((ring + 0.5) / rings, (a + b) / 2);
+      const gradient = sampleGreen(center.x, center.z, this.hole).gradient;
+      const light = clamp((-gradient.x * 0.75 - gradient.z * 0.65) * 260, -20, 20);
+      const color = `rgb(${Math.round(151 + light)},${Math.round(175 + light)},${Math.round(99 + light)})`;
+      this.greenCells.push({ center, color, points: [point(ring / rings, a), point((ring + 1) / rings, a),
+        point((ring + 1) / rings, b), point(ring / rings, b)] });
+    }
   }
 
   private forward(p: Point) {
@@ -234,15 +299,11 @@ export class CourseView {
     const green=this.hole.green;
     this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx+1.8,green.rz+1.8),'#537F42');
     this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx+0.8,green.rz+0.8),'#BDD17C');
-    this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx,green.rz),'#96AE63','green');
-    // Mowed green bands use the exact ellipse used by the rules.
-    for(let z=green.z-green.rz;z<green.z+green.rz;z+=3.4) {
-      if(Math.floor((z-green.z+green.rz)/3.4)%2) continue;
-      const top=Math.min(green.z+green.rz,z+3.4), pts:Point[]=[];
-      for(let i=0;i<=8;i++) {const zz=mix(z,top,i/8),w=green.rx*Math.sqrt(Math.max(0,1-((zz-green.z)/green.rz)**2));pts.push({x:green.x-w,z:zz});}
-      for(let i=8;i>=0;i--) {const zz=mix(z,top,i/8),w=green.rx*Math.sqrt(Math.max(0,1-((zz-green.z)/green.rz)**2));pts.push({x:green.x+w,z:zz});}
-      this.ground(ctx,pts,'#A0B66C','green');
+    for (const cell of [...this.greenCells].sort((a, b) => this.forward(b.center) - this.forward(a.center))) {
+      this.ground(ctx, cell.points, cell.color);
     }
+    // One texture pass keeps these small surface patches cheap when the camera moves.
+    this.ground(ctx,this.ovalPoints(green.x,green.z,green.rx,green.rz),'rgba(0,0,0,0)','green');
     for (const sand of this.hole.bunkers) {
       this.ground(ctx,this.ovalPoints(sand.x,sand.z,sand.rx+0.65,sand.rz+0.65),'#355E39');
       this.ground(ctx,this.ovalPoints(sand.x,sand.z,sand.rx,sand.rz),'#C7B78C','sand');
@@ -310,12 +371,13 @@ export class CourseView {
     c.x=mix(c.x,game.ball.x,blend);c.z=mix(c.z,game.ball.z,blend);
     if(!moving)c.yaw+=angleDelta(c.yaw,targetYaw)*blend;
     c.distance=mix(c.distance,framing.distance,blend);
-    c.height=mix(c.height,framing.height+game.ball.y*0.65,blend);
+    const groundHeight = this.surfaceHeight(game.ball);
+    c.height=mix(c.height,framing.height+groundHeight+game.ball.y*0.65,blend);
     if(!moving) {
       if(Math.abs(c.x-game.ball.x)<0.002)c.x=game.ball.x;
       if(Math.abs(c.z-game.ball.z)<0.002)c.z=game.ball.z;
       if(Math.abs(angleDelta(c.yaw,targetYaw))<0.0001)c.yaw=targetYaw;
-      if(Math.abs(c.height-framing.height)<0.002)c.height=framing.height;
+      if(Math.abs(c.height-framing.height-groundHeight)<0.002)c.height=framing.height+groundHeight;
       if(Math.abs(c.distance-framing.distance)<0.002)c.distance=framing.distance;
     }
     const key=game.holeIndex+'|'+[c.x,c.z,c.yaw,c.distance,c.height].map(v=>v.toFixed(3)).join('|');
@@ -327,14 +389,15 @@ export class CourseView {
     ctx.fillStyle=footer;ctx.fillRect(0,1440,1080,90);
     ctx.fillStyle='#12392C';ctx.fillRect(0,1530,1080,390);
     ctx.save();ctx.beginPath();ctx.rect(0,0,1080,COURSE_LAYOUT.swingTop);ctx.clip();
+    if (!preview && game.phase === 'ready' && (this.selectedPutter || distanceToCup(game) < 35)) this.drawGreenRead(ctx, game);
     if(!preview&&game.phase==='ready')this.drawAim(ctx,game,now);
     this.drawFlag(ctx,now);
     if(this.priorPhase==='flight'&&game.phase==='rolling')this.landing={x:game.ball.x,z:game.ball.z,at:now};
     this.priorPhase=game.phase;
     if(moving) {
       const previous=this.trace[this.trace.length-1];
-      if(!previous||Math.hypot(game.ball.x-previous.x,game.ball.z-previous.z,(game.ball.y??0)-(previous.y??0))>0.4)
-        this.trace.push({x:game.ball.x,z:game.ball.z,y:game.ball.y,time:now});
+      if(!previous||Math.hypot(game.ball.x-previous.x,game.ball.z-previous.z,game.ball.y+groundHeight-(previous.y??0))>0.4)
+        this.trace.push({...this.onSurface(game.ball),time:now});
     }
     this.trace=this.trace.filter(p=>now-p.time<650).slice(-35);
     for(let i=1;i<this.trace.length;i++) {
@@ -345,11 +408,69 @@ export class CourseView {
     }
     ctx.globalAlpha=1;
     if(this.landing&&now-this.landing.at<520) {
-      const t=(now-this.landing.at)/520,p=this.project(this.landing);
+      const t=(now-this.landing.at)/520,p=this.project(this.onSurface(this.landing));
       ctx.globalAlpha=(1-t)*0.45;ctx.strokeStyle='#F5E4B4';ctx.lineWidth=3;
       ctx.beginPath();ctx.ellipse(p.x,p.y,8+t*45,3+t*12,0,0,TAU);ctx.stroke();ctx.globalAlpha=1;
     }
     if(game.phase!=='holed')this.drawBall(ctx,game,now);
+    ctx.restore();
+  }
+
+  private drawGreenRead(ctx: CanvasRenderingContext2D, game: GolfState): void {
+    this.greenRead ??= canvasLayer(1080,1320,() => {});
+    const key = `${this.terrainKey}|${game.ball.x}|${game.ball.z}`;
+    if (key !== this.greenReadKey) {
+      const layer = this.greenRead.getContext('2d')!;
+      layer.clearRect(0,0,1080,1320);
+      this.paintGreenRead(layer, game);
+      this.greenReadKey = key;
+    }
+    ctx.drawImage(this.greenRead,0,0);
+  }
+
+  private paintGreenRead(ctx: CanvasRenderingContext2D, game: GolfState): void {
+    const g = this.hole.green;
+    ctx.save();
+    // Clip the reading marks to the real green, including the near camera plane.
+    const edge = this.ovalPoints(g.x,g.z,g.rx,g.rz).filter(p => this.forward(p) >= 1).map(p => this.project(p));
+    if (edge.length < 3) { ctx.restore(); return; }
+    ctx.beginPath(); edge.forEach((p,i) => i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y)); ctx.closePath(); ctx.clip();
+    ctx.beginPath(); ctx.rect(48,430,984,880); ctx.clip();
+    // The bending grid gives height context; arrows communicate downhill explicitly.
+    ctx.strokeStyle = '#DDEAB4'; ctx.lineWidth = 2; ctx.globalAlpha = 0.26;
+    for (const across of [false, true]) for (let offset = -20; offset <= 20; offset += 4.8) {
+      let started = false;
+      ctx.beginPath();
+      for (let step = -24; step <= 24; step += 0.8) {
+        const x = g.x + (across ? step : offset), z = g.z + (across ? offset : step);
+        if (terrainAt(x,z,this.hole) !== 'green' || this.forward({x,z}) < 1) { started = false; continue; }
+        const p = this.project(this.onSurface({x,z,y:0.015}));
+        if (started) ctx.lineTo(p.x,p.y); else { ctx.moveTo(p.x,p.y); started = true; }
+      }
+      ctx.stroke();
+    }
+    const key = `${game.holeIndex}|${game.ball.x}|${game.ball.z}`;
+    if (key !== this.breakKey) { this.breakArrows = greenBreakArrows(this.hole, game.ball); this.breakKey = key; }
+    const ball = this.project(this.onSurface(game.ball)), cup = this.project(this.onSurface(this.hole.flag));
+    for (const arrow of this.breakArrows) {
+      const tail = this.project(this.onSurface(arrow.tail)), tip = this.project(this.onSurface(arrow.tip));
+      if (tail.depth < 3 || tip.depth < 3) continue;
+      const x = (tail.x + tip.x) / 2, y = (tail.y + tip.y) / 2;
+      if (x < 48 || x > 1032 || y < 460 || y > 1290 ||
+          Math.hypot(x-ball.x,y-ball.y) < 55 || Math.hypot(x-cup.x,y-cup.y) < 52) continue;
+      const dx = tip.x-tail.x, dy = tip.y-tail.y, projectedLength = Math.hypot(dx,dy);
+      if (projectedLength < 1) continue;
+      const length = clamp(projectedLength,28,66), ux = dx/projectedLength, uy = dy/projectedLength;
+      const ax = x-ux*length/2, ay = y-uy*length/2, bx = x+ux*length/2, by = y+uy*length/2;
+      const head = Math.min(14,length*0.38);
+      ctx.globalAlpha = clamp(0.7 + arrow.strength * 0.5,0.7,1);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by);
+      ctx.moveTo(bx-ux*head-uy*head*0.65,by-uy*head+ux*head*0.65); ctx.lineTo(bx,by);
+      ctx.lineTo(bx-ux*head+uy*head*0.65,by-uy*head-ux*head*0.65);
+      ctx.strokeStyle = '#345B37'; ctx.lineWidth = 8; ctx.stroke();
+      ctx.strokeStyle = '#F2E7AF'; ctx.lineWidth = 4; ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -360,19 +481,19 @@ export class CourseView {
     ctx.strokeStyle='#F8E8B6';ctx.lineCap='round';ctx.globalAlpha=0.48+Math.sin(now/800)*0.08;
     const step=length/8;
     for(let i=1;i<8;i++) {
-      const a=this.project({x:game.ball.x+Math.sin(yaw)*step*i,z:game.ball.z+Math.cos(yaw)*step*i,y:0.03});
-      const b=this.project({x:game.ball.x+Math.sin(yaw)*step*(i+0.35),z:game.ball.z+Math.cos(yaw)*step*(i+0.35),y:0.03});
+      const a=this.project(this.onSurface({x:game.ball.x+Math.sin(yaw)*step*i,z:game.ball.z+Math.cos(yaw)*step*i,y:0.03}));
+      const b=this.project(this.onSurface({x:game.ball.x+Math.sin(yaw)*step*(i+0.35),z:game.ball.z+Math.cos(yaw)*step*(i+0.35),y:0.03}));
       ctx.lineWidth=clamp(a.scale*0.09,2,4);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
     }
     ctx.globalAlpha=1;
   }
 
   private drawFlag(ctx:CanvasRenderingContext2D,now:number) {
-    const base=this.project(this.hole.flag);
+    const base=this.project(this.onSurface(this.hole.flag));
     if(base.depth<2)return;
-    const tip=this.project({...this.hole.flag,y:5.4});
-    this.ground(ctx,this.ovalPoints(this.hole.flag.x,this.hole.flag.z,this.hole.cupRadius+0.08,this.hole.cupRadius+0.08),'#2A4C35');
-    this.ground(ctx,this.ovalPoints(this.hole.flag.x,this.hole.flag.z,this.hole.cupRadius,this.hole.cupRadius),'#162F27');
+    const tip=this.project(this.onSurface({...this.hole.flag,y:5.4}));
+    this.ground(ctx,this.ovalPoints(this.hole.flag.x,this.hole.flag.z,this.hole.cupRadius+0.08,this.hole.cupRadius+0.08).map(p => this.onSurface(p)),'#2A4C35');
+    this.ground(ctx,this.ovalPoints(this.hole.flag.x,this.hole.flag.z,this.hole.cupRadius,this.hole.cupRadius).map(p => this.onSurface(p)),'#162F27');
     ctx.strokeStyle='#F7EFD7';ctx.lineWidth=clamp(base.scale*0.12,3,7);ctx.beginPath();ctx.moveTo(base.x,base.y);ctx.lineTo(tip.x,tip.y);ctx.stroke();
     const size=clamp(base.scale*2.8,31,90),wave=Math.sin(now/260)*size*0.06;
     polygon(ctx,[{x:tip.x,y:tip.y},{x:tip.x+size*0.55,y:tip.y+size*0.05+wave},{x:tip.x+size,y:tip.y+size*0.22},{x:tip.x+size*0.60,y:tip.y+size*0.40+wave},{x:tip.x,y:tip.y+size*0.36}],'#ED785C');
@@ -380,11 +501,11 @@ export class CourseView {
   }
 
   private drawBall(ctx:CanvasRenderingContext2D,game:GolfState,now:number) {
-    const p=this.project({x:game.ball.x,z:game.ball.z,y:game.ball.y+0.2});
-    const ground=this.project(game.ball);
+    const p=this.project(this.onSurface({x:game.ball.x,z:game.ball.z,y:game.ball.y+0.2}));
+    const ground=this.project(this.onSurface({x:game.ball.x,z:game.ball.z}));
     if(p.depth<1)return;
     const radius=clamp(p.scale*0.27,7,14);
-    const shadow=this.project({x:game.ball.x,z:game.ball.z});
+    const shadow=this.project(this.onSurface({x:game.ball.x,z:game.ball.z}));
     ctx.fillStyle='#24482D';ctx.globalAlpha=clamp(0.48-game.ball.y/80,0.12,0.48);
     ctx.beginPath();ctx.ellipse(shadow.x,shadow.y,clamp(shadow.scale*0.3,6,18)+game.ball.y*0.2,clamp(shadow.scale*0.08,2,5),0,0,TAU);ctx.fill();ctx.globalAlpha=1;
     if(game.phase==='ready') {

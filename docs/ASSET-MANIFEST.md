@@ -23,10 +23,12 @@ Model SHA-256: 4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9.
 | Source | Role | Origin and licence |
 |---|---|---|
 | src/course-view.ts | Nine-hole terrain, water and sand hazards, cup, flag, ball, camera, and generated-art composition; procedural image-failure fallback | Original project code and Canvas artwork |
-| src/piece-club.ts | Six-club visuals, including a rounded driver, attached to the Sports footprint’s center front and scaled to its width | Original project code and Canvas artwork |
+| src/piece-club.ts | Twelve-club visuals, including rounded driver and 3 wood, attached to the Sports footprint's center front and scaled to its width | Original project code and Canvas artwork |
 | src/holes.ts | Nine authored coastal hole layouts, yardages, pars, and hazards | Original project course data |
 | src/scorecard.ts | Traditional golf card, table, and scoring marks | Original project code and Canvas artwork |
 | src/wind-view.ts | Fixed wind indicator and camera-relative arrow | Original project code and Canvas artwork |
+| src/green.ts | Shared green elevation, slope, and downhill acceleration; source for procedural mesh and arrows | Original project code and course data |
+| src/club-picker.ts | Full-size twelve-club bag layout, fine aim labels, and level-green putt reference | Original project code |
 | src/course-art.ts | Cached natural foliage, turf/sand fallback materials, and soft shadows | Original seeded procedural Canvas artwork |
 | src/howto.ts | Animated control lesson and buttons | Original project drawing; Sports render retains Board source above |
 | src/sound.ts | Placement, swing, putt, landing, sand, cup, button, and penalty cues | Original deterministic synthesized audio; no sampled recordings |
@@ -53,8 +55,8 @@ Vite assigns content hashes to the two bundle filenames. The package inventory b
 ```text
 art/coastal-sky.png
 art/fairway-turf.png
-assets/index-C7Uk5TDl.js
-assets/index-DXc9XbkK.css
+assets/index-CXCTlMpU.js
+assets/index-DcBmdo0M.css
 board-platform.js
 fonts/itc-kabel-ultra.otf
 harness-config.json
@@ -89,3 +91,10 @@ Package SHA-256: `5385c8353d8f2409850cc3dfe6f843f4eff9d918b9d7ab7c65a0a16a00cf39
 Screenshots named `nine-hole-*.png` document this revision. They and the local QA scripts in `artifacts/` are excluded from the package.
 
 `docs/screenshots/nine-hole-board-installed.png` records the October 28 native installation of this package. It is verification evidence and is not packaged.
+
+October 28, 2026 twelve-club revision adds original procedural green shapes, reading arrows, club geometry, and control layouts.
+No external art, font, model, audio, or dependency is added. The inventory above records the current 18-file package.
+Current package SHA-256: `c857f0c2f9c6d2dd85deb39593ddddb7495ffb730b8dbee81f2614fc7a2f7f52`.
+The Sports model retains the recorded hash. Browser screenshots and development fixtures remain outside the package.
+
+`docs/screenshots/precision-putting-board-installed.png` records the October 28 native installation of this package. It is evidence and does not ship.

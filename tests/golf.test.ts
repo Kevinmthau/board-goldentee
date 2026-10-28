@@ -62,10 +62,10 @@ test("a full 7 iron reaches the 150-yard par 3 with capped power", () => {
   assert.equal(game.penalty, false);
 });
 
-test("selectable irons and wedge have distinct full-shot distances", () => {
+test("all woods, irons and wedges match their distinct advertised full-shot distances", () => {
   for (const club of CLUBS.filter(option => option.id !== "PUTTER")) {
     // The longer clubs need the par-4 landing area to measure a clean full shot.
-    const game = club.id === "DRIVER" || club.id === "5 IRON" ? createGame(1, [3]) : createGame();
+    const game = club.distanceYards > 150 ? createGame(1, [3]) : createGame();
     assert.equal(strike(game, { power: 1, angle: 0.015 }, club.id), true);
     finish(game);
     assert.ok(Math.abs(Math.hypot(game.ball.x, game.ball.z) - club.distanceYards) < 2,
@@ -83,6 +83,34 @@ test("the selected club overrides the recommendation", () => {
   assert.ok(iron.ball.vy > 0);
   assert.equal(putter.ball.vy, 0);
   assert.ok(iron.ball.vz > putter.ball.vz);
+});
+
+test("the bag contains twelve clubs and recommends the shortest club for each clean approach", () => {
+  assert.deepEqual(CLUBS.map(club => club.id), [
+    'DRIVER', '3 WOOD', '3 IRON', '4 IRON', '5 IRON', '6 IRON',
+    '7 IRON', '8 IRON', '9 IRON', 'WEDGE', 'SAND WEDGE', 'PUTTER',
+  ]);
+  for (const club of CLUBS.filter(club => club.id !== 'PUTTER')) {
+    const game = createGame(1);
+    game.ball.z = 340 - club.distanceYards;
+    assert.equal(clubFor(game), club.id);
+  }
+});
+
+test("the sand wedge retains more of its clean-lie speed when escaping a bunker", () => {
+  const clean = createGame(), sand = createGame(), ordinaryWedge = createGame();
+  sand.ball.x = ordinaryWedge.ball.x = HOLE.bunker.x;
+  sand.ball.z = ordinaryWedge.ball.z = HOLE.bunker.z;
+  assert.equal(clubFor(sand), 'SAND WEDGE');
+  strike(clean, { power: 1, angle: 0 }, 'SAND WEDGE');
+  strike(sand, { power: 1, angle: 0 }, 'SAND WEDGE');
+  strike(ordinaryWedge, { power: 1, angle: 0 }, 'WEDGE');
+  assert.ok(Math.abs(Math.hypot(sand.ball.vx, sand.ball.vz) / Math.hypot(clean.ball.vx, clean.ball.vz) - .82) < 1e-12);
+  assert.ok(Math.hypot(sand.ball.vx, sand.ball.vz) > Math.hypot(ordinaryWedge.ball.vx, ordinaryWedge.ball.vz));
+  assert.ok(sand.ball.vy > 0, 'the sand wedge launches out of sand');
+  finish(sand);
+  assert.equal(sand.penalty, false);
+  assert.notEqual(terrainAt(sand.ball.x, sand.ball.z), 'bunker');
 });
 
 test("positive and negative swing angles aim to opposite sides of the cup", () => {

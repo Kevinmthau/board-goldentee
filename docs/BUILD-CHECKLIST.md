@@ -177,3 +177,18 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Board: install and launch this revision; verify the native nine-hole/par-36 title screen.
 - [ ] Board: verify wind, scorecard interaction, nine-hole progression, saves, audio, and performance with native input.
 - [ ] Human: assess wind strength, hazard readability, physical control clearance, and nine-hole pacing.
+
+## Twelve clubs, precision putting, and green reading — October 28, 2026
+
+- [x] Add 3 wood, 3/4/6/8 irons, and sand wedge with distinct distances and appropriate recommendations.
+- [x] Fit all twelve clubs in a full-size bag selector without reducing text or touch-target sizes.
+- [x] Keep full swings unchanged; add a separate putting response, slower return, and quarter-degree aim.
+- [x] Show level-green putt distance while turning and explain the new controls in help.
+- [x] Author nine distinct smooth green surfaces, with shared downhill physics and break arrows.
+- [x] Verify slope direction, uphill/downhill distance, stopping, frame timing, and saved rolling state.
+- [x] Complete the automated nine-hole contact journey, including all club choices and a breaking putt.
+- [x] Inspect the final club bag, putting feedback, green arrows, help, and pause in the browser.
+- [x] Run final tests, build, and package verification with unchanged package identity and Sports model.
+- [x] Install and launch the verified twelve-club package on Board; inspect startup logs and the native title screen.
+- [ ] Board: verify sensing, saves, audio, performance, club alignment, and green reading with native input.
+- [ ] Human: confirm putting precision, useful club gaps, and readable break arrows.

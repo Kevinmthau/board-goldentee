@@ -14,6 +14,7 @@ import { Board, BoardContactPhase, BoardContactType, BoardPlayerType, type Board
 import { createGame, distanceToCup, terrainAt, CLUBS, HOLES, strike, stepGame, holeFor, roundStrokes, type GolfState } from "../src/rules";
 import { toNative } from "../src/portrait";
 import { TURN_SWING } from "../src/piece-control";
+import { CLUB_BAG_BUTTON, CLUB_BOXES } from '../src/club-picker';
 
 // ---- the stand-in browser --------------------------------------------------------------------------
 type Call = { name: string; args: unknown[] };
@@ -295,9 +296,18 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   onBatch!([piece(535, 540, BoardContactPhase.Began, id)]);
   run(0.6);
   assert.match(gameLabel, /play.*0 strokes.*ready.*7 IRON.*Sports player present.*ready/, "a roster player and a settled Sports piece enter the hole");
-  tap(204, 1805); // Select 9 iron, then return to the 150-yard 7 iron.
+  const chooseClub = (club: typeof CLUBS[number]['id']) => {
+    tap(CLUB_BAG_BUTTON.x + CLUB_BAG_BUTTON.width / 2, CLUB_BAG_BUTTON.y + CLUB_BAG_BUTTON.height / 2);
+    assert.match(gameLabel, /^clubs/, 'club bag opens without consuming a stroke');
+    const {box} = CLUB_BOXES.find(option => option.club.id === club)!;
+    tap(box.x + box.width / 2, box.y + box.height / 2);
+    assert.match(gameLabel, /^play/);
+    assert.ok(gameLabel.includes(club), `club selection should choose ${club}`);
+  };
+  for (const club of CLUBS) chooseClub(club.id);
+  chooseClub('9 IRON');
   assert.match(gameLabel, /9 IRON/, "club buttons select a club independently of the current lie");
-  tap(876, 1655);
+  chooseClub('7 IRON');
   assert.match(gameLabel, /7 IRON/);
   tap(936, 1425); // Aim two degrees right so the first stroke leaves a playable putt.
   run(0.5);
@@ -353,10 +363,17 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
     run(0.6);
     assert.match(gameLabel, /1 strokes/, "menu redetection must not strike");
   }
-  // Constant green friction is 3 yd/s²; leave 1 yd/s at the cup instead of aiming for zero.
-  const puttPower = (Math.sqrt(6 * distanceToCup(latestRun.game) + 1) - 1) / 14;
-  assert.ok(puttPower > 0.1 && puttPower < 0.8, "the 7 iron leaves a short, controlled putt");
-  const puttBackswing = TURN_SWING.backswingDeg - TURN_SWING.powerLeadDeg + puttPower * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg);
+  // Read the actual sloping green, then execute the chosen quarter-degree aim and physical turn.
+  let finishPutt: {power: number; steps: number} | null = null;
+  for (let steps = -60; steps <= 60 && !finishPutt; steps++) for (let percent = 1; percent <= 80; percent++) {
+    const trial = structuredClone(latestRun.game);
+    strike(trial, {power: percent / 100, angle: steps * Math.PI / 720}, 'PUTTER');
+    for (let frame = 0; frame < 30 && trial.phase === 'rolling'; frame++) stepGame(trial, 1);
+    if (trial.phase === 'holed') { finishPutt = {power: percent / 100, steps}; break; }
+  }
+  assert.ok(finishPutt, 'the green has a controllable putt with the visible fine aim');
+  for (let step = 0; step < Math.abs(finishPutt.steps); step++) tap(finishPutt.steps < 0 ? 144 : 936, 1425);
+  const puttBackswing = 8 + 82 * Math.cbrt(finishPutt.power);
   swing(puttBackswing);
   run(8);
   assert.match(gameLabel, /over.*2 strokes.*holed/, "the physical gesture can finish the hole");
@@ -369,11 +386,6 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   assert.deepEqual(latestRun.game.completedStrokes, [2]);
   assert.equal(platform.state.progress.get("nineHoleBestRoundStrokes:p1"), undefined, "one hole cannot count as a complete round best");
 
-  const chooseClub = (club: typeof CLUBS[number]['id']) => {
-    const index = CLUBS.findIndex(option => option.id === club);
-    tap(48 + (index % 3) * 336 + 156, 1590 + Math.floor(index / 3) * 150 + 65);
-    assert.ok(gameLabel.includes(club), `club selection should choose ${club}`);
-  };
   const beforeCard = structuredClone(latestRun.game);
   tap(864, 308); run(0.3);
   assert.match(gameLabel, /^scorecard/);
@@ -419,7 +431,7 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
       }
       assert.ok(bestShot && Number.isFinite(bestShot.distance), 'each lie has a playable next stroke');
       chooseClub(bestShot.club);
-      const turnDegrees = TURN_SWING.backswingDeg - TURN_SWING.powerLeadDeg + bestShot.power * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg);
+      const turnDegrees = bestShot.club === 'PUTTER' ? 8 + 82 * Math.cbrt(bestShot.power) : TURN_SWING.backswingDeg - TURN_SWING.powerLeadDeg + bestShot.power * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg);
       swing(turnDegrees); run(18); shots++;
     }
     assert.equal(latestRun.game.phase, 'holed', `hole ${holeIndex + 1} can be finished with the real swing`);

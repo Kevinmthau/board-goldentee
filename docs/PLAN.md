@@ -1,7 +1,7 @@
 # Plan: Golden Tee
 
 Updated: October 28, 2026.
-Status: Shorter full-power twist and the Tee Off correction pass automated checks and packaging. The revised package is installed and launched on KT's Board; physical confirmation remains open.
+Status: Twelve clubs, precision putting, and undulating greens pass 238 automated checks, browser inspection, and packaging. Installed and launched on Board; native play remains open.
 
 ## Summary
 
@@ -16,17 +16,24 @@ The physical Sports player replaces the Bloogs ring and digital golfer. Its visi
 3. Select a club. Turn the piece back toward yourself to bring the club back.
 4. Reverse the twist and return the club to the ball to hit. A larger backswing gives more power. Use a small turn for a short putt.
 
-A quarter turn (90 degrees) reaches full power. The shortest armed turn remains 40 degrees and gives about 7% power.
+A quarter turn (90 degrees) reaches full power. Woods, irons, and wedges arm at 40 degrees, giving about 7% power.
+Putting arms at 12 degrees. Its cubic response gives short putts more adjustment room, and a gentle return can strike.
+Putting aim changes by 0.25 degrees per tap. Other clubs retain two-degree aim steps.
 
 Keep hold of the piece. Placement, translation alone, and lifting do not hit the ball.
-The grip attaches just outside the center front of the footprint; the shaft extends in the piece's actual facing direction. The driver shaft is 1.45 piece widths long; the 5 iron is 1.32 widths. Other iron shafts are 1.25 widths; the putter is 1.1 widths. The address camera, terrain, and digital ball stay fixed when the piece is placed, translated, or turned. Only the attached club follows the piece. The camera may follow the ball after a committed shot.
+The grip attaches just outside the center front of the footprint; the shaft extends in the piece's actual facing direction. The driver shaft is 1.45 piece widths long; the 3 wood is 1.41 widths. Long irons range from 1.29 to 1.38 widths, other irons use 1.25 widths, sand wedge uses 1.18, and putter uses 1.1. The address camera, terrain, and digital ball stay fixed when the piece is placed, translated, or turned. Only the attached club follows the piece. The camera may follow the ball after a committed shot.
 
 ## Scope and rules
 
 - A nine-hole round totaling par 36. Preserve the original three holes and add six distinct coastal holes.
 - The new holes include water hazards and multiple bunkers. Fairways provide room to lay up or carry the water.
-- Club buttons offer driver, 5 iron, 7 iron, 9 iron, wedge, and putter. Recommendations follow the current lie and distance.
-- Approximate full-shot distances are 250, 185, 150, 125, and 60 yards; a full putter rolls 111 feet on the green.
+- The club bag offers driver, 3 wood, 3 through 9 irons, wedge, sand wedge, and putter.
+- Approximate clean-lie distances are 250, 225, 210, 195, 185, 170, 150, 140, 125, 60, and 40 yards. Putter capacity remains about 111 feet.
+- Tap the selected club to open the bag. Choosing a club returns to play and requires a settled address.
+- Recommendations include all twelve clubs. Sand wedge retains more speed from a bunker lie.
+- Each green has distinct smooth swells and slopes. Grounded rolls bend downhill and travel farther downhill than uphill.
+- Curved grid lines and arrows appear near the green or with the putter selected. Arrows point downhill using the same surface as physics.
+- During a putter backswing, the footer shows estimated feet on a level green. Slopes and other terrain change the actual distance.
 - A full 7 iron reaches the first green from the tee. Terrain can reduce distance.
 - Club choices apply explicitly to the next shot. Recommend a club at each new lie.
 - Fixed left and right aim controls adjust direction separately from swing power.
@@ -47,9 +54,9 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Keep native contacts and the canvas at 1920 × 1080. Rotate the logical 1080 × 1920 scene onto that surface.
 - Convert positions and facing into the portrait view with a rigid quarter turn, never a native-coordinate scale.
 - Wait for BoardPlatform.state.ready(). Read and refresh the solo roster through src/seats.ts.
-- An eligible Sports piece on the open course binds to the signed-in solo player. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). Club choices begin at y1590 in two rows.
+- An eligible Sports piece on the open course binds to the signed-in solo player. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). The club-bag button begins at y1590. Its separate twelve-club selector disables swing input.
 - Require a stable initial address, then calibrate to that angle. Do not require a hidden compass direction. Small orientation noise stays inside a dead band.
-- Either twist direction can wind back toward the player. Reverse that direction and return within 10 degrees of the address to strike once. Merely beginning the reversal does not launch the ball.
+- Either twist direction can wind back toward the player. Reverse and return within ten degrees of address to strike; putting requires four degrees.
 - Launch the ball and hit sound when the physical turn returns to address, with no additional animated downswing delay. Placement and rotation never reframe the course or move the resting ball.
 - Turning through the angular wrap must stay continuous. A short tracking gap and pause retain the calibrated rotation zero. A fresh lie or explicit new setup can calibrate a new address.
 - Placement, translation alone, lift, redetection, and pause return cannot create a shot. The translation guard must allow the center drift seen when a person turns a Sports piece; deliberate dragging still cancels intent.
@@ -67,7 +74,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 | Backswing | Return the club to the ball | Club follows the physical turn, power fills | Deliberate return to address |
 | Flight | Watch the ball | Flight, landing, sound | Ball rests |
 | Next lie | Choose club and swing | Distance, club recommendation, fresh address cue | Next shot |
-| Putting | Make a small backswing | Shorter attached putter and distance in feet | Cup capture |
+| Putting | Read downhill arrows, fine-tune aim, turn gently | Shorter putter, quarter-degree aim, level-green distance in feet | Cup capture |
 | Menu return | Return to the starting angle and settle | Fresh address cue, no automatic shot | New gesture |
 | Hole result | Next hole | Hole score and accumulated round score | Explicit choice |
 | Round result | Rematch or Change setup | Nine-hole scorecard and total relative to par 36 | Explicit choice |
@@ -107,6 +114,10 @@ Audio uses gameAudio(); saves use BoardPlatform.state. Keep existing appId and p
 | Full power at 90 degrees instead of 150 | Builder | Reduce the required turn by 40%; keep the 40-degree arming threshold and a roughly 7% minimum shot |
 | Tee Off responds to a detected piece outside the swing area | Builder | October 28 bug report: the visible button silently rejected placement; enter play and retain the placement guard for swinging |
 | Separate aim buttons | Builder | Rotation is reserved for swing intent |
+| Add 3 wood, 3/4/6/8 irons, and sand wedge | Person | October 28 request |
+| Dedicated precision putting | Person / Builder | Requested finer controls; cubic turn response, slower return, and quarter-degree aim provide adjustment room |
+| Undulating greens with break arrows | Person / Builder | Requested visible break; one surface defines elevation, downhill arrows, and rolling acceleration |
+| Full-size twelve-club bag | Builder | Fit every club without reducing 48 px text, 120 px targets, or physical swing space |
 | Add a par 4 and par 5 with hazards | Person | Current request |
 | Add driver and 5 iron | Person | Current request |
 | 340-yard par 4 and 510-yard par 5 | Builder | Longer approaches give the new clubs useful roles |
@@ -198,3 +209,16 @@ Result and Back controls sit below the default physical piece position. Scoring 
 All nine holes have tested playable routes in calm conditions and their default wind.
 A browser pointer playthrough completed the first hole in two strokes and advanced to hole two.
 The complete nine-hole journey uses simulated contacts; it does not establish physical feel or full-round human pacing.
+
+## Twelve clubs, precision putting, and green reading — October 28, 2026
+
+Baseline: `d411e7c`, the nine-hole wind revision. Its 225 tests pass, with three catalog-only skips.
+Implementation lives on `codex/golf-putting-greens` in a separate managed worktree. The initially opened folder held only generated output.
+The six requested clubs have distinct launch tuning. The 3 wood has a smaller wood head; long irons have proportional shaft lengths.
+Putter input maps the 8–90 degree range cubically into existing shot power. It arms at 12 degrees and accepts returns above eight degrees/second.
+Representative level-green distances are 0.8 feet at 30 degrees, 2.6 feet at 45 degrees, and 10.4 feet at 60 degrees.
+Full-shot controls, nine-hole scoring, app identity, and the save schema remain unchanged. Saved positions and strokes remain readable.
+New green shapes apply when resuming old runs, so an unfinished roll follows the new slopes after loading.
+Green scenery and reading marks are cached. No model, dependency, external art, or audio asset is added.
+Automated checks cover club selection, slow putts, slope direction, frame timing, saved rolling state, all nine holes, and explicit results.
+Browser checks and packaging results belong in the acceptance ledger. Physical sensing, fine-control feel, and Board performance require a playtest.

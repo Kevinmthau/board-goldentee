@@ -182,7 +182,7 @@ test('greenside sand cuts into the green with the same precedence as the artwork
     const game = calmGame(index, index === 1 ? [3] : [3,4]);
     game.ball.x = 18;
     game.ball.z = index === 1 ? 333 : 510;
-    assert.equal(clubFor(game), 'WEDGE', 'visible sand must not recommend putting');
+    assert.equal(clubFor(game), 'SAND WEDGE', 'visible sand recommends the sand wedge, not putting');
     strike(game, {power: .5, angle: 0}, 'WEDGE');
     assert.ok(Math.hypot(game.ball.vx, game.ball.vz) < 8, 'the sand lie reduces carry');
   }

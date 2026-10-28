@@ -16,6 +16,10 @@ body { display: grid; place-items: center; }
   touch-action: none;
 }
 /* The development host turns the native glass upright for desktop preview. */
+html[data-portrait-preview] body {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
 html[data-portrait-preview] #game {
   width: min(177.7777778vw, 100vh);
   height: min(100vw, 56.25vh);

@@ -15,8 +15,9 @@ import { playCue } from './sound';
 import { readRun } from './run-state';
 import { drawScorecard } from './scorecard';
 import { drawWind } from './wind-view';
+import { CLUB_BAG_BUTTON, CLUB_BAG_BACK, CLUB_BOXES, clubDistanceLabel, clubById, aimStep, aimLabel, levelPuttFeet } from './club-picker';
 
-type Mode = 'title' | 'setup' | 'play' | 'over' | 'howto' | 'scorecard';
+type Mode = 'title' | 'setup' | 'play' | 'over' | 'howto' | 'scorecard' | 'clubs';
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = createSurface(canvas);
 const view = new CourseView();
@@ -58,7 +59,6 @@ const REMATCH: Box = {x: 280, y: 1500, width: 520, height: 140};
 const SETUP: Box = {x: 280, y: 1680, width: 520, height: 140};
 const AIM_LEFT: Box = {x: 64, y: 1360, width: 160, height: 130};
 const AIM_RIGHT: Box = {x: 856, y: 1360, width: 160, height: 130};
-const CLUB_BOXES = CLUBS.map((club, i) => ({club, box: {x: 48 + (i % 3) * 336, y: 1590 + Math.floor(i / 3) * 150, width: 312, height: 130}}));
 
 function say(message: string, seconds = 3) { toast = message; toastUntil = performance.now() + seconds * 1000; }
 function syncRoster() {
@@ -81,7 +81,7 @@ function refreshBest() {
   const n = player ? BoardPlatform.state.progress.get<number>(`nineHoleBestRoundStrokes:${player.playerId}`) : undefined;
   best = typeof n === 'number' && n > 0 ? n : null;
 }
-function freshLie() { selectedClub = clubFor(game); aim = 0; view.setAim(aim); controller.resetStroke(); }
+function freshLie() { selectedClub = clubFor(game); controller.setPutting(selectedClub === 'PUTTER'); aim = 0; view.setAim(aim); controller.resetStroke(); }
 function startRound(restore = false) {
   if (!player) { mode = 'setup'; say('Choose your player'); return; }
   if (restore && saved) { game = saved; saved = null; }
@@ -98,6 +98,7 @@ function nextHole() {
 function changeSetup() { controller.release(); controller.setEnabled(false); mode = 'setup'; setupConfirm = true; syncRoster(); }
 function showScorecard() { if (mode === 'scorecard' || !roundActive) return; scorecardReturn = mode === 'howto' ? helpReturn : mode; mode = 'scorecard'; controller.setEnabled(false); controller.resetStroke(); }
 function showHelp() { if (mode === 'howto') return; helpReturn = mode === 'scorecard' ? scorecardReturn : mode; mode = 'howto'; controller.setEnabled(false); controller.resetStroke(); }
+function showClubs() { mode = 'clubs'; controller.setEnabled(false); controller.resetStroke(); }
 function leaveHelp() { mode = helpReturn; controller.resetStroke(); if (mode === 'title' && controller.piece && player) startRound(!!saved); }
 async function changePlayer() {
   if (selectorOpen()) return;
@@ -169,6 +170,19 @@ function roundCard() {
   drawScorecard(ctx, game);
   drawButton(ctx, REMATCH, 'BACK');
 }
+function drawClubs() {
+  ctx.fillStyle = '#12392C'; ctx.fillRect(0, 0, 1080, 1920);
+  text('YOUR CLUB BAG', 540, 245, 64, '#F1D58B', 'center');
+  text('CHOOSE YOUR NEXT SHOT', 540, 350, 48, '#FFF8E4', 'center');
+  for (const {club, box} of CLUB_BOXES) {
+    drawButton(ctx, box, '');
+    text(club.label, box.x + box.width / 2, box.y + 43, 48, '#204834', 'center');
+    text(clubDistanceLabel(club), box.x + box.width / 2, box.y + 100, 48, '#204834', 'center');
+    if (selectedClub === club.id) { ctx.strokeStyle = '#E6B861'; ctx.lineWidth = 8; ctx.strokeRect(box.x + 4, box.y + 4, box.width - 8, box.height - 8); }
+  }
+  text('FULL SHOTS FROM A CLEAN LIE', 540, 1240, 48, '#C5D5B7', 'center');
+  drawButton(ctx, CLUB_BAG_BACK, 'BACK');
+}
 function drawPlay(now: number) {
   ctx.fillStyle = 'rgba(12,45,36,0.82)'; ctx.fillRect(48, 48, 984, 184);
   const hole = holeFor(game);
@@ -181,24 +195,24 @@ function drawPlay(now: number) {
   const ready = game.phase === 'ready';
   ctx.save(); if (!ready) ctx.globalAlpha = 0.55;
   drawButton(ctx, SCORECARD, 'SCORECARD'); ctx.restore();
-  for (const {club, box} of CLUB_BOXES) {
-    ctx.save(); if (!ready) ctx.globalAlpha = 0.55;
-    drawButton(ctx, box, `${club.label} ${club.id === 'PUTTER' ? club.distanceYards * 3 : club.distanceYards}${club.id === 'PUTTER' ? 'FT' : 'YD'}`);
-    if (selectedClub === club.id) { ctx.strokeStyle = '#E6B861'; ctx.lineWidth = 8; ctx.strokeRect(box.x + 4, box.y + 4, box.width - 8, box.height - 8); }
-    ctx.restore();
-  }
+  ctx.save(); if (!ready) ctx.globalAlpha = 0.55;
+  const club = clubById(selectedClub);
+  drawButton(ctx, CLUB_BAG_BUTTON, `${club.label}   /   ${clubDistanceLabel(club)}   /   CLUB BAG`);
+  ctx.restore();
   drawButton(ctx, AIM_LEFT, '←'); drawButton(ctx, AIM_RIGHT, '→');
-  text('AIM', 144, 1320, 48, '#C5D5B7', 'center');
-  text(`${Math.abs(Math.round(aim * 180 / Math.PI))}°`, 936, 1320, 48, '#C5D5B7', 'center');
+  text(putting ? '0.25°' : 'AIM', 144, 1320, 48, '#C5D5B7', 'center');
+  text(aimLabel(aim), 936, 1320, 48, '#C5D5B7', 'center');
   const swing = controller.swing;
   const instruction = !ready ? 'WATCH YOUR SHOT' : !controller.piece ? (controller.observedPiece ? 'MOVE ONTO THE OPEN GRASS' : 'PLACE YOUR SPORTS PLAYER') :
     !isPiecePlacement(controller.piece) ? 'MOVE ONTO THE OPEN GRASS' :
-    swing.stage === 'settling' ? 'HOLD STILL TO ADDRESS' : swing.stage === 'backswing' ? 'TURN BACK TO THE BALL' : 'TURN BACK, THEN THROUGH';
+    swing.stage === 'settling' ? 'HOLD STILL TO ADDRESS' : swing.stage === 'backswing' ? 'TURN BACK TO THE BALL' : putting ? 'SMALL TURN, GENTLE RETURN' : 'TURN BACK, THEN THROUGH';
   text(instruction, 540, 1530, 48, '#FFF8E4', 'center');
   // Fixed feedback stays with the controls; only the requested club follows the piece.
   if (ready && swing.windup > 0) {
-    text(`${Math.round(swing.power * 100)}%`, 790, 1423, 48, '#F1D58B', 'right');
+    if (!putting) text(`${Math.round(swing.power * 100)}%`, 790, 1423, 48, '#F1D58B', 'right');
   }
+  text(putting ? 'PRECISION PUTTING' : 'TAP CLUB BAG TO CHANGE CLUB', 540, 1770, 48, '#F1D58B', 'center');
+  text(putting && ready && swing.windup > 0 ? `${levelPuttFeet(swing.power).toFixed(1)} FT ON LEVEL GREEN` : putting ? 'GREEN ARROWS POINT DOWNHILL' : '90° TURN = FULL POWER', 540, 1840, 48, '#C5D5B7', 'center');
   if (game.penalty && (!toast || now >= toastUntil)) text(game.penaltyKind === 'water' ? 'WATER  +1  /  REPLAY SHOT' : 'OUT OF BOUNDS  +1', 540, 425, 48, '#F4DA94', 'center');
 }
 function draw(now: number, dt: number) {
@@ -232,6 +246,7 @@ function draw(now: number, dt: number) {
   } else if (mode === 'howto') drawHowTo(ctx, now);
   else if (mode === 'over') result(now);
   else if (mode === 'scorecard') roundCard();
+  else if (mode === 'clubs') drawClubs();
   else drawPlay(now);
   if (toast && now < toastUntil) {
     ctx.fillStyle = 'rgba(7,35,31,0.94)'; ctx.fillRect(48, 390, 984, 110); text(toast, 540, 445, 48, '#FFF8E4', 'center');
@@ -250,14 +265,19 @@ function update(now: number, dt: number) {
   } else if (mode === 'howto' && tapped(BACK_BUTTON)) { playCue('button'); leaveHelp(); }
   else if (mode === 'scorecard') {
     if (tapped(REMATCH)) { playCue('button'); mode = scorecardReturn; controller.resetStroke(); }
+  } else if (mode === 'clubs') {
+    if (tapped(CLUB_BAG_BACK)) { mode = 'play'; controller.resetStroke(); playCue('button'); }
+    for (const {club, box} of CLUB_BOXES) if (tapped(box)) {
+      selectedClub = club.id; controller.setPutting(selectedClub === 'PUTTER'); controller.resetStroke(); mode = 'play'; playCue('button');
+    }
   } else if (mode === 'over') {
     if (tapped(REMATCH)) { playCue('button'); if (isFinalHole(game)) startRound(); else nextHole(); }
     else if (tapped(SETUP)) { playCue('button'); changeSetup(); }
   } else if (mode === 'play' && game.phase === 'ready') {
     if (tapped(SCORECARD)) { playCue('button'); showScorecard(); }
-    for (const {club, box} of CLUB_BOXES) if (tapped(box)) { selectedClub = club.id; controller.resetStroke(); playCue('button'); }
-    if (tapped(AIM_LEFT) || tapped(AIM_RIGHT)) {
-      aim = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, aim + (tapped(AIM_LEFT) ? -1 : 1) * Math.PI / 90));
+    else if (tapped(CLUB_BAG_BUTTON)) { showClubs(); playCue('button'); }
+    else if (tapped(AIM_LEFT) || tapped(AIM_RIGHT)) {
+      aim = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, aim + (tapped(AIM_LEFT) ? -1 : 1) * aimStep(selectedClub === 'PUTTER')));
       view.setAim(aim); controller.resetStroke(); playCue('button');
     }
   }
@@ -285,7 +305,7 @@ function update(now: number, dt: number) {
     if (now - saveAt > 400) { persist(); saveAt = now; }
   }
   splashes.update(dt); particles.update(dt); taps = [];
-  const label = `${mode}. Solo golf. Hole ${game.holeIndex + 1} of ${HOLES.length}, par ${holeFor(game).par}. ${game.strokes} strokes. ${game.phase}. ${distanceToCup(game).toFixed(1)} yards to cup. ${selectedClub}. ${controller.piece ? 'Sports player present' : 'Place Sports player on the open grass'}. ${controller.swing.stage}. ${Math.round(controller.swing.power * 100)}% power. Wind ${Math.round(Math.hypot(game.wind.x, game.wind.z))} mph.`;
+  const label = `${mode}. Solo golf. Hole ${game.holeIndex + 1} of ${HOLES.length}, par ${holeFor(game).par}. ${game.strokes} strokes. ${game.phase}. ${distanceToCup(game).toFixed(1)} yards to cup. ${selectedClub}. ${controller.piece ? 'Sports player present' : 'Place Sports player on the open grass'}. ${controller.swing.stage}. ${Math.round(controller.swing.power * 100)}% power. Wind ${Math.round(Math.hypot(game.wind.x, game.wind.z))} mph. Aim ${aimLabel(aim)}.${selectedClub === 'PUTTER' ? ' Precision putting. Green arrows point downhill.' : ''}`;
   if (label !== lastLabel) { canvas.setAttribute('aria-label', label); lastLabel = label; }
 }
 function scheduleFrame() {

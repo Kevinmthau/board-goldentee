@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CourseView } from '../src/course-view';
-import { createGame, HOLES } from '../src/rules';
+import { CourseView, greenBreakArrows } from '../src/course-view';
+import { createGame, HOLES, terrainAt } from '../src/rules';
+import { sampleGreen } from '../src/green';
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`);
 
@@ -46,7 +47,7 @@ function renderHarness() {
   const globals = globalThis as unknown as Record<string, unknown>;
   const previousDocument = globals.document, previousImage = globals.Image;
   const balls: {x: number; y: number}[] = [];
-  let terrainPaints = 0;
+  let terrainPaints = 0, greenReadPaints = 0, breakArrows = 0;
   let waterSurfaces = 0, sandSurfaces = 0;
   const flagTips: {x: number; y: number}[] = [];
   const invalidGeometry: unknown[][] = [];
@@ -57,6 +58,10 @@ function renderHarness() {
       if (key === 'createPattern') return () => ({});
       if (key === 'clearRect') return (_x: number, _y: number, width: number, height: number) => {
         if (!observe && width === 1080 && height === 1920) terrainPaints++;
+        if (!observe && width === 1080 && height === 1320) greenReadPaints++;
+      };
+      if (key === 'stroke') return () => {
+        if (state.strokeStyle === '#F2E7AF') breakArrows++;
       };
       if (key === 'fill') return () => {
         if (!observe && state.fillStyle === '#337F91') waterSurfaces++;
@@ -80,6 +85,8 @@ function renderHarness() {
   const ctx = context(true);
   return {
     get terrainPaints() { return terrainPaints; },
+    get greenReadPaints() { return greenReadPaints; },
+    get breakArrows() { return breakArrows; },
     get waterSurfaces() { return waterSurfaces; },
     get sandSurfaces() { return sandSurfaces; },
     get flagTip() { return flagTips.at(-1); },
@@ -163,5 +170,58 @@ test('long-hole approach and putting views render finite geometry from the actua
       }
     }
     assert.deepEqual(harness.invalidGeometry, []);
+  } finally { harness.restore(); }
+});
+
+
+test('green arrows show the physical downhill direction, stay on grass, and leave the ball and cup clear', () => {
+  for (const hole of HOLES) {
+    const ball = { x: hole.green.x + 4.8, z: hole.green.z - 9.6 };
+    const arrows = greenBreakArrows(hole, ball);
+    assert.ok(arrows.length >= 20, `${hole.name} has enough arrows to read its changing break`);
+    let variedDirections = false;
+    const first = arrows[0];
+    for (const arrow of arrows) {
+      const x = (arrow.tail.x + arrow.tip.x) / 2, z = (arrow.tail.z + arrow.tip.z) / 2;
+      const { downhill } = sampleGreen(x,z,hole);
+      const dx = arrow.tip.x-arrow.tail.x, dz = arrow.tip.z-arrow.tail.z;
+      assert.ok(dx*downhill.x + dz*downhill.z > 0, 'arrows point downhill');
+      near(dx*downhill.z-dz*downhill.x,0);
+      assert.ok(sampleGreen(arrow.tail.x,arrow.tail.z,hole).height > sampleGreen(arrow.tip.x,arrow.tip.z,hole).height,
+        'the visible arrow descends the rendered surface');
+      for (const endpoint of [arrow.tail,arrow.tip]) assert.equal(terrainAt(endpoint.x,endpoint.z,hole),'green');
+      assert.ok(Math.hypot(x-ball.x,z-ball.z) >= 3);
+      assert.ok(Math.hypot(x-hole.flag.x,z-hole.flag.z) >= 3);
+      if (dx*(first.tip.x-first.tail.x) + dz*(first.tip.z-first.tail.z) < 0) variedDirections = true;
+    }
+    assert.equal(variedDirections,true,'undulations produce visibly different downhill directions');
+  }
+});
+
+test('break overlay appears at putting range, stays cached through a backswing, and follows every viewing side', () => {
+  const harness = renderHarness();
+  try {
+    const view = new CourseView(), tee = createGame();
+    harness.draw(view,tee);
+    assert.equal(harness.breakArrows,0,'a distant tee remains uncluttered');
+    for (let index = 0; index < HOLES.length; index++) {
+      const game = createGame(index), hole = HOLES[index];
+      for (const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]) {
+        game.ball.x = hole.flag.x + Math.sin(angle)*10;
+        game.ball.z = hole.flag.z + Math.cos(angle)*10;
+        view.reset(game);
+        const previousArrows = harness.breakArrows;
+        harness.draw(view,game);
+        assert.ok(harness.breakArrows > previousArrows,'downhill arrows remain readable from each side of the cup');
+        const paints = harness.greenReadPaints;
+        const restingBall = harness.draw(view,game);
+        for (let frame = 0; frame < 5; frame++) {
+          view.setSwing('backswing',frame/5);
+          assert.deepEqual(harness.draw(view,game),restingBall);
+        }
+        assert.equal(harness.greenReadPaints,paints,'a piece turn does not repaint or move the green reading');
+      }
+    }
+    assert.deepEqual(harness.invalidGeometry,[]);
   } finally { harness.restore(); }
 });

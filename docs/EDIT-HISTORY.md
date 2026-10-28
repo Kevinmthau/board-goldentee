@@ -219,3 +219,21 @@ The person requested installation on their Board. Installed and launched the ver
 - Include the nine-hole/par-36 course, wind, scorecard, save compatibility, regressions, documentation, and browser/native screenshots.
 - Publish the game subtree to the existing `golden-tee` remote's `main` branch.
 - The verified installed game code is unchanged. Build output, dependencies, scratch logs, and the install ZIP remain ignored.
+
+## October 28, 2026 — More clubs, precise putting, and green break
+
+- Request: add 3 iron, 4 iron, 6 iron, 3 wood, sand wedge, and 8 iron; improve putting precision; add undulating greens with arrows.
+- Started from the latest nine-hole wind revision in a new managed worktree because the original workspace contained generated output only.
+- Added the requested clubs, full-size club bag, distinct launch tuning, and sand-wedge bunker behavior.
+- Added separate cubic putting input, gentle return recognition, quarter-degree aim, and estimated level-green distance.
+- Added nine authored green surfaces. Rendering, downhill arrows, and ball roll use the same slope calculation.
+- Retained nine-hole scoring, wind, save schema, package identity, platform ownership, and the Sports model.
+- Corrected desktop preview centering so the complete portrait controls remain visible in a narrow browser panel.
+- Verification and evidence limits are recorded in the acceptance ledger. This revision has not been installed or published.
+
+## October 28, 2026 — Install the twelve-club build
+
+- Request: install the new build on the person's Board.
+- Installed and launched the verified twelve-club package through Board Connect, retaining the existing app identity and data.
+- Verified platform startup and the native title screen. No game code or package contents changed.
+- Physical putting feel, green reading, and sustained Board play remain unverified.
