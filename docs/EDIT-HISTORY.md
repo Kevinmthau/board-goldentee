@@ -122,3 +122,24 @@
 - Removed temporary contact-geometry logging before publication; retained gameplay behavior and the playtest evidence in this document set.
 - Updated README to the verified Sports behavior and current screenshot. Tests pass (178 passed, 3 catalog skips), and the final publication package builds successfully.
 - Publish the committed game subtree to the existing `golden-tee` remote's `main`, keeping game files at the root of the standalone repository.
+
+## October 27, 2026 — Bugs and correctness review
+
+- Person requested a review of app bugs and correctness issues.
+- Reviewed input, physics, scoring, saves, seating, lifecycle, rendering, and existing coverage. Existing tests and the production build pass.
+- Isolated probes confirmed sample-rate-dependent slow swings, frame-timing-dependent scoring, and duplicate rendering loops after pause/resume before a pending frame executes.
+- Recorded reproduction steps and suggested corrections in the acceptance ledger. Added open items to the plan and checklist. No gameplay, test, or asset files changed.
+
+## October 27, 2026 — Fix review findings and add regressions
+
+- Person requested all three fixes, regression tests, and repeated review until clear.
+- Removed the per-event slow-swing threshold, made physics advance in persistent fixed steps, and restricted rendering to one scheduled callback through pause/resume.
+- Preserved fractional physics time in saves and migrated older version-1 runs. Added regression coverage for the reported failures and adjacent input, save, and lifecycle boundaries.
+- All 190 tests pass, with three unchanged catalog skips. Independent re-review found no further actionable issues in the changes. Browser play completed a birdie and rematch; the 18-file package passes verification.
+- Updated the plan, checklist, asset inventory, README, and acceptance ledger. The correction is local and has not been installed on Board or published.
+
+## October 27, 2026 — Publish correctness fixes
+
+- Person requested committing and pushing all changes.
+- Include the three fixes, regression tests, review documentation, browser evidence, and generated Codex environment configuration.
+- Publish the game subtree to the existing `golden-tee` remote's `main`. Keep the app and package identities unchanged.

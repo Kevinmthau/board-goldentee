@@ -107,3 +107,16 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 
 - [x] Remove temporary native diagnostics and refresh the README evidence.
 - [x] Final verification: 178 tests pass, 3 catalog-only skips; production package builds.
+
+## Correctness review — October 27, 2026
+
+- [x] Review input, lifecycle, physics, save validation, rendering, and UI; run existing tests and the production build.
+- [x] Reproduce three defects with isolated automated probes and record them in the acceptance ledger.
+- [x] Make slow return swings work across input sample rates; add regression coverage.
+- [x] Make landing and scoring consistent across uneven frame durations; add regression coverage.
+- [x] Keep one rendering loop through pause/resume before a pending frame executes; add regression coverage.
+- [x] Verify old-save compatibility and fractional-step save/restore continuity.
+- [x] Re-review the fixes independently; no further actionable findings in the changed code.
+- [x] Final automated checks: 190 pass, three catalog-only skips; TypeScript, Vite, and 18-file package pass.
+- [x] Browser: piece placement, full swing, pause/resume during roll, short putt, birdie, and retained-piece rematch.
+- [ ] Board: validate these corrections with native input, pause, saves, and sustained play.

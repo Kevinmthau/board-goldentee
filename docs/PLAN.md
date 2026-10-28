@@ -111,3 +111,13 @@ Pack with the Sports model only and preserve package identity.
 The final attached-club, native-tolerance, and fixed-camera revision passes 178 automated checks, with three full-catalog checks skipped. Its 18-file package is installed and launched on Board, as recorded in the acceptance ledger.
 Browser inspection confirms the attached club's size and disappearance on lift, with the course and resting ball fixed through placement and a full backswing. The absent-piece character placeholder is removed. Native logs from the fixed-camera build confirm five further hits at 91%, 48%, 17%, 100%, and 64%, followed by cup capture and rematch. None of those armed swings canceled.
 Native physical alignment, comfortable full swing/putting, sustained performance, platform behavior, and uncoached teaching remain open. Earlier ring-build evidence does not validate those Sports checks.
+
+## Correctness fixes — October 27, 2026
+
+The review found three reproducible issues. The person then requested fixes, regression tests, and another review. All three findings are resolved in the local build.
+
+- Return samples qualify by angular speed instead of a fixed movement per event. Regressions cover 20/30/60/120 Hz, both turn directions, and slow putting returns. The two-sample and minimum-speed guards remain.
+- Physics uses persistent 1/120-second steps. This preserves the previous 60 FPS shot behavior while making results independent of frame partitioning. Saves retain fractional active time; older version-1 saves default that field to zero.
+- The game tracks one scheduled animation frame and cancels it on pause. Boot while paused waits for resume. Duplicate resume notifications neither schedule another loop nor reset an active swing.
+
+Verification: 190 tests pass, three catalog-only checks skip, and the 18-file package builds. Independent re-review found no further actionable issues in the changed code. A browser playthrough completed a two-stroke birdie, pause/resume, and rematch. This correction has not been installed or tested on Board; the earlier native evidence above applies to the previous build.

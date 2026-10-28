@@ -52,6 +52,8 @@ The native system menu provides How to swing, Restart hole, and Change setup. Th
 ## Design and evidence
 
 See [the plan](docs/PLAN.md), [build checklist](docs/BUILD-CHECKLIST.md), and [acceptance ledger](docs/ACCEPTANCE-LEDGER.md).
-The Sports revision passes 178 automated checks (3 catalog-only checks skipped), including input, physics, saves, browser simulation, and the complete game. Browser checks cover club selection, twists, putting, results, rematch, and a fixed camera with no character after lift. Native playtests include repeated football-piece swings, two full-power shots that finished in the cup, and rematch. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
+The current revision passes 190 automated checks (3 catalog-only checks skipped), including input, physics, saves, browser simulation, and the complete game. The correctness pass fixes slow returns at higher input rates, scoring differences across frame timings, and duplicate rendering loops after resume. Browser checks cover club selection, twists, putting, results, rematch, and a fixed camera with no character after lift. A fresh browser playthrough completed a two-stroke birdie and rematch after the fixes.
+
+Earlier native playtests include repeated football-piece swings, two full-power shots that finished in the cup, and rematch. The correctness fixes have not yet been installed on Board. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
 
 Artwork, the Board SDK, font, platform layer, and piece-set assets have separate provenance and terms; see the [asset manifest](docs/ASSET-MANIFEST.md). Keep the vendored SDK and package lockfile so a fresh checkout uses the tested SDK version.

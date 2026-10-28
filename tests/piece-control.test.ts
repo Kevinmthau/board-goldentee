@@ -139,6 +139,50 @@ test("short putting turns produce low power independently of return speed", () =
   assert.equal(powers[0], powers[1]);
 });
 
+test("smooth slow returns strike once with equal power at every contact rate", () => {
+  for (const backswing of [40, 60]) {
+    let expectedPower: number | undefined;
+    for (const hz of [20, 30, 60, 120]) for (const speed of [26, 30, 90]) for (const direction of [-1, 1]) {
+      const { address, frame } = rig(); address();
+      frame(350, contact(1, 270 + direction * backswing));
+      const powers: number[] = [];
+      const duration = backswing / speed;
+      for (let sample = 1; sample <= Math.ceil(duration * hz) + 1; sample++) {
+        const remaining = Math.max(0, backswing - sample * speed / hz);
+        const shot = frame(350 + sample * 1000 / hz, contact(1, 270 + direction * remaining)).shot;
+        if (shot) powers.push(shot.power);
+      }
+      const context = `${backswing}° backswing, ${speed}°/s return, ${hz} Hz, direction ${direction}`;
+      assert.equal(powers.length, 1, context);
+      expectedPower ??= powers[0];
+      assert.equal(powers[0], expectedPower, context);
+    }
+  }
+});
+
+test("returns below the minimum speed cannot strike at any contact rate", () => {
+  for (const hz of [20, 30, 60, 120]) for (const direction of [-1, 1]) {
+    const { address, frame } = rig(); address();
+    frame(350, contact(1, 270 + direction * 40));
+    for (let sample = 1; sample <= 2 * hz; sample++) {
+      const remaining = 40 - sample * 20 / hz;
+      assert.equal(frame(350 + sample * 1000 / hz, contact(1, 270 + direction * remaining)).shot, null,
+        `20°/s return at ${hz} Hz, direction ${direction}`);
+    }
+  }
+});
+
+test("one reversed jump followed by small slow drift cannot strike", () => {
+  for (const direction of [-1, 1]) {
+    const { address, frame } = rig(); address();
+    frame(350, contact(1, 270 + direction * 60));
+    assert.equal(frame(400, contact(1, 270)).shot, null);
+    for (let sample = 1; sample <= 12; sample++) {
+      assert.equal(frame(400 + sample * 1000 / 60, contact(1, 270 - direction * sample * 0.1)).shot, null);
+    }
+  }
+});
+
 test("resting orientation jitter and position drift never arm a stroke", () => {
   const { controller, frame } = rig();
   frame(0, contact(1, 270, Phase.Began));

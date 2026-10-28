@@ -141,3 +141,34 @@
 - Removed temporary native geometry diagnostics as required by the device-debug workflow. No gameplay, camera, input thresholds, assets, or package identity changed in this cleanup.
 - Verification: `npm test` — 181 total, 178 passed, 0 failed, 3 catalog skips. `npm run pack` passed with 18 files, bundle `index-DB2vOyzY.js`, platform build `d6c05ace441382a6`. The preceding installed playtest build remains on Board; this logging-only cleanup was build-tested locally.
 - Scope: source, tests, Sports model/art/footprints, simulator, documentation, and screenshots are included. Scratch logs, dependencies, build output, and the install ZIP remain outside Git.
+
+## October 27, 2026 — Bugs and correctness review
+
+- Asked for: review the app for bugs and correctness issues.
+- Source: reviewed the current game, input controller, runtime, seating, save validation, physics, rendering, simulator, and related tests. No gameplay or asset files changed.
+- Existing automated checks: `npm test` passed with 178 passes, zero failures, and three full-catalog skips. `npm run build` passed TypeScript and Vite.
+- Confirmed P2, slow returns: `src/piece-control.ts:290` counts a return sample only when its reverse movement exceeds 0.5 degrees. An isolated controller probe used a 60-degree backswing and a 30-degree-per-second return. At 20/30 Hz it committed; at 60/120 Hz it reached address without a shot. This speed exceeds the configured 25-degree-per-second minimum. Measure accumulated reverse movement and add sample-rate coverage.
+- Confirmed P2, scoring depends on frame timing: `src/rules.ts:148–154` keeps the position beyond the exact ground crossing before reducing velocity. A straight 7-iron shot at power 0.997 holes at 59/61 FPS but stops at z=148.9906503333 at 60 FPS. At power 0.9977, fixed 60 FPS misses; alternating `1/60 - 0.001` and `1/60 + 0.001` seconds holes. Resolve ground contact within the step or use a persistent fixed-step accumulator. Add uneven-frame coverage.
+- Confirmed P2, duplicate rendering loops: `src/main.ts:258–259` schedules a new frame on resume without canceling an earlier pending frame. A probe booted the real main module with a queue that retained every animation-frame callback. Pause and resume before executing the pending callback increased callbacks per frame from one to two; a second cycle increased them to three. Each duplicate continued scheduling itself. Track and cancel the pending frame. The current boot test stores only one callback and cannot detect this.
+- Coverage gaps: actual native sample rates and pause scheduling, native save/profile behavior, sustained rendering performance, and long-name layout remain unverified. Malformed saves can contain inconsistent phase/stroke combinations; normal gameplay does not produce the inspected examples.
+- Evidence level: source, existing tests, production build, and isolated automated reproductions. No new browser, Board, or human playtest. No package installation or publication. Findings remain open.
+
+## October 27, 2026 — Correctness fixes and repeat review
+
+- Asked for: fix all three findings, add regression tests, and review again until clear.
+- Input: qualify return samples by angular speed, preserving the two-sample guard. A new matrix covers 20/30/60/120 Hz, both directions, 40/60-degree backswings, and 26/30/90-degree-per-second returns. Below-minimum returns and one jump followed by slow drift do not strike.
+- Physics: retain fractional active time between fixed 1/120-second steps. Landing, terrain, cup, and boundary decisions now use the same simulation steps across render rates. Completion clears unused time. Version-1 saves without the new field migrate to zero; valid fractional time survives JSON save/restore in flight and rolling.
+- Lifecycle: cancel the pending animation frame on pause and schedule through one guarded function. Paused boot schedules nothing. Duplicate resume notifications preserve the active gesture. The first resumed frame excludes paused wall time.
+- Regression evidence: the slow-return, near-cup scoring, and rapid pause/resume tests each failed the original implementation before its fix. The boot mock now keeps every pending callback and reproduces browser cancellation behavior.
+- Final automated: `npm test` reports 193 total, 190 passed, zero failures, and three unchanged full-catalog skips. Twelve added tests/subtests cover the corrections and adjacent boundaries. The full restore, club selection, approach, putt, result, and rematch journey still passes.
+- Repeat review: each fix received source review after implementation. Independent physics review compared 192 combinations of lie, club, aim, and power across fixed timing, irregular timing, and JSON restore; final states matched exactly. No further actionable findings remained in the changed code.
+- Browser: the current local build accepted placement, a 99% 7-iron swing, pause/resume during rolling, and a 20% putt. It finished with a two-stroke birdie, then rematched with the piece retained. Evidence: `docs/screenshots/correctness-fixes-birdie.png`.
+- Package: `npm run pack` passed TypeScript, Vite, and web-pack. Verified all 18 archive files against dist. Bundle `index-BzE_yp0q.js`, platform build `6a85e77fcfe43daa`. Sports model SHA-256 remains `4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9`; app and package identities are unchanged.
+- Board and human: NOT TESTED for this correction. No installation or publication. Existing native platform, all-piece, sustained-performance, and uncoached-teaching checks remain open.
+
+## October 27, 2026 — Correctness publication
+
+- Asked for: commit and push all changes to the game repository.
+- Scope: reviewed fixes, twelve regression tests/subtests, project documentation, browser screenshot, and the generated Codex environment file. Build output, dependencies, and the install ZIP remain ignored.
+- Validation: the preceding 190-test pass, package verification, browser playthrough, and independent re-review cover the unchanged game code. Final diff and publication checks found no blockers.
+- Destination: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the existing game-subtree publishing workflow. Native installation is outside this request.

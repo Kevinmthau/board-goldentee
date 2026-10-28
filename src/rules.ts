@@ -25,7 +25,12 @@ export interface GolfState {
   penalty: boolean;
   shotPower: number;
   shotAngle: number;
+  /** Unsimulated active time, retained across frames and saves. */
+  stepRemainder: number;
 }
+
+export const PHYSICS_STEP_SECONDS = 1 / 120;
+const PHYSICS_TIME_EPSILON = 1e-12;
 
 export const HOLE = {
   par: 3,
@@ -58,6 +63,7 @@ export function createGame(): GolfState {
   return {
     ball: { x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0 },
     strokes: 0, phase: "ready", lastSafe: { ...HOLE.tee }, penalty: false, shotPower: 0, shotAngle: 0,
+    stepRemainder: 0,
   };
 }
 
@@ -102,6 +108,7 @@ export function strike(game: GolfState, shot: Shot, club: Club = clubFor(game)):
   game.penalty = false;
   game.shotPower = power;
   game.shotAngle = shot.angle;
+  game.stepRemainder = 0;
   return true;
 }
 
@@ -131,13 +138,14 @@ function crossesCup(ax: number, az: number, bx: number, bz: number): boolean {
   return Math.hypot(ax + dx * t - HOLE.flag.x, az + dz * t - HOLE.flag.z) <= HOLE.cupRadius;
 }
 
-/** Substeps prevent a fast ball tunnelling across the cup and keep frame rates equivalent. */
+/** Fixed steps make landing, terrain changes and cup capture independent of render timing. */
 export function stepGame(game: GolfState, dtSeconds: number): void {
   if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return;
-  let remaining = Math.min(dtSeconds, 1);
-  while (remaining > 1e-9 && (game.phase === "flight" || game.phase === "rolling")) {
-    const dt = Math.min(remaining, 1 / 120);
-    remaining -= dt;
+  if (game.phase !== "flight" && game.phase !== "rolling") return;
+  let remaining = game.stepRemainder + Math.min(dtSeconds, 1);
+  while (remaining + PHYSICS_TIME_EPSILON >= PHYSICS_STEP_SECONDS && (game.phase === "flight" || game.phase === "rolling")) {
+    const dt = PHYSICS_STEP_SECONDS;
+    remaining = Math.max(0, remaining - dt);
     const ball = game.ball;
     const oldX = ball.x, oldZ = ball.z;
     if (game.phase === "flight") {
@@ -176,6 +184,8 @@ export function stepGame(game: GolfState, dtSeconds: number): void {
       break;
     }
   }
+  // A completed shot must not donate its unused frame time to the next stroke.
+  game.stepRemainder = (game.phase === "flight" || game.phase === "rolling") && remaining > PHYSICS_TIME_EPSILON ? remaining : 0;
 }
 
 export function scoreLabel(strokes: number): string {

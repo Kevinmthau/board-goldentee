@@ -54,11 +54,12 @@ const param = () => ({ value: 1, setValueAtTime() {}, linearRampToValueAtTime() 
 const node = () => ({ connect() {}, disconnect() {}, start() {}, stop() {}, gain: param(), frequency: param(), detune: param(), Q: param() });
 
 const g = globalThis as unknown as Record<string, unknown>;
-let raf: ((ms: number) => void) | null = null;
+const raf = new Map<number, (ms: number) => void>();
+let nextRafId = 1;
 let nowMs = 1000;
 Object.defineProperty(performance, "now", { value: () => nowMs, configurable: true }); // frames and the game share one clock
-g.requestAnimationFrame = (cb: (ms: number) => void) => { raf = cb; return 1; };
-g.cancelAnimationFrame = () => { raf = null; };
+g.requestAnimationFrame = (cb: (ms: number) => void) => { const id = nextRafId++; raf.set(id, cb); return id; };
+g.cancelAnimationFrame = (id: number) => { raf.delete(id); };
 g.document = { title: "", hidden: false, fonts: { add() {}, size: 0, ready: Promise.resolve() },
   querySelector: () => fakeCanvas(), createElement: () => fakeCanvas(), addEventListener: listen, removeEventListener() {} };
 g.Image = class { onload: (() => void) | null = null; onerror: (() => void) | null = null; width = 329; height = 337; naturalWidth = 329; naturalHeight = 337; complete = true; set src(_value: string) { queueMicrotask(() => this.onload?.()); } };
@@ -112,12 +113,13 @@ process.on("unhandledRejection", e => errors.push(e));
 function run(seconds: number) { // frames at 60 fps, the way a browser runs them
   for (let i = 0; i < Math.round(seconds * 60); i++) {
     nowMs += 1000 / 60;
-    const frame = raf;
-    raf = null;
-    if (!frame) return;
-    calls = [];
-    frame(nowMs);
-    frames.push(calls);
+    // Like the browser, retain every scheduled callback and defer new requests to the next frame.
+    for (const [id, frame] of [...raf]) {
+      if (!raf.delete(id)) continue;
+      calls = [];
+      frame(nowMs);
+      frames.push(calls);
+    }
   }
 }
 let nextId = 1;
@@ -161,7 +163,7 @@ function firstMove(x: number, y: number) {
 }
 
 // One test: it is one walk through the game in one process.
-test("portrait Sports golf restores, twists, selects clubs, survives pauses and completes a rematch", async () => {
+test("portrait Sports golf restores, twists, selects clubs, survives pauses and completes a rematch", async t => {
   // The real platform's load() remains its startup snapshot after save(). Reproduce that
   // contract so menu visits and canceled selectors cannot accidentally resurrect old progress.
   await import("../src/platform-stub");
@@ -173,13 +175,17 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
   type Run = { version: number; playerId: string; game: GolfState };
   const savedRuns: Run[] = [];
   let latestRun = structuredClone(restoredRun);
+  let finishRestore: () => void = () => assert.fail("restore promise not initialized");
+  const ready = new Promise<{ restored: boolean }>(resolve => {
+    finishRestore = () => resolve({ restored: true });
+  });
   let menuAction: (id: string) => void = () => assert.fail("game did not register menu actions");
   const platform = g.BoardPlatform as {
     state: { progress: { get: (key: string) => unknown } };
     menu: Record<string, unknown>;
   };
   stub(platform.state, {
-    ready: async () => ({ restored: true, reason: "restored" }),
+    ready: () => ready,
     load: () => structuredClone(restoredRun),
     save: (value: Run) => { latestRun = structuredClone(value); savedRuns.push(latestRun); },
   });
@@ -187,14 +193,42 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
     onButton: (handler: (id: string) => void) => { menuAction = handler; return () => {}; },
   });
   await import("../src/main");
-  for (let i = 0; i < 20 && !raf; i++) await new Promise(resolve => setTimeout(resolve, 10)); // ready(), fonts, footprints
-  assert.ok(raf, "nothing asked for a frame, so the game never started");
+  await t.test("boot completed while paused waits for resume before scheduling a frame", async () => {
+    for (const pause of pauses) pause();
+    finishRestore();
+    // All mocked asset loads complete in microtasks; drain them before checking paused boot.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(raf.size, 0, "finishing boot under the menu must not schedule rendering");
+    for (const resume of resumes) resume();
+    assert.equal(raf.size, 1, "resume starts the completed boot exactly once");
+  });
+  assert.equal(raf.size, 1, "boot schedules exactly one frame");
 
   run(2.5);
   const title = frames[frames.length - 1];
   assert.ok(title.some(c => c.name === "fillText" || c.name === "drawImage"), "the title frame draws no text or image");
   assert.ok(title.length > 5, `the title frame made only ${title.length} drawing calls: a blank screen`);
   assert.deepEqual(errors, [], "the title threw");
+
+  await t.test("pause and resume before the pending frame runs keep one rendering loop", () => {
+    for (let cycle = 0; cycle < 3; cycle++) {
+      for (const pause of pauses) pause();
+      for (const resume of resumes) resume();
+      assert.equal(raf.size, 1, "resume must replace the pending frame, not add another loop");
+      const before = frames.length;
+      run(0.1);
+      assert.equal(frames.length - before, 6, "each display frame draws the game once");
+      assert.equal(raf.size, 1, "one loop remains scheduled");
+    }
+    for (const pause of pauses) pause();
+    assert.equal(raf.size, 0, "pause cancels the pending frame");
+    const pausedFrames = frames.length;
+    run(1);
+    assert.equal(frames.length, pausedFrames, "the menu cannot advance rendering");
+    for (const resume of resumes) resume();
+    for (const resume of resumes) resume();
+    assert.equal(raf.size, 1, "duplicate resume notifications do not add a loop");
+  });
 
   for (const pause of pauses) pause();
   run(0.3);
@@ -229,6 +263,12 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
   const turningFootball = {...football, x: football.x - 40, y: football.y + 5, orientation: football.orientation + 60, phase: BoardContactPhase.Moved};
   onBatch!([turningFootball]); run(0.6);
   assert.match(gameLabel, /backswing/, 'the camera check includes an actual armed physical turn');
+  await t.test("duplicate resume while active retains the armed swing", () => {
+    for (const resume of resumes) resume();
+    run(0.1);
+    assert.match(gameLabel, /backswing/, "a redundant resume cannot discard a live swing");
+    assert.equal(raf.size, 1);
+  });
   onBatch!([{...turningFootball, phase: BoardContactPhase.Ended}]); run(0.5);
   assert.equal(frames.slice(cameraCheckStart).flat().filter(c => c.name === 'clearRect' && c.args[2] === 1080 && c.args[3] === 1920).length,
     0, 'placement, a turning piece with translation, and lifting never reproject the course camera');
@@ -269,6 +309,10 @@ test("portrait Sports golf restores, twists, selects clubs, survives pauses and 
       const atPause = latestRun.game.ball.z;
       run(1);
       assert.equal(latestRun.game.ball.z, atPause, 'a native menu freezes a committed ball');
+      for(const resume of resumes)resume();
+      run(1 / 60);
+      for(const pause of pauses)pause();
+      assert.equal(latestRun.game.ball.z, atPause, 'the first resumed frame excludes paused wall time');
       for(const resume of resumes)resume();
       run(0.05);
       for(const pause of pauses)pause();

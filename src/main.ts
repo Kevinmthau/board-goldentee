@@ -34,6 +34,7 @@ let helpReturn: Mode = 'title';
 let player: BoardPlayer | undefined;
 let booted = false;
 let paused = false;
+let pendingFrame: number | null = null;
 let last = 0;
 let pollAt = -Infinity;
 let saveAt = 0;
@@ -118,7 +119,10 @@ startInput((batch, active) => {
     }
   }
 }, () => {
-  paused = true; controller.pause(performance.now()); taps = []; persist();
+  paused = true;
+  if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
+  pendingFrame = null;
+  controller.pause(performance.now()); taps = []; persist();
 });
 
 function text(label: string, x: number, y: number, size = 48, color = '#FFF8E4', align: CanvasTextAlign = 'left') {
@@ -255,8 +259,19 @@ function update(now: number, dt: number) {
   const label = `${mode}. Solo golf. ${game.strokes} strokes. ${game.phase}. ${distanceToCup(game).toFixed(1)} yards to cup. ${selectedClub}. ${controller.piece ? 'Sports player present' : 'Place Sports player on the open grass'}. ${controller.swing.stage}. ${Math.round(controller.swing.power * 100)}% power.`;
   if (label !== lastLabel) { canvas.setAttribute('aria-label', label); lastLabel = label; }
 }
-function frame(now: number) { if (paused) return; const dt = Math.min(.05, last ? (now - last) / 1000 : 0); last = now; update(now, dt); draw(now, dt); requestAnimationFrame(frame); }
-Board.application.onResume(() => { controller.resume(performance.now()); if (paused) { paused = false; last = 0; if (booted) requestAnimationFrame(frame); } });
+function scheduleFrame() {
+  if (booted && !paused && pendingFrame === null) pendingFrame = requestAnimationFrame(frame);
+}
+function frame(now: number) {
+  pendingFrame = null;
+  if (paused) return;
+  const dt = Math.min(.05, last ? (now - last) / 1000 : 0);
+  last = now; update(now, dt); draw(now, dt); scheduleFrame();
+}
+Board.application.onResume(() => {
+  if (!paused) return;
+  controller.resume(performance.now()); paused = false; last = 0; scheduleFrame();
+});
 async function loadSportsArt() {
   return new Promise<void>(resolve => {
     const img = new Image();
@@ -272,5 +287,5 @@ void (async () => {
   BoardPlatform.menu.setButtons([{id: 'help', title: 'How to swing', icon: 'square'}, {id: 'restart', title: 'Restart hole', icon: 'circular_arrow'}, {id: 'setup', title: 'Change setup', icon: 'left_arrow'}]);
   BoardPlatform.menu.onButton(id => { if (id === 'help') showHelp(); if (id === 'restart') startRound(); if (id === 'setup') changeSetup(); });
   [footprints] = await Promise.all([loadPieceFootprints(), loadTitleFont(), loadSportsArt()]);
-  view.reset(game); booted = true; requestAnimationFrame(frame);
+  view.reset(game); booted = true; scheduleFrame();
 })();

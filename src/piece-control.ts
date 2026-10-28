@@ -287,7 +287,11 @@ export class PieceController {
       this.forwardSamples = 0;
       return null;
     }
-    if (delta * this.direction < -0.5) this.forwardSamples += 1;
+    // Count deliberate return motion by speed, so small steps from a faster
+    // contact feed still qualify. A single jump followed by slow jitter does not.
+    const sampleSeconds = (now - last.time) / 1000;
+    const returnSpeed = sampleSeconds > 0 ? -delta * this.direction / sampleSeconds : 0;
+    if (returnSpeed >= TURN_SWING.minSpeed) this.forwardSamples += 1;
     else if (delta * this.direction > TURN_SWING.deadbandDeg) {
       this.forwardSamples = 0;
       this.history = [sample];
