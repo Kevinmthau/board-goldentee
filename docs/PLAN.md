@@ -1,11 +1,11 @@
-# Plan: Golden Tee
+# Plan: Tee Time
 
 Updated: October 28, 2026.
 Status: One-to-four-player support with restored original putting controls and no green arrows is installed and launched on Board. Automated, browser, and native startup checks are recorded in the acceptance ledger. Physical multiplayer play and putting feel remain open.
 
 ## Summary
 
-Golden Tee is a one-to-four-player coastal golf game with nine holes and a total par of 36. Finish the round in the fewest strokes.
+Tee Time is a one-to-four-player coastal golf game with nine holes and a total par of 36. Finish the round in the fewest strokes.
 Use the Board Studio TypeScript, Vite, and Canvas 2D starter with the vendored SDK.
 The physical Sports player replaces the Bloogs ring and digital golfer. Its visible club is attached to the center front of the real piece and exists only while that piece is detected.
 
@@ -264,3 +264,10 @@ Only that confirmed choice can reconnect an ephemeral guest to an old score. Aut
 - By builder: remove the downhill arrows drawn across the green and their teaching text. Keep the curved grid, slopes, original putting response, and aim buttons.
 - Preserve the one-to-four-player round, twelve clubs, wind indicator, saves, and app identity.
 - Verify the rendering and existing automated checks, then update the person's Board.
+
+## Consolidate Tee Time and move the project — October 28, 2026
+
+- By person: keep one Tee Time app with the latest multiplayer, and move the project outside Board-tennis into the home directory.
+- By builder: move the complete current game to `/Users/kevinthau/tee-time` with standalone Git history and the existing remote.
+- Rename the latest multiplayer installation to Tee Time while preserving its established appId and packageId. After verifying the replacement, remove the older solo Tee Time installation.
+- Keep all four-player features, twelve clubs, original putting controls, and arrow-free greens. Update the browser preview and native package from the standalone directory.

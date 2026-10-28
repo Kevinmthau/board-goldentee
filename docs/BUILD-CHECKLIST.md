@@ -1,4 +1,4 @@
-# Build checklist: Golden Tee
+# Build checklist: Tee Time
 
 ## Design and starter
 - [x] Person chose the Bloogs ring, back-then-forward swing, and solo play.
@@ -233,3 +233,11 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Review all pending source/tests/docs/screenshots and confirm the existing game repository publication path.
 - [x] Verify the completed test/build evidence and unchanged package hash, identity, model, and inventory.
 - [x] Reinstall and launch the verified build on Board; inspect startup logs and native title.
+
+## Consolidate Tee Time and move — October 28, 2026
+
+- [x] Move the latest project to `/Users/kevinthau/tee-time` with independent Git history and the existing remote.
+- [x] Update the name and package commands; preserve the latest game identity, model, runtime, and save-build key.
+- [x] Run 260 passing checks and build/package from the standalone folder.
+- [x] Verify the browser Tee Time title and native multiplayer setup.
+- [x] Remove the older solo installation and verify one Tee Time entry with no Golden Tee duplicate.

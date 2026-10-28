@@ -1,4 +1,4 @@
-# Acceptance ledger: Golden Tee
+# Acceptance ledger: Tee Time
 
 ## October 27, 2026 — Design and starter preparation
 
@@ -414,3 +414,25 @@
 - Installed package SHA-256: `cabfd91e3292a8ab50a3c9531009063888454997cfb015fe15e75686fb0810d4`, identical to the previously tested and visually verified package.
 - Board Connect confirmed installation and launch. Native platform state became ready at 17:17:01; the existing optional favicon and game-font.json warnings recurred.
 - Screenshot: `docs/screenshots/published-four-player-board-installed.png` confirms the native 1–4-player title. Physical multiplayer pacing and putting feel remain open.
+
+## October 28, 2026 — Verify the reported stale Board build
+
+- Report: the latest version is not on the person's Board.
+- Confirmed the default device is KT's Board. It has separate Golden Tee and Tee Time web apps installed under different app IDs.
+- Before correction, the native screenshot showed a solo-only setup with Change Player; Tee Time logs show a later launch using `index-BzE_yp0q.js`, distinct from the published Golden Tee bundle. This indicates an app-selection mismatch rather than a stale local package.
+- An isolated rebuild from the committed source matched all 18 files in the published Golden Tee package byte for byte. The local game tree matches published commit `5b87c06`.
+- Explicitly targeted KT's Board and reinstalled/launched app `e087aaee-903b-43a2-b2b9-bbd4189601b2`. Native platform state became ready at 17:26:01.
+- The subsequent native screenshot confirms Golden Tee with the 1–4-player label and Players button. Local diagnostic captures are in ignored `artifacts/reported-old-build.png` and `artifacts/golden-tee-correct-app.png`.
+- No runtime code, model, app identity, or package changed; no apps or saves were deleted. The separate Tee Time installation remains present.
+
+## October 28, 2026 — Consolidate Tee Time and move outside Board-tennis
+
+- Asked for: one Tee Time with the latest multiplayer, with the directory moved into the home directory.
+- Location: `/Users/kevinthau/tee-time` is the independent Git root. Source, dependencies, QA artifacts, screenshots, and pending diagnostic notes moved together; the old primary checkout's generated-only folder moved into ignored `artifacts/legacy-parent-output`.
+- Identity: changed the display name to Tee Time. Retained app `e087aaee-903b-43a2-b2b9-bbd4189601b2`, package `fun.board.dev.goldentee.e087aaee`, and platform build `d2e34a8c05a0b15e` to preserve the current game's identity and save namespace.
+- Automated: 263 total checks, 260 pass, zero failures, three pre-existing catalog-only skips. TypeScript, Vite, and packaging pass from the standalone directory.
+- Package: `tee-time.webapp.zip`, 18 files, unchanged game bundle `assets/index-Bwtc59Ji.js` and Sports model. SHA-256 `290a92b0f1092ca1314bc520a97fc2c0c649293f634e39be824958c8aebbf1b7`.
+- Browser: the existing preview now serves from the standalone directory. The title displays Tee Time and 1–4 Players; screenshot `docs/screenshots/tee-time-multiplayer-title.png`.
+- Board: installation and launch succeeded; platform state restored at 17:29:24. Native audio logs identify the current `index-Bwtc59Ji.js` bundle. Screenshot `docs/screenshots/tee-time-multiplayer-board-installed.png` shows the actual 1 of 4 Players setup with Add Player.
+- Consolidation: removed the older solo installation `73118527-b76c-581d-a357-8243da0525cf` under the user's explicit request for one version. The final native app list contains one Tee Time and no Golden Tee.
+- The older solo app's separate save namespace was removed with that app. The current multiplayer identity was kept. Full physical multiplayer pacing remains a human playtest item.

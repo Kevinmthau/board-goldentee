@@ -1,4 +1,4 @@
-# Golden Tee — Board web prototype
+# Tee Time — Board web prototype
 
 A one-to-four-player nine-hole coastal golf round controlled with any physical Sports player. Play 3,200 yards across nine holes totaling par 36, with steady wind and a traditional golf scorecard. Built from the Board Studio starter with TypeScript, Vite, and Canvas 2D. Play in portrait orientation from Board’s left short edge.
 
@@ -8,11 +8,13 @@ Putting uses the original swing response again. Turn back at least 40 degrees, w
 
 ![Twelve-club bag](docs/screenshots/twelve-club-bag.png)
 
+The standalone project lives at `/Users/kevinthau/tee-time`, outside Board-tennis. Use this directory for development and packaging.
+
 ## Play in a browser
 
 ```sh
-git clone https://github.com/Kevinmthau/board-goldentee.git
-cd board-goldentee
+git clone https://github.com/Kevinmthau/board-goldentee.git tee-time
+cd tee-time
 npm ci
 npm run dev
 ```
@@ -46,7 +48,7 @@ The desktop simulator does not persist a round across page reloads. Real Board s
 ```sh
 npm test
 npm run pack
-board-connect install golden-tee.webapp.zip --launch
+board-connect install tee-time.webapp.zip --launch
 ```
 
 Use any Sports player (glyphs 1–8). Keep hold of it while twisting. Native Board input and the framebuffer stay at 1920×1080; the game rotates its portrait scene toward the left short edge.

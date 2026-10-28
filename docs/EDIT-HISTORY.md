@@ -1,4 +1,4 @@
-# Edit history
+# Edit history: Tee Time
 
 ## October 27, 2026 — Design intake
 
@@ -276,3 +276,18 @@ The person requested installation on their Board. Installed and launched the ver
 - Include the complete twelve-club revision, one-to-four-player rounds, restored original putting response, removed downhill arrows, tests, documentation, and evidence screenshots.
 - Publish the committed game subtree to the existing `golden-tee` remote's `main`, keeping game files at the standalone repository root.
 - Reinstalled and launched the verified package on Board. Dependencies, build output, local QA files, and install ZIPs stay ignored as in the established publishing workflow.
+
+## October 28, 2026 — Correct the Board app selection
+
+- Report: the latest build was not visible on Board.
+- Found separate Golden Tee and Tee Time installations. Verified the published Golden Tee package against a fresh isolated build.
+- Explicitly reinstalled and launched Golden Tee on KT's Board; confirmed its native 1–4-player title screen.
+- No runtime changes or uninstall were needed. These diagnostic notes are local; the published game remains `5b87c06`.
+
+## October 28, 2026 — One Tee Time app and a standalone project
+
+- Request: keep only Tee Time with the latest multiplayer and move the project out of Board-tennis into the home directory.
+- Moved the complete current project to `/Users/kevinthau/tee-time`, initialized standalone Git from the published game history, and retained the existing remote. The former nested project directories are absent; old generated outputs are preserved under ignored artifacts.
+- Renamed the current multiplayer app to Tee Time while keeping its established appId/packageId and platform save-build key. Installed and launched `tee-time.webapp.zip`.
+- Removed the older solo app `73118527-b76c-581d-a357-8243da0525cf` as requested. Board Connect now lists exactly one Tee Time and no Golden Tee.
+- Updated README commands and current document titles. All 260 active tests pass; the new browser title and native multiplayer setup are verified.

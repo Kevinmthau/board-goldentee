@@ -1,4 +1,4 @@
-# Asset manifest: Golden Tee
+# Asset manifest: Tee Time
 
 | File | Role | Source | Licence |
 |---|---|---|---|
@@ -117,3 +117,7 @@ Bundle: `assets/index-Bwtc59Ji.js`. Package SHA-256: `cabfd91e3292a8ab50a3c95310
 `docs/screenshots/no-putting-arrows.png` and `no-putting-arrows-board-installed.png` are browser/native evidence and are excluded from the package.
 
 `docs/screenshots/published-four-player-board-installed.png` records the October 28 reinstall requested with publication. It is verification evidence and is not packaged. The shipped inventory and package SHA-256 remain unchanged from the putting-arrow removal revision.
+
+October 28, 2026 Tee Time consolidation changes the package display name and generated manifest/platform configuration only; the 18-file inventory, game bundle, model, and artwork remain unchanged.
+Package: `tee-time.webapp.zip`. SHA-256: `290a92b0f1092ca1314bc520a97fc2c0c649293f634e39be824958c8aebbf1b7`.
+`docs/screenshots/tee-time-multiplayer-title.png` and `tee-time-multiplayer-board-installed.png` are browser/native evidence and do not ship.
