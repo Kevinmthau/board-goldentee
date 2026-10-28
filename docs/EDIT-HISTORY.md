@@ -78,3 +78,47 @@
 - Published the golf project at https://github.com/Kevinmthau/board-goldentee on `main`, preserving the game-specific commit history with `git subtree split`. The public repository has the game files at its root.
 - Updated the README with a screenshot, clone/run instructions, current validation, and the asset-provenance link.
 - In the original parent checkout, remote `golden-tee` targets the public repository and `codex/golden-tee-public` tracks its `main`. Future publication from that parent checkout uses `git subtree push --prefix=board-goldentee golden-tee main` after committing game changes. A standalone clone uses ordinary Git commits and pushes.
+
+
+## October 27, 2026 — Sports players, twist swing, clubs, and portrait
+
+- Person requested Sports pieces instead of the golfer and Bloogs ring, a turn-back/reverse swing, club selection, a reachable par 3 with a 7 iron, and portrait play.
+- Replaced the bundled set with Sports, using the supplied setup script. Verified the model hash and retained the app/package identity.
+- Accept all eight Sports players. Physical facing controls the club backswing; a deliberate reversal strikes once. The golfer and ring no longer render.
+- Added four club choices and separate aim arrows. Full-shot distances are approximately 150, 125, and 60 yards; the putter reaches 111 feet on a green.
+- Rotated the logical portrait course toward the left short edge of the native canvas. Native input coordinates keep their original units.
+- Rebuilt help and the browser simulator for Sports rotation. Moved the power readout and swing cues clear of the ball and largest piece footprint.
+- Preserved save compatibility, roster ownership, pause epochs, and explicit result choices. Updated tests, plan, checklist, asset provenance, and README.
+- Verification and remaining native/human checks are recorded in the acceptance ledger.
+
+
+## October 27, 2026 — Install Sports revision
+
+- Person requested installation on Board to try the Sports pieces.
+- Verified the existing package, installed it, and launched it through Board Connect.
+- Captured native portrait rendering and reviewed startup logs. No game code or package identity changed.
+
+
+## October 27, 2026 — Native Sports playtest and attached club
+
+- Person reported that Sports swings were not working and requested live Board log inspection. The club should appear only when the piece is down, attach to its center front, and fit its size.
+- Native logs identified a football player at portrait (301,1233), facing 41 degrees. Detection worked, but the hidden placement rectangle and fixed address angle rejected the piece.
+- Added a footprint-derived club attached to the actual piece front. Iron shafts are 1.25 piece widths long, putter shafts 1.1 widths. Lifting removes the club; the physical player is the only golfer.
+- Calibrate the initial stable facing and strike on returning to that angle. Removed the artificial delay between the physical return and ball launch.
+- Person then clarified that placing or turning the piece must not move the camera. Removed the temporary neutral-club-head camera alignment: the address camera and resting ball stay fixed, only the attached club moves, and the camera follows the ball after a hit.
+- Moved club choices below the swing area and widened open-grass placement. Native logs subsequently confirmed a ready address and shots at 80% and 9% power, but also showed ordinary turn drift exceeding the old translation guard; this prompted a further tolerance correction.
+- Browser checks confirmed visible attachment, scale, and no club after lift. Automated, package, and final native evidence is recorded in the acceptance ledger; physical feel remains a human check.
+
+## October 27, 2026 — Clear the course when a piece is lifted
+
+- Person requested further live Board log review and no character graphic when picking up the Sports piece.
+- Removed the absent-piece character from play, title, and setup. Text placement guidance remains; canonical art is used only in help and the browser's present-piece proxy.
+- Browser place/lift verification shows neither a club nor replacement character after lift. The fixed camera and swing logic are unchanged.
+- Tests pass (178 passed, 3 catalog-only skips). Packed, installed, and launched the correction; current bundle confirmed in native logs. Five native hits, a completed hole, and rematch were observed in the preceding fixed-camera build.
+
+## October 27, 2026 — Publish Sports revision
+
+- Person requested committing and pushing all changes.
+- Removed temporary contact-geometry logging before publication; retained gameplay behavior and the playtest evidence in this document set.
+- Updated README to the verified Sports behavior and current screenshot. Tests pass (178 passed, 3 catalog skips), and the final publication package builds successfully.
+- Publish the committed game subtree to the existing `golden-tee` remote's `main`, keeping game files at the root of the standalone repository.

@@ -1,28 +1,27 @@
-import { gameFont } from './runtime';
-import { HOLE, clubFor, distanceToCup, type GolfState, type SwingState } from './rules';
+import { HOLE, clubFor, distanceToCup, type GolfState } from './rules';
 import { createTreeSprite, createGroundTexture, createSoftShadow } from './course-art';
-import { SwingAnimation, FULL_IMPACT_SECONDS, PUTT_IMPACT_SECONDS } from './swing-animation';
-import { GolferRenderer } from './golfer-renderer';
 
-/** The physical ring travels in the quiet center lane, separate from the digital ball. */
+/** Logical portrait coordinates. Main rotates this scene onto Board's native surface. */
 export const COURSE_LAYOUT = {
-  horizon: 300,
-  swingTop: 800,
-  guideX: 1600,
-  lane: { x: 750, y: 790, width: 420, height: 242 },
+  width: 1080,
+  height: 1920,
+  horizon: 430,
+  swingTop: 1700,
+  lane: { x: 380, y: 1570, width: 320, height: 210 },
 } as const;
+type SwingStage = 'settling' | 'ready' | 'backswing' | 'committed';
 
 type Point = { x: number; z: number; y?: number };
 type ScreenPoint = { x: number; y: number; scale: number; depth: number };
 type Camera = { x: number; z: number; yaw: number; distance: number; height: number };
 type TracePoint = Point & { time: number };
 const TAU = Math.PI * 2;
-const FOCAL = 1120;
+const FOCAL = 1400;
 const PITCH = 0.21;
 const CENTER_Y = COURSE_LAYOUT.horizon + FOCAL * Math.tan(PITCH);
-const ADDRESS_CAMERA = { distance: 17.2, height: 6.34 };
-const PUTT_CAMERA = { distance: 16, height: 5.9 };
-const FLIGHT_CAMERA = { distance: 26, height: 10 };
+const ADDRESS_CAMERA = { distance: 17.2, height: 9.8 };
+const PUTT_CAMERA = { distance: 16, height: 9.1 };
+const FLIGHT_CAMERA = { distance: 26, height: 13.5 };
 type Surface = 'fairway' | 'rough' | 'green' | 'sand';
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const mix = (a: number, b: number, amount: number) => a + (b - a) * amount;
@@ -44,25 +43,23 @@ function canvasLayer(width: number, height: number, paint: (ctx: CanvasRendering
 
 /** Original painted coastal scenery, baked once; no per-frame shadows, filters or pixel reads. */
 function backdrop() {
-  return canvasLayer(1920, 1080, ctx => {
-    const sky = ctx.createLinearGradient(0, 0, 0, 430);
+  return canvasLayer(1080, 1920, ctx => {
+    const sky = ctx.createLinearGradient(0, 0, 0, 500);
     sky.addColorStop(0, '#4BABB8'); sky.addColorStop(0.62, '#B5DDD1'); sky.addColorStop(1, '#F2E5BD');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, 1920, 1080);
-    ctx.fillStyle = '#F8EDC4'; ctx.beginPath(); ctx.arc(1510, 155, 61, 0, TAU); ctx.fill();
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, 1080, 1920);
+    ctx.fillStyle = '#F8EDC4'; ctx.beginPath(); ctx.arc(850, 280, 61, 0, TAU); ctx.fill();
     ctx.fillStyle = '#E5EBD0';
-    for (const [x, y, w, h] of [[180, 111, 180, 18], [326, 102, 106, 25], [1135, 88, 145, 15], [1255, 82, 88, 22]]) {
+    for (const [x, y, w, h] of [[130, 250, 160, 18], [276, 242, 106, 25], [740, 190, 145, 15]]) {
       ctx.beginPath(); ctx.ellipse(x, y, w, h, 0, 0, TAU); ctx.fill();
     }
-    polygon(ctx, [{x:0,y:305},{x:0,y:247},{x:115,y:227},{x:235,y:258},{x:357,y:205},{x:462,y:218},{x:586,y:276},{x:715,y:248},{x:824,y:282},{x:950,y:307}], '#83B7AC');
-    polygon(ctx, [{x:0,y:325},{x:0,y:281},{x:122,y:263},{x:203,y:284},{x:305,y:253},{x:393,y:266},{x:462,y:296},{x:585,y:280},{x:685,y:313}], '#5C9790');
-    polygon(ctx, [{x:1280,y:310},{x:1400,y:281},{x:1470,y:290},{x:1602,y:251},{x:1690,y:264},{x:1784,y:230},{x:1920,y:270},{x:1920,y:321}], '#75AA9E');
-    const sea = ctx.createLinearGradient(0, 300, 0, 820);
+    polygon(ctx, [{x:0,y:435},{x:0,y:370},{x:115,y:347},{x:235,y:378},{x:357,y:345},{x:462,y:368},{x:586,y:416},{x:715,y:388},{x:824,y:422},{x:1080,y:437}], '#83B7AC');
+    const sea = ctx.createLinearGradient(0, 430, 0, 1300);
     sea.addColorStop(0, '#79B5AD'); sea.addColorStop(0.28, '#4B9D9C'); sea.addColorStop(1, '#236F7B');
-    ctx.fillStyle = sea; ctx.fillRect(0, 305, 1920, 775);
+    ctx.fillStyle = sea; ctx.fillRect(0, 435, 1080, 1485);
     ctx.strokeStyle = '#B5D3BC'; ctx.lineWidth = 2; ctx.globalAlpha = 0.5;
     for (let i = 0; i < 22; i++) {
-      const y = 317 + i * i * 0.67;
-      const x = (i * 179) % 1630;
+      const y = 447 + i * i * 0.9;
+      const x = (i * 179) % 980;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 100 + i * 8, y); ctx.stroke();
     }
     ctx.globalAlpha = 1;
@@ -85,23 +82,21 @@ export class CourseView {
   private trace: TracePoint[] = [];
   private priorPhase = '';
   private landing: (Point & { at: number }) | null = null;
-  private backswingHeld = false;
-  private animation = new SwingAnimation();
+  private aim = 0;
+  private selectedPutter = false;
   private shotElapsed = Infinity;
   private strokeIsPutt = false;
-  private golferAt: Point = { x: 0, z: 0 };
-  private golferYaw = 0;
+  private impactSent = false;
   private textures = new Map<Surface, CanvasPattern>();
   private softShadow: HTMLCanvasElement | null = null;
-  private golferRenderer = new GolferRenderer();
 
   private loadScenery() {
     const photo = new Image();
     photo.onload = () => {
-      this.sky = canvasLayer(1920, 1080, ctx => {
-        ctx.fillStyle = '#32698A'; ctx.fillRect(0, 0, 1920, 1080);
-        const scale = 1.38;
-        ctx.drawImage(photo, (1920-photo.naturalWidth*scale)/2, COURSE_LAYOUT.horizon-photo.naturalHeight*0.60*scale, photo.naturalWidth*scale, photo.naturalHeight*scale);
+      this.sky = canvasLayer(1080, 1920, ctx => {
+        ctx.fillStyle = '#32698A'; ctx.fillRect(0, 0, 1080, 1920);
+        const scale = Math.max(1080 / photo.naturalWidth, 800 / photo.naturalHeight);
+        ctx.drawImage(photo, (1080-photo.naturalWidth*scale)/2, COURSE_LAYOUT.horizon-photo.naturalHeight*0.60*scale, photo.naturalWidth*scale, photo.naturalHeight*scale);
       });
     };
     photo.src = 'art/coastal-sky.png';
@@ -115,25 +110,29 @@ export class CourseView {
     turf.src = 'art/fairway-turf.png';
   }
 
-  /** Only gesture intent is passed in; the golfer is anchored to the digital ball's lie. */
-  setSwing(stage: SwingState['stage'], backwardTravel = 0): void {
-    // Anticipate the takeaway before the physical gesture reaches its arming threshold.
-    this.backswingHeld = stage === 'backswing' || (stage === 'ready' && backwardTravel > 12);
+  /** Kept for callers during the input transition; the physical piece now draws the whole club. */
+  setSwing(_stage: SwingStage, _windup = 0): void {}
+
+  setAim(angleRadians: number): void {
+    this.aim = Number.isFinite(angleRadians) ? angleRadians : 0;
   }
 
-  startStroke(game: GolfState, putting: boolean): void {
-    this.strokeIsPutt=putting;this.shotElapsed=0;
-    this.golferAt={...game.lastSafe};this.animation.strike(putting);
+  /** Club selection changes the address pose without depending on the recommended club. */
+  setPutting(putting: boolean): void { this.selectedPutter = putting; }
+
+  /** A recognized physical return swing is contact; no separate animation delays the ball. */
+  startStroke(_game: GolfState, putting: boolean): void {
+    this.strokeIsPutt = putting; this.selectedPutter = putting; this.shotElapsed = 0; this.impactSent = false;
   }
 
-  advanceSwing(dt: number, putting = false): {impact:boolean;putting:boolean;ballDt:number} {
-    const delta=Number.isFinite(dt)?clamp(dt,0,1):0;
-    const before=this.shotElapsed;
-    if(Number.isFinite(before))this.shotElapsed+=delta;
-    const pose=this.animation.update(delta,this.backswingHeld,putting);
-    const contact=this.strokeIsPutt?PUTT_IMPACT_SECONDS:FULL_IMPACT_SECONDS;
-    const ballDt=Number.isFinite(before)?Math.max(0,this.shotElapsed-contact)-Math.max(0,before-contact):delta;
-    return {impact:pose.impact,putting:this.strokeIsPutt,ballDt};
+  advanceSwing(dt: number, putting = this.selectedPutter): {impact:boolean;putting:boolean;ballDt:number} {
+    const delta = Number.isFinite(dt) ? clamp(dt, 0, 1) : 0;
+    this.selectedPutter = putting;
+    if (!Number.isFinite(this.shotElapsed)) return { impact: false, putting, ballDt: delta };
+    this.shotElapsed += delta;
+    const impact = !this.impactSent && delta > 0;
+    if (impact) this.impactSent = true;
+    return { impact, putting: this.strokeIsPutt, ballDt: delta };
   }
 
   reset(game: GolfState) {
@@ -145,9 +144,7 @@ export class CourseView {
     };
     this.initialized = true; this.trace = []; this.terrainKey = ''; this.landing = null;
     this.priorPhase = game.phase;
-    this.golferAt = { x: game.ball.x, z: game.ball.z };
-    this.golferYaw = this.camera.yaw;
-    this.shotElapsed=Infinity;this.animation.reset();this.backswingHeld=false;
+    this.shotElapsed=Infinity;this.aim=0;this.selectedPutter=close;this.impactSent=false;
   }
 
   private forward(p: Point) {
@@ -162,7 +159,7 @@ export class CourseView {
     const down = c.height - (p.y ?? 0);
     const depth = forward * Math.cos(PITCH) + down * Math.sin(PITCH);
     const scale = FOCAL / Math.max(0.5, depth);
-    return { x: 960 + side * scale, y: CENTER_Y + (down * Math.cos(PITCH) - forward * Math.sin(PITCH)) * scale, scale, depth };
+    return { x: 540 + side * scale, y: CENTER_Y + (down * Math.cos(PITCH) - forward * Math.sin(PITCH)) * scale, scale, depth };
   }
 
   /** Clip ground polygons before projection; the near plane cannot fold across the screen. */
@@ -197,7 +194,7 @@ export class CourseView {
   }
 
   private paintTerrain(ctx: CanvasRenderingContext2D) {
-    ctx.clearRect(0, 0, 1920, 1080);
+    ctx.clearRect(0, 0, 1080, 1920);
     const b = HOLE.bounds;
     // The island's grass edge is the actual playable boundary; sand and cliff lie outside it.
     const rim = [{x:b.left-3,z:b.near-3,y:-2},{x:b.right+3,z:b.near-3,y:-2},{x:b.right+3,z:b.far+3,y:-2},{x:b.left-3,z:b.far+3,y:-2}];
@@ -242,7 +239,7 @@ export class CourseView {
     const visible=TREES.map((t,i)=>({...t,index:i,p:this.project(t)})).filter(t=>t.p.depth>4).sort((a,b)=>b.p.depth-a.p.depth);
     for(const tree of visible) {
       const h=tree.h*tree.p.scale,w=h*(320/440);
-      if(tree.p.x+w<0||tree.p.x-w>1920)continue;
+      if(tree.p.x+w<0||tree.p.x-w>1080)continue;
       if(this.softShadow) {ctx.globalAlpha=0.48;ctx.drawImage(this.softShadow,tree.p.x-w*0.8,tree.p.y-h*0.04,w*1.6,h*0.13);ctx.globalAlpha=1;}
       ctx.drawImage(this.trees[tree.index%2],tree.p.x-w/2,tree.p.y-h,w,h);
     }
@@ -260,19 +257,15 @@ export class CourseView {
     if(!this.sky) {
       this.sky=backdrop();this.trees=[createTreeSprite(0),createTreeSprite(1)];this.softShadow=createSoftShadow();
       for(const kind of ['fairway','rough','green','sand'] as const) {const pattern=ctx.createPattern(createGroundTexture(kind),'repeat');if(pattern)this.textures.set(kind,pattern);}
-      this.terrain=canvasLayer(1920,1080,()=>{});this.loadScenery();
+      this.terrain=canvasLayer(1080,1920,()=>{});this.loadScenery();
     }
     const moving=game.phase==='flight'||game.phase==='rolling';
-    const close=clubFor(game)==='PUTTER';
+    const close=this.selectedPutter;
     const framing=game.phase==='flight'?FLIGHT_CAMERA:close?PUTT_CAMERA:ADDRESS_CAMERA;
     const targetYaw=distanceToCup(game)>1.5 ? Math.atan2(HOLE.flag.x-game.ball.x,HOLE.flag.z-game.ball.z) : this.camera.yaw;
-    if(game.phase==='ready'){
-      this.golferAt={x:game.ball.x,z:game.ball.z};this.golferYaw=targetYaw;
-      if(this.priorPhase==='flight'||this.priorPhase==='rolling'){this.shotElapsed=Infinity;this.animation.reset();}
-    }
-    // Ease the camera out only after contact; pause never consumes animation time.
-    const impactAt=this.strokeIsPutt?PUTT_IMPACT_SECONDS:FULL_IMPACT_SECONDS;
-    const departure=clamp((this.shotElapsed-impactAt-0.18)/0.2,0,1);
+    if(game.phase==='ready' && (this.priorPhase==='flight'||this.priorPhase==='rolling')) this.shotElapsed=Infinity;
+    // The camera follows after the physical hit; pause never consumes its easing time.
+    const departure=clamp((this.shotElapsed-0.18)/0.2,0,1);
     const chase=moving?departure*departure*(3-2*departure):1;
     const blend=(1-Math.exp(-Math.max(0,dt)*(moving?2.5:4)))*chase;
     const c=this.camera;
@@ -290,7 +283,12 @@ export class CourseView {
     const key=[c.x,c.z,c.yaw,c.distance,c.height].map(v=>v.toFixed(3)).join('|');
     if(key!==this.terrainKey){this.paintTerrain(this.terrain!.getContext('2d')!);this.terrainKey=key;}
     ctx.drawImage(this.sky,0,0);ctx.drawImage(this.terrain!,0,0);
-    ctx.save();ctx.beginPath();ctx.rect(0,0,1920,COURSE_LAYOUT.swingTop);ctx.clip();
+    // Keep the fixed control surface below the course.
+    const footer=ctx.createLinearGradient(0,1440,0,1530);
+    footer.addColorStop(0,'rgba(18,57,44,0)');footer.addColorStop(1,'#12392C');
+    ctx.fillStyle=footer;ctx.fillRect(0,1440,1080,90);
+    ctx.fillStyle='#12392C';ctx.fillRect(0,1530,1080,390);
+    ctx.save();ctx.beginPath();ctx.rect(0,0,1080,COURSE_LAYOUT.swingTop);ctx.clip();
     if(!preview&&game.phase==='ready')this.drawAim(ctx,game,now);
     this.drawFlag(ctx,now);
     if(this.priorPhase==='flight'&&game.phase==='rolling')this.landing={x:game.ball.x,z:game.ball.z,at:now};
@@ -313,108 +311,14 @@ export class CourseView {
       ctx.globalAlpha=(1-t)*0.45;ctx.strokeStyle='#F5E4B4';ctx.lineWidth=3;
       ctx.beginPath();ctx.ellipse(p.x,p.y,8+t*45,3+t*12,0,0,TAU);ctx.stroke();ctx.globalAlpha=1;
     }
-    this.drawGolfer(ctx,game);
     if(game.phase!=='holed')this.drawBall(ctx,game,now);
-    ctx.restore();
-    // A quiet fixed surface for the hand and ring; no marker follows physical motion.
-    const footer=ctx.createLinearGradient(0,780,0,865);
-    footer.addColorStop(0,'rgba(18,57,44,0)');footer.addColorStop(1,'#12392C');
-    ctx.fillStyle=footer;ctx.fillRect(0,780,1920,100);
-    ctx.fillStyle='#12392C';ctx.fillRect(0,880,1920,200);
-    ctx.fillStyle='#9BB78B';ctx.globalAlpha=0.25;ctx.fillRect(48,819,1824,2);ctx.globalAlpha=1;
-  }
-
-  /** Original three-quarter character. All pose coordinates belong to this digital golfer. */
-  private drawGolfer(ctx:CanvasRenderingContext2D,game:GolfState) {
-    const moving=game.phase==='flight'||game.phase==='rolling';
-    const age=this.shotElapsed*1000;
-    const shot=moving&&Number.isFinite(age);
-    const alpha=shot?clamp(1-(age-600)/650,0,1):1;
-    if(alpha<=0||game.phase==='holed'||game.phase==='limit')return;
-    const right={x:Math.cos(this.golferYaw),z:-Math.sin(this.golferYaw)};
-    const forward={x:Math.sin(this.golferYaw),z:Math.cos(this.golferYaw)};
-    const standing={x:this.golferAt.x-right.x*2.8-forward.x*0.45,z:this.golferAt.z-right.z*2.8-forward.z*0.45};
-    const foot=this.project(standing),ball=this.project(this.golferAt);
-    if(foot.depth<3||foot.y>1000||foot.y<250)return;
-    const scale=clamp(foot.scale*5.5/240,0.3,1.6);
-    const putting=clubFor({...game,ball:{...game.ball,x:this.golferAt.x,z:this.golferAt.z}})==='PUTTER';
-    const through=this.animation.pose.followThrough;
-    const wind=this.animation.pose.windup;
-    const turn=through*12-wind*5;
-    const lift=through*6;
-    ctx.save();ctx.globalAlpha=alpha;
-    if(this.softShadow)ctx.drawImage(this.softShadow,foot.x-70*scale,foot.y-12*scale,150*scale,28*scale);
-    ctx.restore();
-    if(this.golferRenderer.draw(ctx,{footX:foot.x,footY:foot.y,ballX:ball.x,ballY:ball.y-2,
-      scale,windup:wind,followThrough:through,putting,alpha}))return;
-    const ballLocal={x:(ball.x-foot.x)/scale,y:(ball.y-foot.y)/scale};
-    const grip={x:mix(47,-25,wind)+through*8,y:mix(-119,-202,wind)-through*84};
-    const clubEnd={
-      x:mix(ballLocal.x,-63,wind)+(putting?0:through*(-98-ballLocal.x)),
-      y:mix(ballLocal.y-2,-264,wind)+(putting?through*-20:through*(-244-ballLocal.y)),
-    };
-    // A putt keeps the arms low: the same person makes a compact pendulum motion.
-    if(putting){grip.x=47-wind*15+through*13;grip.y=-119-wind*4-through*5;clubEnd.x=ballLocal.x-wind*50+through*43;clubEnd.y=ballLocal.y-2-wind*10-through*12;}
-    ctx.save();ctx.globalAlpha=alpha;ctx.translate(foot.x,foot.y);ctx.scale(scale,scale);
-    const shape=(points:number[][],color:string)=>polygon(ctx,points.map(([x,y])=>({x,y})),color);
-    const oval=(x:number,y:number,rx:number,ry:number,color:string)=>{ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,TAU);ctx.fill();};
-    const limb=(points:number[][],width:number,color:string)=>{
-      ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
-      points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();
-    };
-    // Grounded shadow, two separate trouser legs and shoes establish a full-body stance.
-    oval(0,-1,64,10,'rgba(22,49,34,0.28)');
-    shape([[-20,-108],[6,-104],[2,-63],[-16,-13],[-34,-14],[-24,-64]],'#293F47');
-    shape([[3,-106],[28,-103],[32,-61],[24,-13-lift],[7,-13-lift],[10,-62]],'#354F54');
-    shape([[5,-100],[15,-101],[19,-59],[13,-25-lift],[8,-25-lift],[10,-62]],'#4C6262');
-    shape([[-35,-17],[-15,-17],[-11,-8],[-16,0],[-45,0],[-49,-5],[-42,-11]],'#ECE7CD');
-    shape([[-49,-5],[-16,-5],[-16,1],[-45,1],[-50,-2]],'#213B36');
-    shape([[8,-16-lift],[27,-15-lift],[37,-6-lift],[33,0-lift],[8,0-lift],[4,-6-lift]],'#F6EFD7');
-    shape([[5,-5-lift],[37,-5-lift],[33,1-lift],[8,1-lift]],'#243D37');
-    limb([[-38,-9],[-27,-9]],2,'#B9BDA8');limb([[13,-9-lift],[25,-9-lift]],2,'#B9BDA8');
-    // Warm polo: a broad back, separate side plane, sleeve hems, collar and waist band.
-    shape([[-25+turn,-187],[-2+turn,-197],[25+turn,-184],[35+turn,-155],[24,-105],[-24,-105],[-31+turn,-149]],'#CB7753');
-    shape([[-25+turn,-187],[-11+turn,-192],[-10,-154],[-18,-107],[-25,-107],[-31+turn,-149]],'#A65743');
-    shape([[10+turn,-190],[26+turn,-183],[35+turn,-154],[28,-123],[22,-107],[14,-107],[20,-147]],'#DE9164');
-    shape([[-24,-110],[24,-110],[25,-102],[-23,-102]],'#213E40');
-    shape([[2,-109],[11,-109],[11,-102],[2,-102]],'#C6B584');
-    // Rear arm first, front arm second; thick sleeves and forearms remain recognizably human.
-    const backShoulder=[-22+turn,-177];
-    const backElbow=[mix(-18,-40,wind)+through*15,mix(-144,-177,wind)-through*27];
-    const frontShoulder=[28+turn,-175];
-    const frontElbow=[mix(35,3,wind)+through*12,mix(-141,-173,wind)-through*36];
-    limb([backShoulder,backElbow],22,'#B7654B');
-    limb([backElbow,[grip.x-3,grip.y+5]],14,'#C58E65');
-    limb([frontShoulder,[mix(frontShoulder[0],frontElbow[0],0.6),mix(frontShoulder[1],frontElbow[1],0.6)]],24,'#E29466');
-    limb([[mix(frontShoulder[0],frontElbow[0],0.55),mix(frontShoulder[1],frontElbow[1],0.55)],frontElbow,[grip.x+3,grip.y]],15,'#E2AF80');
-    // Neck, ear and a turned profile under the cream cap show the facing direction.
-    shape([[3+turn,-201],[21+turn,-200],[22+turn,-185],[8+turn,-184]],'#D4A074');
-    shape([[-2+turn,-193],[9+turn,-190],[16+turn,-184],[7+turn,-179],[-7+turn,-187]],'#EEE3C1');
-    shape([[18+turn,-191],[27+turn,-184],[23+turn,-175],[15+turn,-185]],'#9D4F3F');
-    oval(10+turn,-213,20,25,'#C99168');
-    shape([[18+turn,-233],[30+turn,-223],[31+turn,-213],[38+turn,-208],[32+turn,-202],[30+turn,-193],[18+turn,-191],[11+turn,-205]],'#E3B285');
-    shape([[-7+turn,-224],[1+turn,-234],[20+turn,-232],[13+turn,-222],[10+turn,-208],[-2+turn,-201],[-9+turn,-210]],'#5C4C3C');
-    oval(11+turn,-210,4,6,'#D49B70');
-    // Cap crown and visor are solid shapes, with a darker back panel and stitched center seam.
-    ctx.fillStyle='#F7EAC7';ctx.beginPath();ctx.moveTo(-11+turn,-220);ctx.bezierCurveTo(-13+turn,-244,14+turn,-249,30+turn,-232);ctx.lineTo(34+turn,-219);ctx.closePath();ctx.fill();
-    shape([[-11+turn,-221],[-9+turn,-232],[2+turn,-242],[5+turn,-224],[1+turn,-218]],'#D7D6B9');
-    shape([[11+turn,-224],[35+turn,-224],[49+turn,-218],[46+turn,-213],[25+turn,-216],[10+turn,-216]],'#E8D9AF');
-    limb([[10+turn,-243],[14+turn,-226]],1.5,'#C8C5A7');
-    // Metallic shaft reaches the actual digital ball at address, with a dark grip and iron head.
-    limb([[grip.x,grip.y],[clubEnd.x,clubEnd.y]],4,'#BBC9BD');
-    limb([[grip.x-1,grip.y],[mix(grip.x,clubEnd.x,0.18),mix(grip.y,clubEnd.y,0.18)]],6,'#254A40');
-    oval(grip.x-3,grip.y+3,7,9,'#F4EAD2');
-    oval(grip.x+4,grip.y-1,6,8,'#E2AF80');
-    ctx.save();ctx.translate(clubEnd.x,clubEnd.y);ctx.rotate(putting?-0.08:Math.atan2(clubEnd.y-grip.y,clubEnd.x-grip.x)-Math.PI/2);
-    shape([[-10,-3],[8,-5],[12,0],[9,8],[-7,8],[-11,3]],'#536A64');
-    shape([[-9,-3],[8,-5],[10,-1],[-7,3]],'#D7E0CB');ctx.restore();
     ctx.restore();
   }
 
   private drawAim(ctx:CanvasRenderingContext2D,game:GolfState,now:number) {
-    const length=Math.min(distanceToCup(game)-1,clubFor(game)==='PUTTER'?14:24);
+    const length=Math.min(Math.max(1,distanceToCup(game)-0.5),this.selectedPutter?14:32);
     if(length<=0)return;
-    const yaw=Math.atan2(HOLE.flag.x-game.ball.x,HOLE.flag.z-game.ball.z);
+    const yaw=Math.atan2(HOLE.flag.x-game.ball.x,HOLE.flag.z-game.ball.z)+this.aim;
     ctx.strokeStyle='#F8E8B6';ctx.lineCap='round';ctx.globalAlpha=0.48+Math.sin(now/800)*0.08;
     const step=length/8;
     for(let i=1;i<8;i++) {
@@ -433,8 +337,8 @@ export class CourseView {
     this.ground(ctx,this.ovalPoints(HOLE.flag.x,HOLE.flag.z,HOLE.cupRadius,HOLE.cupRadius),'#162F27');
     ctx.strokeStyle='#F7EFD7';ctx.lineWidth=clamp(base.scale*0.12,3,7);ctx.beginPath();ctx.moveTo(base.x,base.y);ctx.lineTo(tip.x,tip.y);ctx.stroke();
     const size=clamp(base.scale*2.8,31,90),wave=Math.sin(now/260)*size*0.06;
-    polygon(ctx,[{x:tip.x,y:tip.y},{x:tip.x+size*0.55,y:tip.y+size*0.05+wave},{x:tip.x+size,y:tip.y+size*0.22},{x:tip.x+size*0.60,y:tip.y+size*0.40+wave},{x:tip.x,y:tip.y+size*0.36}],'#F0B75C');
-    polygon(ctx,[{x:tip.x,y:tip.y+size*0.36},{x:tip.x+size*0.60,y:tip.y+size*0.40+wave},{x:tip.x+size,y:tip.y+size*0.22},{x:tip.x+size*0.60,y:tip.y+size*0.49+wave},{x:tip.x,y:tip.y+size*0.44}],'#D88A45');
+    polygon(ctx,[{x:tip.x,y:tip.y},{x:tip.x+size*0.55,y:tip.y+size*0.05+wave},{x:tip.x+size,y:tip.y+size*0.22},{x:tip.x+size*0.60,y:tip.y+size*0.40+wave},{x:tip.x,y:tip.y+size*0.36}],'#ED785C');
+    polygon(ctx,[{x:tip.x,y:tip.y+size*0.36},{x:tip.x+size*0.60,y:tip.y+size*0.40+wave},{x:tip.x+size,y:tip.y+size*0.22},{x:tip.x+size*0.60,y:tip.y+size*0.49+wave},{x:tip.x,y:tip.y+size*0.44}],'#B95543');
   }
 
   private drawBall(ctx:CanvasRenderingContext2D,game:GolfState,now:number) {
@@ -453,32 +357,4 @@ export class CourseView {
     ctx.fillStyle='#FFFBEA';ctx.beginPath();ctx.arc(p.x-1,p.y-1,radius,0,TAU);ctx.fill();
     ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.arc(p.x-radius*0.3,p.y-radius*0.35,radius*0.34,0,TAU);ctx.fill();
   }
-}
-
-function arrow(ctx:CanvasRenderingContext2D,x:number,y:number,angle:number,color:string,alpha:number) {
-  ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.globalAlpha=alpha;
-  ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=8;ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.beginPath();ctx.moveTo(0,29);ctx.lineTo(0,-24);ctx.moveTo(-17,-8);ctx.lineTo(0,-27);ctx.lineTo(17,-8);ctx.stroke();ctx.restore();
-}
-
-/** Fixed teaching cues sit beside the ring lane; they never follow or decorate a real piece. */
-export function drawSwingGuide(ctx:CanvasRenderingContext2D,stage:SwingState['stage']|'watch',power:number,ringPresent:boolean,now:number) {
-  ctx.save();
-  const through=stage==='backswing',watch=stage==='watch'||stage==='committed';
-  const pulse=0.72+Math.sin(now/240)*0.18;
-  const active='#F1D899',muted='#71947B';
-  const label=watch?'IN PLAY':!ringPresent?'RETURN RING':through?'THROUGH':'YOUR SWING';
-  ctx.font=gameFont(48);ctx.fillStyle=active;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,1640,857);
-  ctx.strokeStyle='#486C52';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(1530,910);ctx.lineTo(1530,984);ctx.stroke();
-  arrow(ctx,1450,947,Math.PI,through||watch?muted:active,through||watch?0.55:pulse);
-  arrow(ctx,1610,947,-Math.PI/5,through?active:muted,through?pulse:0.65);
-  arrow(ctx,1690,930,0,through?active:muted,through?pulse:0.65);
-  arrow(ctx,1770,947,Math.PI/5,through?active:muted,through?pulse:0.65);
-  ctx.fillStyle=through?muted:active;ctx.fillText('BACK',1450,1010);
-  ctx.fillStyle=through?active:muted;ctx.fillText('SWING',1690,1010);
-  if(power>0&&(through||watch)) {
-    ctx.fillStyle='#315C43';ctx.fillRect(1395,890,430,7);
-    ctx.fillStyle=active;ctx.fillRect(1395,890,430*clamp(power,0,1),7);
-  }
-  ctx.restore();
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clubFor, createGame, createSwing, distanceToCup, HOLE, resetSwing, sampleSwing, scoreLabel,
+import { CLUBS, clubFor, createGame, createSwing, distanceToCup, HOLE, resetSwing, sampleSwing, scoreLabel,
   stepGame, strike, terrainAt, type GolfState, type SwingState } from "../src/rules";
 
 function finish(game: GolfState, dt = 1 / 60) {
@@ -34,13 +34,37 @@ test("a valid stroke counts once and cannot be replaced while the ball is moving
   assert.ok(game.ball.z > 70 && game.ball.z < 130);
 });
 
-test("an iron offers a reachable green and capped power", () => {
+test("a full 7 iron reaches the 150-yard par 3 with capped power", () => {
   const game = createGame();
-  strike(game, { power: 10, angle: 0 });
+  // Slightly off the centre line so the measured total is not shortened by cup capture.
+  strike(game, { power: 10, angle: 0.015 }, "7 IRON");
   finish(game);
-  assert.ok(game.ball.z > 160 && game.ball.z < 185);
+  assert.ok(Math.abs(Math.hypot(game.ball.x, game.ball.z) - 150) < 1);
+  assert.equal(terrainAt(game.ball.x, game.ball.z), "green");
   assert.equal(game.shotPower, 1);
   assert.equal(game.penalty, false);
+});
+
+test("selectable irons and wedge have distinct full-shot distances", () => {
+  for (const club of CLUBS.filter(option => option.id !== "PUTTER")) {
+    const game = createGame();
+    assert.equal(strike(game, { power: 1, angle: 0.015 }, club.id), true);
+    finish(game);
+    assert.ok(Math.abs(Math.hypot(game.ball.x, game.ball.z) - club.distanceYards) < 2,
+      `${club.label} should travel about ${club.distanceYards} yards from the tee`);
+  }
+});
+
+test("the selected club overrides the recommendation", () => {
+  const iron = createGame(), putter = createGame();
+  assert.equal(clubFor(putter), "7 IRON");
+  strike(iron, { power: 0.5, angle: 0 }, "7 IRON");
+  strike(putter, { power: 0.5, angle: 0 }, "PUTTER");
+  assert.equal(iron.phase, "flight");
+  assert.equal(putter.phase, "rolling");
+  assert.ok(iron.ball.vy > 0);
+  assert.equal(putter.ball.vy, 0);
+  assert.ok(iron.ball.vz > putter.ball.vz);
 });
 
 test("positive and negative swing angles aim to opposite sides of the cup", () => {
@@ -54,7 +78,9 @@ test("positive and negative swing angles aim to opposite sides of the cup", () =
 
 test("the club changes with position and a controlled putt can finish the hole", () => {
   const game = createGame();
-  assert.equal(clubFor(game), "IRON");
+  assert.equal(clubFor(game), "7 IRON");
+  game.ball.z = 30;
+  assert.equal(clubFor(game), "9 IRON");
   game.ball.z = 105;
   assert.equal(clubFor(game), "WEDGE");
   game.ball.z = 140;

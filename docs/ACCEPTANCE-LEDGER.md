@@ -76,3 +76,68 @@
 - Verification: GitHub repository metadata confirms PUBLIC/main. The pushed commit matches the locally split branch, and the remote root tree matches the local game's subtree. Source, docs, art, screenshots, vendor SDK, package lockfile, Board configuration, and tests are included. Generated dist, dependencies, and the install ZIP remain ignored.
 - Publication check: tracked current files, historical game blobs, and the vendored SDK archive were checked for obvious credentials/private keys and oversized files; none were found.
 - Validation: game code and the installed package are unchanged from the preceding verified build (137 tests passed, 3 catalog-only skips). This handover adds publication documentation and README improvements; no new runtime test pass was required.
+
+
+## October 27, 2026 — Sports rotation, club choice, and portrait
+
+- Asked for: Sports pieces replacing the golfer and Bloogs ring, backward-facing windup and reverse-twist strike, selectable clubs, 7-iron range, and portrait play.
+- Delivered: all eight Sports glyphs control one solo golfer. The physical piece replaces the rendered person. The club remains at the digital ball. A larger turn increases power; reversing commits one shot.
+- Source: verified Sports model SHA-256 `4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9`. Facing comes from pieceFootprint, then a rigid portrait rotation. Native input and framebuffer retain 1920×1080 units. App and package identity are unchanged.
+- Clubs: explicit 7 iron, 9 iron, wedge, and putter. Measured full shots reach approximately 150, 124, and 59 yards; a full putt reaches approximately 37 yards on a green. A fresh lie recommends a club, and the player can override it.
+- Unit: `npm test` — 170 total, 167 passed, 0 failed, 3 full-catalog skips. Includes nineteen twist/lifecycle tests, five portrait mapping tests, club distance and save checks, seven browser-simulator checks, and three course timing checks.
+- Integration: the actual main module completes saved-run restoration, club selection, 2-degree aim, a full 7-iron approach, short putt, birdie, retained-piece rematch, and canceled player selector. Pause during the downswing freezes impact; three further pause cycles do not add a stroke. No test-only gameplay hooks.
+- Browser: inspected title, portrait help, Sports placement, 9-iron and 7-iron selection, analog windup, reversal strike, flight, green/putting view, result, and rematch. A straight full 7 iron completed a hole in one. The final browser build completed a 2-degree approach and 34% putt for a two-stroke birdie, then rematched. No browser warnings or errors were recorded. Pausing an unfinished backswing restored zero strokes and required a fresh address.
+- Layout fixes from review: moved the power percentage clear of the ball; put club distances inside the buttons; moved the swing cue above them. The center of the physical player area is clear, including the tennis player's larger footprint.
+- Evidence: `docs/screenshots/sports-portrait-ready.png`, `sports-portrait-backswing.png`, `sports-portrait-help.png`, `sports-portrait-putting.png`, and `sports-portrait-birdie.png`. Browser screenshots include a simulator-only Sports proxy. No such proxy ships on Board.
+- Package: TypeScript, Vite, platform, and web-pack pass. All eighteen archive files match dist byte-for-byte. Sports model.tflite is the only model; simulator and old golfer renderer are excluded from the runtime bundle.
+- Rubric: browser gates pass for cold start, first action, complete loop, golf identity, readable controls, and piece-area clearance. Visual review scores: request fidelity 9/10; gameplay clarity 8/10; asset coverage 8/10; visible feedback 8/10; browser stability 8/10. These do not establish hardware performance or physical feel.
+- Native: NOT TESTED for this revision. Check Sports detection and face direction, left short-edge reach, pause redetection, saves, audio levels, and sustained frame rate. Previous ring-build installation evidence does not apply.
+- Human: NOT TESTED. Confirm whether a 150-degree full backswing is comfortable, the reverse motion is obvious, and small turns make predictable putts. Very long profile names still need a layout check.
+
+
+## October 27, 2026 — Sports build installed on Board
+
+- Asked for: install this version so the person can try the Sports pieces.
+- Package: verified all eighteen archive files against dist. Confirmed the Sports model hash and unchanged app/package identity.
+- Device: Board Connect reported ready. Installation and launch succeeded for `e087aaee-903b-43a2-b2b9-bbd4189601b2`.
+- Native rendering: `docs/screenshots/sports-portrait-board-launch.png` shows the portrait course, four club buttons, Sports placement prompt, and zero-stroke tee state. The game faces the left short edge.
+- Startup logs: platform state reported restored and the current `index-C3bYvPfS.js` audio context started running. No game exception appeared. The optional game-font.json and favicon returned the existing 404 warnings.
+- Scope: installation, launch, and native initial rendering are verified. Physical Sports sensing, comfortable twist range, sustained frame rate, and a complete human playthrough remain open.
+
+
+## October 27, 2026 — Native Sports debugging and attached club
+
+- Asked for: watch Board logs during Sports swings; show the club only with the physical piece, attach it to the center front, and size it naturally.
+- Diagnosis: the native football glyph 6 appeared at portrait (301,1233), facing 41 degrees. It was detected correctly but rejected by the hidden placement and fixed-facing gates. Subsequent logs also showed a small movement crossing the placement boundary and a turning piece exceeding the old 48 px translation limit.
+- Delivered: a footprint-derived center-front club, scaled to 1.25 piece widths for irons and 1.1 for the putter. No detected piece means no club. The settled initial facing becomes the address, and returning through that angle launches the ball immediately. A temporary neutral-club-head camera alignment was superseded by the follow-up request below.
+- Rule resolution: the person's explicit attached-club request overrides the generic moving-piece-decoration rule for this club only. There is no accompanying halo, outline, trail, or rendered golfer.
+- Initial automated evidence: `npm test` — 179 total, 176 passed, 0 failed, 3 full-catalog skips. Includes all-eight-footprint attachment/scale checks, arbitrary-facing and return-to-address input, immediate contact, portrait transforms, simulator, and complete-hole integration. The subsequent native-tolerance correction needs a fresh pass below.
+- Initial package/device evidence: the attached-club build `index-BaSMCQ8V.js` packed with eighteen files and launched successfully through Board Connect with unchanged app/package identity and Sports model.
+- Browser evidence: visually inspected the attached club and its proportional size; lifting the simulator piece removed the club. Browser observation does not establish physical overlap on glass.
+- Native evidence: at 21:01:40 the football bound as owner 1 and reached `stage:ready` at facing 41 degrees. At 21:02:16.542 owner 9 committed one shot at 80% power; at 21:02:52.824 owner 17 committed one at 9%. These establish physical detection, angle changes, ready state, and rotation-to-shot events.
+- Evidence limits: owner 19 later reached backswing power and reset when its center moved beyond the old translation guard. The two successful commits do not establish reliable power control, full 7-iron reach on hardware, or a completed native hole. Broader placement and realistic turning-drift tolerance are being corrected from this evidence.
+- Screenshot: `docs/screenshots/sports-attached-board.png` records native rendering of this revision. Physical pieces themselves are not part of the framebuffer capture.
+- Follow-up request: the camera must not move when placing or turning the piece. Removed piece-derived projection offsets: only the attached club moves; ball-following camera motion begins after a hit.
+- Final automated evidence: `npm test` — 181 total, 178 passed, 0 failed, 3 full-catalog skips. Camera regression checks the unchanged ball position and cached terrain through placement, a 60-degree turn with 40 px translation, and lift. Native-motion replay preserves the logged football backswing through 89 px of drift; a separately labelled synthetic return commits once, while sliding alone cannot arm and movement beyond 120 px cancels.
+- Final browser evidence: placement, a 100% backswing, and lift leave the course and resting ball fixed. The club follows the piece and disappears on lift. Evidence: `sports-attached-ready.png`, `sports-attached-backswing.png`, and `sports-attached-lifted.png` in `docs/screenshots`.
+- Final package/device evidence: `npm run pack` passed; 18-file package with bundle `index-Cjdf_Yg2.js` and platform build `b26be5e006bb5894`. Installed and launched successfully. At 21:04:35 native logs confirmed this bundle running in the title/ready state. Sports model and app/package identities remain unchanged.
+- Open: repeat native turns without reset, physical center-front alignment/scale, all Sports shapes, full-swing and putting comfort, native pause/saves/audio, sustained frame rate, and uncoached human play. Temporary geometry-only diagnostics remain enabled for the active playtest; remove them before publication.
+
+## October 27, 2026 — Further native swings and no character on lift
+
+- Asked for: watch more Sports swings and stop showing the character when the physical piece is picked up.
+- Delivered: removed the absent-piece illustration from play, title, and setup. Optional help still illustrates the control. No changes to swing interpretation or camera behavior.
+- Native play evidence: `index-Cjdf_Yg2.js` logged five accepted hits at 91%, 48%, 17%, 100%, and 64% between 21:13:21 and 21:14:13. It reached `phase:holed` at 21:14:15.655 and returned to play/ready for a rematch at 21:14:18.614. No armed backswing canceled in that sequence; a roughly 145 px reposition before swinging correctly exceeded the 120 px drift guard.
+- Browser: placed and lifted the simulated Sports piece. The course remained fixed and both club and character were absent after lift. Evidence: `docs/screenshots/sports-no-character-lift.png`.
+- Automated: 181 total tests, 178 passed, 0 failed, 3 catalog skips. Build and 18-file package passed.
+- Device: installed and launched bundle `index-C8-x7YC7.js`, platform build `378b8232f1780570`. Native logs confirmed this bundle at 21:15:13 with no piece present. App/package identity and Sports model are unchanged.
+- Post-install play: football owner 1 reached 100% backswing and committed exactly one shot at 21:15:44.333. Flight progressed to rolling, lift was detected at 21:15:49.088, and the ball was holed at 21:15:50.803. The person then opened Change setup. Screenshot `sports-no-character-board.png` captures the attached club during the native address; the physical piece itself is not in framebuffer captures.
+- Second post-install round: football owner 20 committed a 100% shot at 21:16:14.371, then lifted during flight at 21:16:15.909. The ball continued through rolling and holed at 21:16:20.843. Neither of the two full-power swings reset or double-fired. The earlier setup placement briefly crossed the outer x940 boundary, then rebound at x900 without a shot.
+- Limits: the successful native sequence verifies actual swings and cup capture, not comfortable physical scale, every Sports shape, native pause/saves/audio, sustained performance, or uncoached teaching. Temporary geometry diagnostics remain available for this playtest.
+
+## October 27, 2026 — Publication preparation
+
+- Asked for: commit and push all changes to the existing game repository.
+- Removed temporary native geometry diagnostics as required by the device-debug workflow. No gameplay, camera, input thresholds, assets, or package identity changed in this cleanup.
+- Verification: `npm test` — 181 total, 178 passed, 0 failed, 3 catalog skips. `npm run pack` passed with 18 files, bundle `index-DB2vOyzY.js`, platform build `d6c05ace441382a6`. The preceding installed playtest build remains on Board; this logging-only cleanup was build-tested locally.
+- Scope: source, tests, Sports model/art/footprints, simulator, documentation, and screenshots are included. Scratch logs, dependencies, build output, and the install ZIP remain outside Git.

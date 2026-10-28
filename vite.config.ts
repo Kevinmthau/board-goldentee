@@ -3,7 +3,7 @@ import { defineConfig, type Plugin } from "vite";
 
 // `npm run dev` only: inline the simulated Board host (dev/browser-host.js) first in <head>, so the
 // game finds a Board bridge in a desktop browser. Drag = a finger, shift-drag = a resting piece
-// (glyph 1), Backspace lifts every piece, P or Escape opens the simulated system menu. It is the
+// (Sports glyph 1); drag a piece sideways to twist, Alt-drag to move. Backspace lifts it. P opens the menu. It is the
 // same host Board Studio's preview and boot check use. It also hands the platform stand-in
 // board.config.json's name and appId, so the dev title matches the packed game (read on every page
 // load; before the first pack there is no file and the title falls back to the page title). None

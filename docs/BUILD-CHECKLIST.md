@@ -60,3 +60,50 @@
 - [x] Commit the complete golf project and preserve its game-specific history in a standalone public repository.
 - [x] Push `main` and verify public visibility and the remote tree against the local game subtree.
 - [x] Document clone/run commands, asset provenance, and the original checkout's subtree publishing path.
+
+
+## Sports pieces and portrait revision — October 27, 2026
+
+This section supersedes the earlier ring and onscreen-golfer implementation checks.
+
+- [x] Sports model, all eight glyphs, canonical art, footprints, and verified model hash.
+- [x] Physical Sports player replaces the ring and digital golfer. The requested attached club is the only graphic following the piece.
+- [x] Rotation-driven backswing, reversal strike, jitter guard, angular wrap, both directions, and one-shot commitment.
+- [x] Club selector: 7 iron, 9 iron, wedge, putter. Full 7 iron reaches the 150-yard green.
+- [x] Portrait course, short-edge controls, rigid native coordinate mapping, and safe physical-piece space.
+- [x] Updated browser simulator, portrait help, club animation, and fixed aim controls.
+- [x] Final npm test: 167 passed, 3 catalog-only skips. Final npm run pack: 18 files, Sports model only.
+- [x] Automated full-hole journey: restore, club selection, approach, putt, birdie, rematch, and canceled selector.
+- [x] Pause/rebind tests preserve the ball, discard unfinished intent, and avoid a second shot or splash.
+- [x] Browser: title, help, address, club selection, full backswing, strike, flight, putting, result, and rematch inspected.
+- [x] Native Board: Sports package installed and launched; initial portrait course and club controls verified by screenshot.
+- [x] Native Board: football detection, facing changes, ready address, and two rotation-to-shot events observed in logs.
+- [ ] Native Board: corrected placement/turn tolerance, all Sports shapes, physical club alignment, pause, saves/audio, and sustained performance.
+- [ ] Human: comfortable turn range, uncoached first swing, reliable power control, and short putting feel.
+
+
+## Attached club and native input correction — October 27, 2026
+
+- [x] Club appears only with a detected Sports piece and disappears on lift.
+- [x] Grip attaches to the actual footprint's center front; shaft length scales to piece width across all eight Sports glyphs.
+- [x] Stable initial facing calibrates the address; return to the ball commits once and launches immediately.
+- [x] Follow-up camera correction: placement, translation, and rotation leave the address camera, terrain, and resting ball fixed; verified in browser and automated rendering checks.
+- [x] Tests cover arbitrary initial facing, return-to-address contact, footprint geometry, no-piece rendering, and the complete hole.
+- [x] Browser: attachment, proportional size, and no club after lift inspected.
+- [x] Native: attached-club build installed and ready address observed; physical shots logged at 80% and 9% power.
+- [x] Final native-tolerance and fixed-camera corrections: 178 tests pass, 3 catalog skips; 18-file package installed and launched, with current bundle confirmed in native logs.
+- [ ] Native: repeat turns after widened placement and center-drift correction, with no unintended resets.
+- [ ] Human: confirm the club's physical connection and size, full-swing comfort, and short-putt control.
+
+## Absent-piece character removal — October 27, 2026
+
+- [x] Remove the character placeholder from play, title, and setup; preserve text guidance and the optional help lesson.
+- [x] Browser: place and lift the piece; no club or replacement character remains, and the course stays fixed.
+- [x] Native logs: five further hits (91%, 48%, 17%, 100%, 64%), cup capture, and rematch in the fixed-camera build, with no canceled armed swing in that sequence.
+- [x] Run tests and pack; install and launch the updated package; confirm the new bundle in native logs.
+- [x] Native: two further 100% swings in the no-character build each launch once and finish in the cup; lifting during flight does not interrupt the ball.
+
+## Sports publication — October 27, 2026
+
+- [x] Remove temporary native diagnostics and refresh the README evidence.
+- [x] Final verification: 178 tests pass, 3 catalog-only skips; production package builds.

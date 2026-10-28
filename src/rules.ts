@@ -1,7 +1,20 @@
 /** Golf uses yards for x/z and height. Input uses the Board's unscaled screen pixels. */
 export type Phase = "ready" | "flight" | "rolling" | "holed" | "limit";
 export type Terrain = "fairway" | "rough" | "bunker" | "green" | "out";
-export type Club = "IRON" | "WEDGE" | "PUTTER";
+export type Club = "7 IRON" | "9 IRON" | "WEDGE" | "PUTTER";
+/** Approximate full-shot total distance from a clean lie (putter distance is on the green). */
+export const CLUBS: readonly { id: Club; label: string; distanceYards: number }[] = [
+  { id: "7 IRON", label: "7 IRON", distanceYards: 150 },
+  { id: "9 IRON", label: "9 IRON", distanceYards: 125 },
+  { id: "WEDGE", label: "WEDGE", distanceYards: 60 },
+  { id: "PUTTER", label: "PUTTER", distanceYards: 37 },
+];
+const CLUB_LAUNCH: Record<Club, { speedMin: number; speedGain: number; liftMin: number; liftGain: number }> = {
+  "7 IRON": { speedMin: 6, speedGain: 33, liftMin: 5, liftGain: 24 },
+  "9 IRON": { speedMin: 5, speedGain: 30, liftMin: 5, liftGain: 23 },
+  "WEDGE": { speedMin: 4, speedGain: 17, liftMin: 6, liftGain: 17 },
+  "PUTTER": { speedMin: 1, speedGain: 14, liftMin: 0, liftGain: 0 },
+};
 export interface Shot { power: number; angle: number }
 export interface Ball { x: number; z: number; y: number; vx: number; vz: number; vy: number }
 export interface GolfState {
@@ -64,24 +77,25 @@ export function distanceToCup(game: GolfState): number {
 
 export function clubFor(game: GolfState): Club {
   if (terrainAt(game.ball.x, game.ball.z) === "green") return "PUTTER";
-  return distanceToCup(game) <= 55 ? "WEDGE" : "IRON";
+  const distance = distanceToCup(game);
+  return distance <= 55 ? "WEDGE" : distance <= 125 ? "9 IRON" : "7 IRON";
 }
 
-/** Angle is relative to the line from the ball to the cup: positive goes right. */
-export function strike(game: GolfState, shot: Shot): boolean {
+/** The selected club wins over the recommendation. Angle is relative to the cup: positive goes right. */
+export function strike(game: GolfState, shot: Shot, club: Club = clubFor(game)): boolean {
   if (game.phase !== "ready" || game.strokes >= HOLE.maxStrokes ||
-      !Number.isFinite(shot.power) || !Number.isFinite(shot.angle)) return false;
+      !Number.isFinite(shot.power) || !Number.isFinite(shot.angle) ||
+      !CLUBS.some(option => option.id === club)) return false;
   const power = clamp(shot.power, 0, 1);
   const direction = Math.atan2(HOLE.flag.x - game.ball.x, HOLE.flag.z - game.ball.z) + shot.angle;
   const terrain = terrainAt(game.ball.x, game.ball.z);
   const lie = terrain === "bunker" ? 0.58 : terrain === "rough" ? 0.76 : 1;
-  const club = clubFor(game);
-  const speed = club === "PUTTER" ? 1 + 14 * power :
-    (club === "WEDGE" ? 4 + 16 * power : 6 + 36 * power) * lie;
+  const launch = CLUB_LAUNCH[club];
+  const speed = (launch.speedMin + launch.speedGain * power) * (club === "PUTTER" ? 1 : lie);
   game.lastSafe = { x: game.ball.x, z: game.ball.z };
   game.ball.vx = Math.sin(direction) * speed;
   game.ball.vz = Math.cos(direction) * speed;
-  game.ball.vy = club === "PUTTER" ? 0 : club === "WEDGE" ? 6 + 16 * power : 5 + 26 * power;
+  game.ball.vy = launch.liftMin + launch.liftGain * power;
   game.ball.y = 0;
   game.strokes += 1;
   game.phase = club === "PUTTER" ? "rolling" : "flight";

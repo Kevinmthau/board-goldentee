@@ -1,197 +1,113 @@
 # Plan: Golden Tee
 
-Status: solo first playable and closer, realistic artwork pass complete in the browser. Native Board and human play checks remain open.
 Updated: October 27, 2026.
-Public repository: [Kevinmthau/board-goldentee](https://github.com/Kevinmthau/board-goldentee), default branch `main`.
+Status: Sports-piece portrait game installed and under native playtest. Physical detection and two rotation-to-shot events are confirmed; placement and turn tolerance are being corrected from logs. Human feel and sustained performance remain open.
 
 ## Summary
 
-- **Name:** Golden Tee (working title).
-- **One line:** Take a swing, find the green, and sink the ball in the fewest strokes.
-- **Goal:** Test whether Board can capture the satisfying physical stroke of arcade golf.
-- **Engine:** TypeScript, Vite, and Canvas 2D from the board-games Studio starter.
-- **Players:** Solo golf first, seated at the bottom edge.
-- **Piece set:** `save-the-bloogs`, using the Ring (glyph 1), one per box.
-- **First move:** Place the Bloogs ring at the bottom swing area, then slide back and forward along the arrows.
-- **Sound:** Short swing, landing, sand, and cup effects through the platform audio system.
-- **Reference:** [Golden Tee Golf](https://en.wikipedia.org/wiki/Golden_Tee_Golf), supplied by the person.
-
-The reference's main design cue is its trackball stroke, which controls power, direction, and curve.
-Use original course layouts and game artwork for this prototype.
+Golden Tee is a solo coastal par-3 golf game. Take a swing, find the green, and finish in the fewest strokes.
+Use the Board Studio TypeScript, Vite, and Canvas 2D starter with the vendored SDK.
+The physical Sports player replaces the Bloogs ring and digital golfer. Its visible club is attached to the center front of the real piece and exists only while that piece is detected.
 
 ## How to play
 
-1. Place the Bloogs ring at your edge.
-2. Follow the arrows: slide back, then forward to swing.
-3. Slide faster for power; angle the stroke to aim.
-4. Putt into the cup in the fewest strokes.
+1. Sit at the left short edge of Board. The course extends away from you in portrait orientation.
+2. Place any Sports player on the open grass and hold still briefly. This establishes a comfortable starting angle.
+3. Select a club. Turn the piece back toward yourself to bring the club back.
+4. Reverse the twist and return the club to the ball to hit. A larger backswing gives more power. Use a small turn for a short putt.
 
-Keep hold of the ring during the stroke. Throwing the piece is not required.
-In the browser, Place ring or Shift-click creates the simulated ring; an ordinary drag moves it through the same gesture.
+Keep hold of the piece. Placement, translation alone, and lifting do not hit the ball.
+The grip attaches just outside the center front of the footprint; the shaft extends in the piece's actual facing direction. Iron shafts are 1.25 piece widths long; the putter is 1.1 widths. The address camera, terrain, and digital ball stay fixed when the piece is placed, translated, or turned. Only the attached club follows the piece. The camera may follow the ball after a committed shot.
 
-## First playable
+## Scope and rules
 
-Build one complete par-3 hole before expanding the course.
-Include a tee, fairway, rough, bunker, green, ball flight, rolling, putting, stroke count, and a result.
-Use an original coastal course drawn in Canvas, with cached scenery and a clear swing area.
-The result waits for Rematch or Change setup.
+- One original 150-yard par-3 hole, with tee, fairway, rough, sand, green, ball flight, rolling, and putting.
+- Club buttons offer 7 iron, 9 iron, wedge, and putter. The default tee club is the 7 iron.
+- A full 7 iron reaches the green from the tee. Terrain can reduce distance.
+- Club choices apply explicitly to the next shot. Recommend a club at each new lie.
+- Fixed left and right aim controls adjust direction separately from swing power.
+- Each deliberate shot adds one stroke. Out of bounds adds a penalty and returns to the last safe lie.
+- The cup captures a slowly rolling ball. A ten-stroke limit ends the prototype.
+- The result waits for one shared Rematch or Change setup choice.
+- Rematch retains the roster and detected piece, but resets the hole and unfinished gesture.
+- Change setup releases the piece binding and requires confirmation before replay.
 
-The main risk is power control: short strokes must feel predictable while leaving room to improve.
-An uncoached person should be able to hit, approach, putt, and explain the result.
+## Input and ownership
 
-Defer the full course, online play, tournament systems, equipment progression, and a full art pass.
-Local competitors and AI are outside this solo first playable, as requested by the person.
+- Accept Sports glyphs 1–8 after checking BoardContactType.Glyph. Track instances by contactId.
+- Read facing and dimensions through pieceFootprint(). Sports uses a zero-degree facing offset.
+- Keep native contacts and the canvas at 1920 × 1080. Rotate the logical 1080 × 1920 scene onto that surface.
+- Convert positions and facing into the portrait view with a rigid quarter turn, never a native-coordinate scale.
+- Wait for BoardPlatform.state.ready(). Read and refresh the solo roster through src/seats.ts.
+- An eligible Sports piece on the open course binds to the signed-in solo player. The permitted portrait area is x140–940, y400–1530; the suggested position is near (540,1385). Club choices begin at y1740.
+- Require a stable initial address, then calibrate to that angle. Do not require a hidden compass direction. Small orientation noise stays inside a dead band.
+- Either twist direction can wind back toward the player. Reverse that direction and return within 10 degrees of the address to strike once. Merely beginning the reversal does not launch the ball.
+- Launch the ball and hit sound when the physical turn returns to address, with no additional animated downswing delay. Placement and rotation never reframe the course or move the resting ball.
+- Turning through the angular wrap must stay continuous. A short tracking gap and pause retain the calibrated rotation zero. A fresh lie or explicit new setup can calibrate a new address.
+- Placement, translation alone, lift, redetection, and pause return cannot create a shot. The translation guard must allow the center drift seen when a person turns a Sports piece; deliberate dragging still cancels intent.
+- Pause cancels unfinished intent; a committed ball keeps its state. Rebind the piece without another splash.
+- Show one finite placement splash and sound. The attached club is the only graphic that follows the physical piece, as expressly requested; no outline, halo, trail, or digital golfer follows it. Lifting removes the club.
+- Input comes through startInput/applyContacts. The host owns model activation.
 
-## Rules (builder proposal)
+## First minute and communication
 
-- Use ordinary stroke scoring: fewer strokes wins. Show the score relative to par.
-- The first hole has par 3. Each deliberate shot adds one stroke.
-- Select an approach club away from the green. Select the putter on the green.
-- Rough and sand reduce shot distance. The ball rolls farther on the green.
-- Capture the ball only when it passes the cup at a low speed.
-- Recover an out-of-bounds ball to its last safe position with one penalty stroke.
-- Stop at 10 strokes for the prototype, and explain the stroke limit in the result.
-- Keep the ball's simulation separate from the physical swing control.
-- Placing, turning, lifting, or redetecting the ring alone never commits a shot.
-- A completed backswing arms the forward stroke. Only a deliberate forward stroke commits it.
-- Use the forward slide's direction for shot direction. Ring rotation has no game effect.
-- Use forward slide speed for power, with a capped maximum and a softer scale for putting.
-- Show fixed direction arrows beside the swing area, clear of the ring's travel path.
-- Show a back arrow first, then forward choices: left, straight, and right.
-- Arrows teach a continuous slide direction. They are not small buttons to press.
-- After a shot, wait for the ball to stop and the ring to settle before arming another backswing.
-- Show aim and power at the digital ball or the player's edge, clear of the physical piece.
-- A real placement gets one short splash and sound. Movement gets no following decoration.
-- A tracking gap keeps the piece's identity. A pause clears unfinished swing intent.
-- Use gentle ball lift, a clear landing response, and a cup celebration to explain each outcome.
-
-The exact swing thresholds and club distances remain tunable builder choices.
-The ring has a 162 by 162 px footprint and an 81 px radius. Leave room for the player's hand.
-Never use the round ring's orientation to aim. Use `pieceFootprint()` for its outline and placement response.
-
-### Proposed swing state machine
-
-1. A ring at the bottom edge binds to the current roster player.
-2. The ring settles for 0.3 seconds before it can start a backswing.
-3. A backward slide of at least 50 px arms the stroke.
-4. A forward movement of at least 40 px commits one shot after clear direction and speed samples.
-5. Forward speed from 120 to 1400 px per second maps to useful shot power, clamped at the maximum.
-6. Small position jitter never arms a shot. Return movement after a committed shot never fires again.
-7. A pause or loss of fresh motion samples cancels an unfinished stroke, preserving the hole and any ball already in flight.
-
-These values are prototype settings to test on glass, not claims about measured physical feel.
-
-## Players and seating
-
-- Wait for `BoardPlatform.state.ready()` before reading the roster.
-- Use `src/seats.ts` and the platform player selector for all player identity.
-- For the solo prototype, use the signed-in player at the bottom edge.
-- The first playable uses only the bottom edge. All teaching, controls, and score information face that edge.
-- The ring at the bottom edge binds to the current solo roster player.
-- The platform selector can change the solo player; it is not a gate before play.
-- Read the roster again during setup and when players change.
-- Keep ownership through a lift or tracking gap. Rebind after the system menu without another splash.
-- No competitor or AI seat is created in this requested solo practice mode.
-- If competitive play is added later, offer computer golfers through the roster using the same shot and scoring rules.
-
-## Communication and teaching
-
-| State | Player's next action | Signal and words | Signal ends |
+| State | Next action | Signal | Ends |
 |---|---|---|---|
-| Title | Place the ring to enter setup | Course preview, game title, and canonical ring art | The ring arrives |
-| Piece setup | Place the ring at the bottom edge | Canonical upright ring art and an empty placement spot | The ring arrives |
-| Ready | Slide back, then forward | Fixed direction arrows and a brief back-and-forward demonstration | First deliberate shot |
-| Flight | Watch the shot | Ball flight, shadow, landing sound | Ball rests |
-| Approach | Take the next shot | Distance to flag and active club | The next shot |
-| Putting | Roll toward the cup | Clear cup and short target cue | Ball enters cup |
-| Pause return | Continue the same turn | Restore the course with unfinished stroke canceled | A fresh stroke begins |
-| Result | Pick Rematch or Change setup | Strokes, score relative to par, shared choices | One choice is made |
+| Title/setup | Place a Sports player on open grass | Text placement cue | Piece arrives |
+| Address | Hold still, select club, turn back | Attached club, selected club, distance, fixed twist cue | Backswing begins |
+| Backswing | Return the club to the ball | Club follows the physical turn, power fills | Deliberate return to address |
+| Flight | Watch the ball | Flight, landing, sound | Ball rests |
+| Next lie | Choose club and swing | Distance, club recommendation, fresh address cue | Next shot |
+| Putting | Make a small backswing | Shorter attached putter and distance in feet | Cup capture |
+| Menu return | Return to the starting angle and settle | Fresh address cue, no automatic shot | New gesture |
+| Result | Rematch or Change setup | Strokes and score relative to par | Explicit choice |
 
-## First minute
+The optional help demonstrates the same twist used in play. It also explains the club selector.
+Browser controls simulate the same Sports contacts, including orientation, and show a browser-only piece proxy.
 
-1. Title: a course preview introduces the game and the required control.
-2. Setup: the player is read from the roster; a real placement gets one splash and sound.
-3. First move: a short demonstration invites the same swing used throughout the game.
-4. First success: the ball flies, lands, rolls, and shows a useful distance to the flag.
-5. Ordinary play: shorter approach shots lead to putting and the cup.
-6. Interruption: a menu visit preserves the hole and score without producing an extra shot.
-7. Result: the score remains until the player chooses what happens next.
+## Look and layout
 
-## Result and replay
-
-- Show strokes, par, and the resulting golf score, or the explicit stroke-limit result.
-- Present one shared Rematch or Change setup decision. Do not restart on a timer.
-- Rematch resets the ball, strokes, and unfinished gesture while keeping seats and detected pieces.
-- Change setup releases seat bindings and returns to setup.
-- The solo result faces the bottom edge and controls one shared result state.
-
-## Look
-
-Use a bright coastal course with deep green fairways, pale bunkers, blue water, and a clear white ball.
-Use a third-person view from behind a visible golfer, as the person requested during the browser review.
-Use Canvas 2D perspective to show the golfer, course, ball flight, and rolling.
-The golfer stands beside the digital ball and animates the backswing and follow-through.
-The person requested closer Golden Tee framing, then more realistic graphics. At address the camera is lower and closer, making the golfer about 50% larger while keeping the ball above the physical control area.
-Use a photographic coastal sky, a single articulated 3D golfer in a coral polo and navy trousers, natural turf detail, irregular foliage, and soft cached shadows. The golfer uses opaque shaded geometry, composited into the Canvas 2D course; no photographic pose blending. Keep the terrain and ball simulation dynamic.
-The golfer never follows the physical ring. The camera follows the ball after impact.
-The swing uses continuous joint positions and a rigid club, with both hands attached to its grip: a relaxed 450 ms takeaway, an accelerating 140 ms downswing, and a 450 ms follow-through into a held finish. Putting has a compact 160 ms downswing and 260 ms finish. Positive back travel anticipates the takeaway before the physical gesture is armed.
-The shot is committed once when the ring completes its gesture, but ball motion and the hit sound wait for visual contact. Animation and ball simulation use active game time, so a menu visit cannot skip impact.
-The swing area stays at the bottom edge while the camera follows the digital ball between shots.
-Favor a large course, readable ball motion, and short golf labels over dashboard panels.
-Follow the platform's font, touch-target, and text-size floors.
-Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepared.
-
-### Visual-world and asset plan
-
-- World promise: a sunny coastal golf hole, with pale sand, blue sea, and cypress trees.
-- Palette: forest green for framing, warm cream for cues, coral for the flag, and white for the ball.
-- Camera: behind a visible golfer at address, following ball flight, then framing the golfer and cup for the next shot.
-- Coverage: title and setup show the same course; play uses exact terrain; help uses canonical ring art; results keep the course behind them.
-- Assets: original generated photographic coastal sky, natural turf, and original procedural golfer geometry; Canvas terrain, detailed procedural trees, flag, ball, and finite effects. Cache detailed scenery instead of rebuilding it while still. Exact prompts and provenance are recorded with the asset manifest.
-- Sound: original short synthesized swing, putt, landing, sand, placement, penalty, and cup cues. No music in this first playable.
-- Interaction protection: quiet turf around the bottom-centre swing corridor; arrows remain to its right.
-- Proof: inspect title, help, address, flight, approach, green, result, rematch, and pause in the browser.
-- Board sensing, speaker mix, and performance remain unverified until played on a device.
-
-## Build steps
-
-1. Design intake complete: physical ring, solo par-3, and builder-selected behind-the-ball view.
-2. Copy the exact Studio template, install its dependencies, and configure the chosen piece set.
-3. Build the single-hole core loop and meaningful rule/input tests.
-4. Run tests and pack, then inspect the title, swing, ball rest, result, and rematch in a browser.
-5. Ask for play feedback; tune the core control before adding course content.
-6. Add the agreed remaining scope in playable steps, maintaining the checklist and evidence ledger.
+Keep the sunny coastal course, pale sand, blue sea, natural turf, and coral flag.
+Use a portrait perspective from behind the ball. Remove the digital human golfer and Bloogs ring art.
+The club attaches to the physical piece's center front at a scale derived from its footprint. Hide it when the piece is absent. Keep club selection and aim buttons outside the suggested physical swing space.
+Do not draw a replacement character when the physical piece is absent or lifted, including title and setup. Keep the text placement cue. Canonical upright Sports art appears only in the optional help lesson and the browser simulator's present-piece proxy.
+Use drawTitle() for the game name and gameFont() elsewhere.
+In-play text is at least 48 px; other text is at least 32 px. Targets are at least 120 px, inset 48 px.
+Scenery is cached. No per-frame shadowBlur, filter, or getImageData.
+Audio uses gameAudio(); saves use BoardPlatform.state. Keep existing appId and packageId.
 
 ## Decisions
 
-| Decision | Value | By | Source | Conflict or status |
-|---|---|---|---|---|
-| Inspiration | Golden Tee Golf | Person | October 27 request and link | Fixed |
-| Platform | Playable web version from Studio starter | Person | October 27 request | Fixed |
-| Workflow | Design together, then build; ask questions as work proceeds | Person | October 27 request | Fixed |
-| Core control | Slide the physical Bloogs ring back, then forward along direction arrows | Person | “slide the bloogs ring back, then forward to swing along the arrows for directions” | Fixed |
-| Piece set | Save the Bloogs, Ring, glyph 1 | Person | Control choice, confirmed against piece inventory | Replaces proposed Arcade robots |
-| Direction | Forward movement path, not ring rotation | Builder | Ring has no visible facing | Supports the requested arrows |
-| Arrows | Fixed beside the swing lane, showing back and forward directions | Builder proposal | Person requested direction arrows | Clear of the moving piece |
-| First scope | One par-3 hole with a complete result loop | Builder | Final design question answered by person | Browser playable; Board and human checks open |
-| Players | Solo golf first | Person | “Solo golf first” | Fixed; multiplayer deferred |
-| Camera | Third-person, with a visible golfer beside the ball | Person | “I want to see the golfer third person style” | Replaces the initial ball-only framing |
-| Closer framing | Lower, closer address camera; preserve ball-follow view | Person | “bring the camera closer to the golfer so it feels more like Golden Tee” and supplied arcade screenshot | About 1.5× foreground golfer size |
-| Graphics | More realistic golfer, landscape, grass, lighting, and shadows | Person | “Can we make the graphics look more realistic?” | Artwork pass; original course and controls retained |
-| Swing animation | Continuous pose movement, natural tempo, and synchronized impact | Person | “make the golfer’s swing animation smoother and more natural” | Replaces four discrete pose switches |
-| Solid swing | One articulated golfer; no fading between photographic poses | Person | “one continuous motion without the ghosting between poses” | Replaces the photographic pose sheet with opaque geometry; retains swing timing |
-| Recipe | Sports, using ball rest/recovery and deliberate stroke commitment | Builder | Genre recipes | No existing golf recipe |
-| UI floors | 48 px in play; 32 px elsewhere; 120 px targets; 48 px edge inset | Builder | User's Board rules | No conflicting spec sizes |
-| Physical control art | Nothing follows or sits under the moving ring | Builder | User's Board rules | Ball and arrows stay separate from the controller |
+| Decision | By | Reason or source |
+|---|---|---|
+| Sports pieces replace golfer and Bloogs ring | Person | Current request |
+| Turn face toward player, reverse to hit | Person | Current request |
+| Selectable clubs, 7 iron reaches par 3 | Person | Current request |
+| Portrait play | Person | Current request; supersedes landscape layout |
+| Club appears only with a detected piece, attached to its center front and sized to fit | Person | Native-playtest correction |
+| Attached club follows the actual piece | Person | Explicit exception to the generic moving-piece-decoration rule, for the club only |
+| Camera stays fixed during placement and rotation | Person | Follow-up correction; only the club moves before a shot |
+| No onscreen character when the piece is lifted | Person | Remove the absent-piece placeholder; keep the course clear |
+| Any of eight Sports players | Builder | Every piece has a visible face and unique glyph |
+| Left short edge, logical portrait scene | Builder | Full glass coverage with unchanged native canvas and input units |
+| Stable initial angle calibrates address | Builder | Native football at portrait (301,1233), facing 41 degrees, was detected but rejected by the old hidden placement/facing gates |
+| Broad open-grass placement | Builder | Native input showed ordinary placement and small movements crossing the previous hidden boundary |
+| Backswing sets power; return to address commits | Builder | Makes short putts controllable and places physical contact at the strike |
+| Separate aim buttons | Builder | Rotation is reserved for swing intent |
+| 7 iron, 9 iron, wedge, putter | Builder | Useful distances for one par-3 hole |
+| Solo roster and one shared result | Person, retained | Prior agreed solo scope |
+| Approved implementation and native installation scope | Person | Change, installation, and log-watching requests authorize this revision |
 
-## Evidence
+Earlier sliding-ring, digital-golfer, and separate digital-ball-club decisions are superseded. Their evidence remains in the acceptance ledger and edit history.
+The user's explicit set change authorizes replacing the bundled model through use-piece-set; runtime never loads, renames, or activates models.
 
-- Source: reference, plugin rules, piece inventory, and starter architecture inspected.
-- Unit: 137 passed, 3 full-catalog footprint checks skipped; includes core physics, stroke commitment, tracking gaps, pause epochs, save restoration, animation continuity and impact timing, anatomical constraints, GPU fallback, fast simulator taps, and a complete boot walk.
-- Package: TypeScript, Vite, platform build, and web-pack passed; stable package identity retained.
-- Browser: title, help, ring placement, varied swing powers, approach, putting, two-stroke birdie, rematch, and pause checked with real pointer actions. Third-person address, backswing, follow-through, and next-lie framing inspected.
-- Screenshots: `docs/screenshots/third-person-ready.png`, `third-person-backswing.png`, and `birdie-result.png`.
-- Realism pass: `realistic-close-address.png` and `realistic-close-backswing.png` show the closer camera and generated golfer. Address, backswing, follow-through, flight, and putting were inspected in the browser.
-- Continuous swing: `solid-swing-sequence.png` and `solid-swing-backswing.png` show one opaque golfer throughout the motion. Full iron, wedge, putt, pause/resume, par result, and rematch verified with pointer input.
-- Board: installed and launched through Board Connect; title, course, and 3D golfer render verified in `docs/screenshots/board-first-launch.png`. Physical sensing, sustained performance, native saves/audio/pause, and full playthrough remain open.
-- Human: no swing or teaching playtest yet.
+## Verification
+
+Test rotation jitter, wrap, both handed directions, partial/full power, fresh reversal, return-to-address contact, one-shot commitment, tracking gaps, pause epochs, and the observed native center drift.
+Test club attachment and proportional size across all eight Sports footprints, no club without a piece, club distances, and the 7-iron tee shot. Keep old saves readable.
+Inspect title, setup, help, club selection, swing, flight, next lie, putting, result, rematch, and menu return in the browser.
+Pack with the Sports model only and preserve package identity.
+
+The final attached-club, native-tolerance, and fixed-camera revision passes 178 automated checks, with three full-catalog checks skipped. Its 18-file package is installed and launched on Board, as recorded in the acceptance ledger.
+Browser inspection confirms the attached club's size and disappearance on lift, with the course and resting ball fixed through placement and a full backswing. The absent-piece character placeholder is removed. Native logs from the fixed-camera build confirm five further hits at 91%, 48%, 17%, 100%, and 64%, followed by cup capture and rematch. None of those armed swings canceled.
+Native physical alignment, comfortable full swing/putting, sustained performance, platform behavior, and uncoached teaching remain open. Earlier ring-build evidence does not validate those Sports checks.

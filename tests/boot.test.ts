@@ -11,7 +11,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Board, BoardContactPhase, BoardContactType, BoardPlayerType, type BoardContact } from "@board.fun/web-sdk";
-import { createGame, type GolfState } from "../src/rules";
+import { createGame, distanceToCup, terrainAt, type GolfState } from "../src/rules";
+import { toNative } from "../src/portrait";
+import { TURN_SWING } from "../src/piece-control";
 
 // ---- the stand-in browser --------------------------------------------------------------------------
 type Call = { name: string; args: unknown[] };
@@ -87,7 +89,7 @@ const pauses: (() => void)[] = [];
 const resumes: (() => void)[] = [];
 const stub = (target: unknown, fields: Record<string, unknown>) => Object.assign(target as Record<string, unknown>, fields);
 stub(Board.input, {
-  subscribe: (cb: typeof onBatch) => { onBatch = cb; }, unsubscribe: () => { onBatch = null; }, getActiveModel: () => "model.dla",
+  subscribe: (cb: typeof onBatch) => { onBatch = cb; }, unsubscribe: () => { onBatch = null; }, getActiveModel: () => "model.tflite",
 });
 stub(Board.application, {
   onPause: (cb: () => void) => { pauses.push(cb); return () => {}; },
@@ -119,12 +121,16 @@ function run(seconds: number) { // frames at 60 fps, the way a browser runs them
   }
 }
 let nextId = 1;
-const piece = (x: number, y: number, phase: BoardContactPhase, contactId: number) => ({
-  contactId, glyphId: 1, x, y, orientation: 0, phase, type: BoardContactType.Glyph, isTouched: true,
+const piece = (x: number, y: number, phase: BoardContactPhase, contactId: number, orientation = 0) => ({
+  contactId, glyphId: 5, x, y, orientation, phase, type: BoardContactType.Glyph, isTouched: true,
 }) as unknown as BoardContact;
+/** UI assertions use the player's portrait view; only the injected sensor contacts are native. */
 function tap(x: number, y: number) {
-  onBatch!([{ ...piece(x, y, BoardContactPhase.Began, nextId++), type: BoardContactType.Finger, glyphId: 0 }]);
+  const position = toNative({ x, y });
+  const finger = { ...piece(position.x, position.y, BoardContactPhase.Began, nextId++), type: BoardContactType.Finger, glyphId: 0 };
+  onBatch!([finger]);
   run(0.1);
+  onBatch!([{ ...finger, phase: BoardContactPhase.Ended }]);
 }
 const texts = (from: number, to = frames.length) =>
   [...new Set(frames.slice(from, to).flatMap(f => f.filter(c => c.name === "fillText").map(c => String(c.args[0]))))].sort().join("|");
@@ -155,7 +161,7 @@ function firstMove(x: number, y: number) {
 }
 
 // One test: it is one walk through the game in one process.
-test("the game boots, draws its title, answers the first move and survives a pause", async () => {
+test("portrait Sports golf restores, twists, selects clubs, survives pauses and completes a rematch", async () => {
   // The real platform's load() remains its startup snapshot after save(). Reproduce that
   // contract so menu visits and canceled selectors cannot accidentally resurrect old progress.
   await import("../src/platform-stub");
@@ -201,16 +207,32 @@ test("the game boots, draws its title, answers the first move and survives a pau
   menuAction("help"); run(0.1);
   assert.match(gameLabel, /^howto/);
   menuAction("help"); run(0.1);
-  tap(188, 962); // Help's Back button; a repeated menu action must preserve its original return destination.
+  tap(540, 1785); // Help's Back button; a repeated menu action must preserve its original return destination.
   assert.match(gameLabel, /^title/, "opening help twice must not trap Back on the help screen");
   assert.equal(savedRuns.length, 0, "help before Continue must not consume or overwrite the pending save");
 
   assert.ok(firstMove(960, 540), "a piece put down at the centre got no visible answer");
   assert.deepEqual(errors, [], "the first move threw");
-  assert.ok(firstMove(480, 810), "a piece put down near the bottom edge got no visible answer");
+  assert.ok(firstMove(535, 540), "a piece put down at the portrait player's short edge got no visible answer");
   assert.deepEqual(errors, [], "the second move threw");
-  assert.match(gameLabel, /play.*2 strokes.*ready/, "the first legal ring placement adopts the pending round");
+  assert.match(gameLabel, /play.*2 strokes.*ready/, "the first legal Sports placement adopts the pending round");
   assert.equal(latestRun.game.ball.z, 82, "adopting a saved round preserves its lie");
+
+  // Reproduce the native contact that was previously sensed but silently rejected.
+  run(3); // finish the camera's previous saved-lie transition before touching the piece
+  const cameraCheckStart = frames.length;
+  const footballId = nextId++;
+  const football = {...piece(687, 301, BoardContactPhase.Began, footballId, 131), glyphId: 6};
+  onBatch!([football]); run(0.6);
+  assert.match(gameLabel, /play.*2 strokes.*ready.*Sports player present.*ready/, 'the logged football position and arbitrary 41-degree facing can address');
+  assert.equal(latestRun.game.strokes, 2, 'placement and calibration cannot strike');
+  const turningFootball = {...football, x: football.x - 40, y: football.y + 5, orientation: football.orientation + 60, phase: BoardContactPhase.Moved};
+  onBatch!([turningFootball]); run(0.6);
+  assert.match(gameLabel, /backswing/, 'the camera check includes an actual armed physical turn');
+  onBatch!([{...turningFootball, phase: BoardContactPhase.Ended}]); run(0.5);
+  assert.equal(frames.slice(cameraCheckStart).flat().filter(c => c.name === 'clearRect' && c.args[2] === 1080 && c.args[3] === 1920).length,
+    0, 'placement, a turning piece with translation, and lifting never reproject the course camera');
+
 
   for (const pause of pauses) pause();
   run(1);
@@ -222,74 +244,88 @@ test("the game boots, draws its title, answers the first move and survives a pau
   assert.ok(frames[frames.length - 1].length > 5, "the game stopped drawing when left alone");
   assert.deepEqual(errors, [], "a pause and resume threw");
 
-  // Drive the actual ring input through a whole hole, not a test-only game hook.
+  // Drive real piece rotation and finger club/aim selection through a complete hole.
   menuAction("restart"); run(0.1);
   assert.match(gameLabel, /play.*0 strokes.*ready/, "the real Restart hole action begins a new round");
   let id = nextId++;
-  onBatch!([piece(960, 850, BoardContactPhase.Began, id)]);
+  onBatch!([piece(535, 540, BoardContactPhase.Began, id)]);
   run(0.6);
-  assert.match(gameLabel, /play.*0 strokes.*ready/, "a roster player and a settled ring enter the hole");
+  assert.match(gameLabel, /play.*0 strokes.*ready.*7 IRON.*Sports player present.*ready/, "a roster player and a settled Sports piece enter the hole");
+  tap(414, 1805); // Select 9 iron, then return to the 150-yard 7 iron.
+  assert.match(gameLabel, /9 IRON/, "club buttons select a club independently of the current lie");
+  tap(162, 1805);
+  assert.match(gameLabel, /7 IRON/);
+  tap(936, 1595); // Aim two degrees right so the first stroke leaves a playable putt.
+  run(0.5);
   let checkedImpactPause=false;
-  const move = (y: number, seconds: number) => {
+  const turn = (angle: number, seconds = 0.05) => {
     run(seconds);
-    onBatch!([piece(960, y, BoardContactPhase.Moved, id)]);
+    onBatch!([piece(535, 540, BoardContactPhase.Moved, id, angle)]);
     if(!checkedImpactPause&&latestRun.game.strokes===1&&latestRun.game.phase==='flight') {
       checkedImpactPause=true;
       run(0.04);
-      for(const pause of pauses)pause(); // Forces the current game into the save snapshot.
-      assert.equal(latestRun.game.ball.z,0,'the ball stays on the tee during the downswing');
+      for(const pause of pauses)pause(); // Saves the actual ball position at the physical strike.
+      assert.ok(latestRun.game.ball.z > 0, 'the returning physical club launches the ball immediately');
+      const atPause = latestRun.game.ball.z;
       run(1);
+      assert.equal(latestRun.game.ball.z, atPause, 'a native menu freezes a committed ball');
       for(const resume of resumes)resume();
       run(0.05);
       for(const pause of pauses)pause();
-      assert.equal(latestRun.game.ball.z,0,'a native menu must not skip the remaining downswing');
-      for(const resume of resumes)resume();
-      run(0.14);
-      for(const pause of pauses)pause();
-      assert.ok(latestRun.game.ball.z>0,'the committed ball launches after the club reaches impact');
-      assert.equal(latestRun.game.strokes,1,'impact must not count the committed stroke twice');
+      assert.ok(latestRun.game.ball.z > atPause, 'the same committed ball resumes after the menu');
+      assert.equal(latestRun.game.strokes, 1, 'resume must not count the physical contact twice');
       for(const resume of resumes)resume();
     }
   };
-  const swing = (speed: number) => {
-    move(850, 0.05); run(0.6);
-    move(880, 0.05); move(910, 0.05); move(940, 0.05);
-    for (let i=1;i<=7;i++) move(940-speed/60*i, 1/60);
+  const swing = (backswing: number) => {
+    turn(0); run(0.6);
+    const samples = Math.ceil(backswing / 50);
+    for (let i = 1; i <= samples; i++) turn(backswing * i / samples);
+    const returnSamples = Math.max(2, Math.ceil(backswing / 50));
+    for (let i = 1; i <= returnSamples; i++) turn(backswing * (1 - i / returnSamples));
     run(0.1);
   };
-  swing(1272); // 90% iron: lands near the pin.
+  swing(TURN_SWING.fullBackswingDeg);
   assert.ok(checkedImpactPause,'the real swing must exercise the impact/pause check');
-  assert.match(gameLabel, /1 strokes/, "one back-then-forward swing counts once");
+  assert.match(gameLabel, /1 strokes/, "one backward-then-forward twist counts once");
+  assert.equal(latestRun.game.shotPower, 1, "a full turn gives the selected 7 iron its full distance");
+  assert.ok(latestRun.game.shotAngle > 0, "the finger aim control sets the shot direction");
   run(12);
   assert.match(gameLabel, /1 strokes.*ready/, "flight and roll reach a playable rest");
+  assert.equal(terrainAt(latestRun.game.ball.x, latestRun.game.ball.z), "green", "the 7 iron reaches the par-3 green");
+  assert.match(gameLabel, /PUTTER/, "the green recommends the putter");
 
-  // Three menu cycles preserve the shot and rebind the ring without another swing.
+  // Three menu cycles preserve the shot and rebind the piece without another swing.
   for(let cycle=0;cycle<3;cycle++) {
     for(const pause of pauses)pause();
     run(0.4);
     for(const resume of resumes)resume();
     id=nextId++;
-    onBatch!([piece(960, 790, BoardContactPhase.Began, id)]);
+    onBatch!([piece(535, 540, BoardContactPhase.Began, id)]);
     run(0.6);
     assert.match(gameLabel, /1 strokes/, "menu redetection must not strike");
   }
-  swing(624.32); // A controlled putt of about seven yards.
+  // Constant green friction is 3 yd/s²; leave 1 yd/s at the cup instead of aiming for zero.
+  const puttPower = (Math.sqrt(6 * distanceToCup(latestRun.game) + 1) - 1) / 14;
+  assert.ok(puttPower > 0.1 && puttPower < 0.5, "the 7 iron leaves a short, controlled putt");
+  const puttBackswing = TURN_SWING.backswingDeg - 8 + puttPower * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + 8);
+  swing(puttBackswing);
   run(8);
   assert.match(gameLabel, /over.*2 strokes.*holed/, "the physical gesture can finish the hole");
   run(5);
   assert.match(gameLabel, /over.*2 strokes.*holed/, "the result waits for a shared choice");
-  onBatch!([{...piece(690,768,BoardContactPhase.Began,nextId++),type:BoardContactType.Finger,glyphId:0}]);
+  tap(540, 1100);
   run(0.5);
-  assert.match(gameLabel, /play.*0 strokes.*ready/, "rematch resets the hole with the ring left down");
+  assert.match(gameLabel, /play.*0 strokes.*ready.*Sports player present/, "rematch resets the hole with the piece left down");
   assert.equal(platform.state.progress.get("bestStrokes:p1"), 2, "the completed round records this golfer's personal best");
 
   menuAction("setup"); run(0.1);
   assert.match(gameLabel, /^setup/);
-  tap(1540, 745); // Change player; the host stub dismisses the selector without a roster change.
+  tap(540, 1115); // Change player; the host stub dismisses the selector without a roster change.
   await new Promise(resolve => setTimeout(resolve, 0));
   run(0.1);
   assert.match(gameLabel, /^setup/, "canceling the player selector leaves setup in place");
-  tap(1540, 905); // Explicitly confirm the retained ring and tee off again.
+  tap(540, 1315); // Explicitly confirm the retained piece and tee off again.
   run(0.5);
   assert.match(gameLabel, /play.*0 strokes.*ready/, "a canceled selector cannot replay the startup two-stroke snapshot");
   assert.equal(latestRun.game.strokes, 0);

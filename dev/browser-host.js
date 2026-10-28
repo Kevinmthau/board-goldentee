@@ -1,4 +1,4 @@
-// Based on the Studio generated browser host. Local preview additions: scaled input, ring proxy, and placement controls.
+// Based on the Studio generated browser host. Local preview additions: portrait input, Sports proxy, and twist controls.
 // The web lane's simulated Board host, injected by assets/board-app/boot_capture.cjs so a
 // packed Create Game candidate boots in a headless browser the way it does on a Board.
 (() => {
@@ -14,8 +14,8 @@
 // bridge.js window.__board resolve/reject/onPauseResult/onAppVisibility).
 //
 //   drag         one finger contact (glyphId 0): Began → Moved… → Ended
-//   shift-drag   a resting Piece (glyphId `__sim.glyph`, default 1) that stays on
-//                the table after release; ordinary drag near it moves it
+//   shift-click  a resting Sports Piece (glyphId `__sim.glyph`, default 1)
+//   drag piece   twist its facing; Alt-drag moves it; the piece stays after release
 //   backspace    lift every resting Piece
 //   P / Escape   open the simulated system menu (Board.application.onPause fires);
 //                inside it: Enter/P resume · Q quit · S save & quit (only when the
@@ -105,12 +105,16 @@ const SIM_PROFILE_ID = "5e1f0b0a-4d00-4c1e-8000-00000000517d";
 const REDETECT_FRAMES = 6; // empty frames between the menu closing and a resting Piece being born again
 const PNG_1PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const STYLE = `[data-board-sim]{position:fixed;inset:0;pointer-events:none;z-index:2147483647;font:12px ui-monospace,monospace;color:#fff}
-[data-board-sim] .bs-toolbar{position:absolute;left:8px;bottom:8px;right:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;pointer-events:none}
+[data-board-sim] .bs-toolbar{position:absolute;left:8px;top:8px;width:280px;max-width:280px;display:flex;align-items:flex-start;flex-direction:column;gap:6px;pointer-events:none}
 [data-board-sim] .bs-toolbar button{pointer-events:auto;cursor:pointer;min-height:30px}
 [data-board-sim] .bs-hint{padding:4px 8px;border-radius:4px;background:rgba(0,0,0,.7);user-select:none}
+[data-board-sim][data-toolbar-layout="compact"] .bs-toolbar{right:8px;max-width:none;flex-direction:row;flex-wrap:wrap;gap:4px}
+[data-board-sim][data-toolbar-layout="compact"] .bs-hint{display:none}
 [data-board-sim] .bs-pieces{position:absolute;inset:0;pointer-events:none}
 [data-board-sim] .bs-piece{position:absolute;transform:translate(-50%,-50%);background:center/contain no-repeat;pointer-events:none;opacity:.92}
 [data-board-sim] .bs-piece[data-held="true"]{opacity:1}
+[data-board-sim] .bs-facing{position:absolute;inset:0;transform-origin:center;color:#fff5ad;text-shadow:0 1px 2px #102e2c}
+[data-board-sim] .bs-facing::before{content:"↑";position:absolute;left:50%;top:-.5em;transform:translateX(-50%);line-height:1}
 [data-board-sim] .bs-menu{z-index:2}
 [data-board-sim] .bs-menu{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);pointer-events:auto}
 [data-board-sim] .bs-menu[hidden]{display:none}
@@ -128,6 +132,8 @@ function isSimulatedHost(win         = window)          {
 function installBrowserHost(win         = window)          {
   if (typeof win.BoardSDK !== "undefined") return false;
   const doc = win.document;
+  // The game still renders in native Board coordinates. Only the browser preview is upright.
+  doc.documentElement.setAttribute("data-portrait-preview", "");
   const board = () => win.__board;
   const esc = (s        ) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch] ?? ch);
 
@@ -142,7 +148,7 @@ function installBrowserHost(win         = window)          {
   const push = (c      , p        ) => {
     let prev                  ;
     for (let i = pending.length - 1; i >= 0 && !prev; i--) if (pending[i].id === c.id) prev = pending[i];
-    if (prev && prev.p === 2 && p === 2) return void Object.assign(prev, { x: c.x, y: c.y, touched: c.touched });
+    if (prev && prev.p === 2 && p === 2) return void Object.assign(prev, { x: c.x, y: c.y, o: c.o, touched: c.touched });
     pending.push({ id: c.id, x: c.x, y: c.y, o: c.o, p, g: c.g, touched: c.touched });
   };
   const touch = { onmessage: null                                          , postMessage() {} };
@@ -205,22 +211,25 @@ function installBrowserHost(win         = window)          {
   const toWorld = (e) => {
     const r = canvasRect();
     if (!r || r.width <= 0 || r.height <= 0) return null;
-    return { x: (e.clientX - r.left) * 1920 / r.width, y: (e.clientY - r.top) * 1080 / r.height };
+    const portraitX = (e.clientX - r.left) * 1080 / r.width;
+    const portraitY = (e.clientY - r.top) * 1920 / r.height;
+    return { x: 1920 - portraitY, y: portraitX };
   };
+  // Sports catalog radii, millimetres × 3.6 Board pixels. This only controls mouse pickup.
+  const pickupRadius = (glyph) => ({ 1: 18.7, 2: 19.8, 3: 19.4, 4: 21.8, 5: 24.4, 6: 18.3, 7: 18.7, 8: 18.5 }[glyph] ?? 18.7) * 3.6;
+  const pointerAnchor = (e, p, c) => ({ x: p.x - c.x, y: p.y - c.y, startAcross: p.y, orientation: c.o, translate: Boolean(e.altKey) });
   const onDown = (e) => {
     if (menuOpen || fromShim(e)) return;
     const p = toWorld(e);
     if (!p || p.x < 0 || p.x > 1920 || p.y < 0 || p.y > 1080) return;
-    // The ring's actual footprint radius is 22.5 mm × 3.6 = 81 Board pixels.
-    // This is simulator pickup geometry, never a game collision or native input adjustment.
     let c;
-    for (const r of live.values()) if (r.resting && ![...byPointer.values()].includes(r.id) && Math.hypot(r.x - p.x, r.y - p.y) <= 81) c = r;
+    for (const r of live.values()) if (r.resting && ![...byPointer.values()].includes(r.id) && Math.hypot(r.x - p.x, r.y - p.y) <= pickupRadius(r.g)) c = r;
     if (c) {
-      pointerOffsets.set(e.pointerId, { x: p.x - c.x, y: p.y - c.y });
+      pointerOffsets.set(e.pointerId, pointerAnchor(e, p, c));
       c.touched = 1; push(c, 2);
     } else {
       c = { id: nextId++, x: p.x, y: p.y, o: 0, p: 1, g: e.shiftKey ? host.__sim.glyph : 0, touched: 1, resting: e.shiftKey };
-      pointerOffsets.set(e.pointerId, { x: 0, y: 0 });
+      pointerOffsets.set(e.pointerId, pointerAnchor(e, p, c));
       live.set(c.id, c); push(c, 1);
     }
     byPointer.set(e.pointerId, c.id);
@@ -230,7 +239,12 @@ function installBrowserHost(win         = window)          {
     const c = live.get(byPointer.get(e.pointerId) ?? -1), p = toWorld(e);
     if (!c || !p) return;
     const offset = pointerOffsets.get(e.pointerId) ?? { x: 0, y: 0 };
-    c.x = p.x - offset.x; c.y = p.y - offset.y; push(c, 2);
+    if (c.resting && !offset.translate) {
+      c.o = ((offset.orientation + (p.y - offset.startAcross) * 0.8) % 360 + 360) % 360;
+    } else {
+      c.x = p.x - offset.x; c.y = p.y - offset.y;
+    }
+    push(c, 2);
     renderPieces();
   };
   const onUp = (e) => {
@@ -250,17 +264,24 @@ function installBrowserHost(win         = window)          {
   const restore = new Map                ();
   const root = doc.createElement("div");
   root.setAttribute("data-board-sim", "");
-  root.innerHTML = `<style>${STYLE}</style><div class="bs-pieces" aria-hidden="true"></div><div class="bs-toolbar"><button type="button" class="bs-place">Place ring</button><button type="button" class="bs-lift">Lift ring</button><button type="button" class="bs-label">Menu · P</button><span class="bs-hint">BROWSER SIMULATOR · drag the ring · Shift-click to place · Backspace to lift</span></div><div class="bs-menu" hidden></div>`;
+  root.innerHTML = `<style>${STYLE}</style><div class="bs-pieces" aria-hidden="true"></div><div class="bs-toolbar"><button type="button" class="bs-place">Place sports player</button><button type="button" class="bs-lift">Lift piece</button><button type="button" class="bs-label">Menu · P</button><span class="bs-hint">BROWSER SIMULATOR · drag piece sideways to twist · Alt-drag to move · Shift-click to place</span></div><div class="bs-menu" hidden></div>`;
   (doc.body ?? doc.documentElement).appendChild(root);
   const label = root.querySelector(".bs-label")               ;
   const menu = root.querySelector(".bs-menu")               ;
   const proxyLayer = root.querySelector(".bs-pieces");
   const placeButton = root.querySelector(".bs-place");
   const liftButton = root.querySelector(".bs-lift");
+  const toolbar = root.querySelector(".bs-toolbar");
   const proxies = new Map();
   renderPieces = () => {
     const r = canvasRect();
     if (!r) return;
+    // Use the empty side of a desktop portrait preview, instead of covering the player's edge.
+    const rail = r.left >= 200;
+    const toolbarLayout = rail ? "rail" : "compact";
+    const toolbarWidth = rail ? `${Math.min(280, r.left - 16)}px` : "auto";
+    if (root.dataset.toolbarLayout !== toolbarLayout) root.dataset.toolbarLayout = toolbarLayout;
+    if (toolbar.style.width !== toolbarWidth) toolbar.style.width = toolbarWidth;
     const stillHere = new Set();
     for (const c of live.values()) {
       if (!c.resting) continue;
@@ -269,15 +290,19 @@ function installBrowserHost(win         = window)          {
       if (!proxy) {
         proxy = doc.createElement("div"); proxy.className = "bs-piece";
         proxy.style.backgroundImage = `url("piece-art/${c.g}.png")`;
+        const facing = doc.createElement("span"); facing.className = "bs-facing"; proxy.appendChild(facing);
         proxyLayer.appendChild(proxy); proxies.set(c.id, proxy);
       }
-      const key = [r.left, r.top, r.width, r.height, c.x, c.y, c.touched].join(",");
+      const key = [r.left, r.top, r.width, r.height, c.x, c.y, c.o, c.touched].join(",");
       if (proxy.dataset.pose === key) continue;
       proxy.dataset.pose = key; proxy.dataset.held = String(Boolean(c.touched));
-      proxy.style.left = `${r.left + c.x * r.width / 1920}px`;
-      proxy.style.top = `${r.top + c.y * r.height / 1080}px`;
-      proxy.style.width = `${162 * r.width / 1920}px`;
-      proxy.style.height = `${162 * r.height / 1080}px`;
+      proxy.style.left = `${r.left + c.y * r.width / 1080}px`;
+      proxy.style.top = `${r.top + (1920 - c.x) * r.height / 1920}px`;
+      proxy.style.width = `${180 * r.width / 1080}px`;
+      proxy.style.height = `${180 * r.height / 1920}px`;
+      const facing = proxy.children[0];
+      facing.style.transform = `rotate(${c.o}deg)`;
+      facing.style.fontSize = `${48 * r.width / 1080}px`;
     }
     for (const [id, proxy] of proxies) if (!stillHere.has(id)) { proxy.remove(); proxies.delete(id); }
     placeButton.disabled = [...live.values()].some(c => c.resting && c.g === 1);
@@ -285,7 +310,7 @@ function installBrowserHost(win         = window)          {
   };
   placeButton.addEventListener("click", () => {
     if (menuOpen || [...live.values()].some(c => c.resting && c.g === 1)) return;
-    const c = { id: nextId++, x: 960, y: 850, o: 0, p: 1, g: 1, touched: 0, resting: true };
+    const c = { id: nextId++, x: 535, y: 540, o: 0, p: 1, g: 1, touched: 0, resting: true };
     live.set(c.id, c); push(c, 1); renderPieces();
   });
   liftButton.addEventListener("click", () => { if (!menuOpen) { liftResting(); renderPieces(); } });
