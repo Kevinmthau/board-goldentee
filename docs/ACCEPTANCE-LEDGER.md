@@ -153,6 +153,25 @@
 - Coverage gaps: actual native sample rates and pause scheduling, native save/profile behavior, sustained rendering performance, and long-name layout remain unverified. Malformed saves can contain inconsistent phase/stroke combinations; normal gameplay does not produce the inspected examples.
 - Evidence level: source, existing tests, production build, and isolated automated reproductions. No new browser, Board, or human playtest. No package installation or publication. Findings remain open.
 
+## October 27, 2026 — Correctness fixes and repeat review
+
+- Asked for: fix all three findings, add regression tests, and review again until clear.
+- Input: qualify return samples by angular speed, preserving the two-sample guard. A new matrix covers 20/30/60/120 Hz, both directions, 40/60-degree backswings, and 26/30/90-degree-per-second returns. Below-minimum returns and one jump followed by slow drift do not strike.
+- Physics: retain fractional active time between fixed 1/120-second steps. Landing, terrain, cup, and boundary decisions now use the same simulation steps across render rates. Completion clears unused time. Version-1 saves without the new field migrate to zero; valid fractional time survives JSON save/restore in flight and rolling.
+- Lifecycle: cancel the pending animation frame on pause and schedule through one guarded function. Paused boot schedules nothing. Duplicate resume notifications preserve the active gesture. The first resumed frame excludes paused wall time.
+- Regression evidence: the slow-return, near-cup scoring, and rapid pause/resume tests each failed the original implementation before its fix. The boot mock now keeps every pending callback and reproduces browser cancellation behavior.
+- Final automated: `npm test` reports 193 total, 190 passed, zero failures, and three unchanged full-catalog skips. Twelve added tests/subtests cover the corrections and adjacent boundaries. The full restore, club selection, approach, putt, result, and rematch journey still passes.
+- Repeat review: each fix received source review after implementation. Independent physics review compared 192 combinations of lie, club, aim, and power across fixed timing, irregular timing, and JSON restore; final states matched exactly. No further actionable findings remained in the changed code.
+- Browser: the current local build accepted placement, a 99% 7-iron swing, pause/resume during rolling, and a 20% putt. It finished with a two-stroke birdie, then rematched with the piece retained. Evidence: `docs/screenshots/correctness-fixes-birdie.png`.
+- Package: `npm run pack` passed TypeScript, Vite, and web-pack. Verified all 18 archive files against dist. Bundle `index-BzE_yp0q.js`, platform build `6a85e77fcfe43daa`. Sports model SHA-256 remains `4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9`; app and package identities are unchanged.
+- Board and human: NOT TESTED for this correction. No installation or publication. Existing native platform, all-piece, sustained-performance, and uncoached-teaching checks remain open.
+
+## October 27, 2026 — Correctness publication
+
+- Asked for: commit and push all changes to the game repository.
+- Scope: reviewed fixes, twelve regression tests/subtests, project documentation, browser screenshot, and the generated Codex environment file. Build output, dependencies, and the install ZIP remain ignored.
+- Validation: the preceding 190-test pass, package verification, browser playthrough, and independent re-review cover the unchanged game code. Final diff and publication checks found no blockers.
+- Destination: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the existing game-subtree publishing workflow. Native installation is outside this request.
 
 ## October 27, 2026 — Three holes, hazards, driver, and 5 iron
 
@@ -181,3 +200,13 @@
 - Native startup: platform state became ready at 21:32:00; the new bundle reported running audio at 21:32:01. Logs included optional favicon and game-font.json 404 warnings; the bundled Kabel font rendered correctly.
 - Native screenshot: `docs/screenshots/three-hole-board-installed.png` shows hole 1/3, par 3, zero strokes, and all six club controls. The game is waiting for a Sports piece.
 - Evidence limit: installation, launch, current bundle, and native rendering are verified. New-hole play, physical driver clearance, hazard readability, and round pacing still require the person's playtest.
+
+
+## October 27, 2026 — Three-hole merge and publication
+
+- Asked for: merge, commit, and push the completed new holes and clubs.
+- Integration: combine the three-hole work with the published correctness branch. Preserve the preceding fixes, regressions, review records, and browser screenshot.
+- Destination: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the established golf-subtree workflow.
+- Pre-merge evidence: 208 tests passed, three catalog-only skips, browser checks passed, and the verified package is installed on KT's Board.
+- Merged automated evidence: 211 tests total, 208 passed, zero failures, three catalog-only skips. TypeScript and Vite pass. The generated `index-BwgBIobr.js` matches the installed build; source and tests are unchanged from the verified three-hole revision.
+- Remote-tree verification: pending.

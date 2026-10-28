@@ -130,6 +130,19 @@
 - Isolated probes confirmed sample-rate-dependent slow swings, frame-timing-dependent scoring, and duplicate rendering loops after pause/resume before a pending frame executes.
 - Recorded reproduction steps and suggested corrections in the acceptance ledger. Added open items to the plan and checklist. No gameplay, test, or asset files changed.
 
+## October 27, 2026 — Fix review findings and add regressions
+
+- Person requested all three fixes, regression tests, and repeated review until clear.
+- Removed the per-event slow-swing threshold, made physics advance in persistent fixed steps, and restricted rendering to one scheduled callback through pause/resume.
+- Preserved fractional physics time in saves and migrated older version-1 runs. Added regression coverage for the reported failures and adjacent input, save, and lifecycle boundaries.
+- All 190 tests pass, with three unchanged catalog skips. Independent re-review found no further actionable issues in the changes. Browser play completed a birdie and rematch; the 18-file package passes verification.
+- Updated the plan, checklist, asset inventory, README, and acceptance ledger. The correction is local and has not been installed on Board or published.
+
+## October 27, 2026 — Publish correctness fixes
+
+- Person requested committing and pushing all changes.
+- Include the three fixes, regression tests, review documentation, browser evidence, and generated Codex environment configuration.
+- Publish the game subtree to the existing `golden-tee` remote's `main`. Keep the app and package identities unchanged.
 
 ## October 27, 2026 — Two more holes and longer clubs
 
@@ -146,3 +159,11 @@ Integration review aligned sand rendering with bunker physics where hazards cut 
 ## October 27, 2026 — Install three-hole build
 
 The person requested installation on their Board. Installed and launched the verified package on KT's Board, then confirmed the bundle in logs and the six clubs in a native screenshot. No gameplay code or package identity changed. Physical play remains for the person.
+
+
+## October 27, 2026 — Merge and publish the three-hole revision
+
+- Person requested merging, committing, and pushing the completed changes.
+- Merge the published correctness fixes with the three-hole work, preserving source behavior, regression tests, review history, and screenshots.
+- Publish the golf subtree to the existing `golden-tee` remote's `main`. Build output, dependencies, and the install ZIP remain outside Git.
+- Merged validation: 208 tests pass, with three catalog-only skips. The production build matches the installed `index-BwgBIobr.js` bundle. Remote verification is pending.

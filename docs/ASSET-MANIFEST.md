@@ -30,6 +30,7 @@ Model SHA-256: 4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9.
 
 The browser simulator uses canonical Sports art with a separate facing arrow. The unused golfer renderer and rig remain as source history; they are excluded from the runtime bundle. The simulator is excluded from the Board package.
 Screenshot evidence in docs/screenshots is not shipped as a game asset.
+`docs/screenshots/correctness-fixes-birdie.png` records the local browser playthrough after the October 27 correctness fixes; it is not packaged.
 The earlier four-pose golfer and twelve-pose motion sheet are preserved in docs/art-reference/golfer-swing-v1.png and docs/art-reference/golfer-motion-v2.png. Both are original built-in imagegen artwork documented in docs/art-prompts.md and docs/swing-motion-prompt.md; neither ships or loads at runtime. The development-only motion reviewer at dev/swing-review.html also stays outside the package.
 
 ## Generated package files

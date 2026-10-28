@@ -55,6 +55,8 @@ The native system menu provides How to swing, Restart round, and Change setup. T
 ## Design and evidence
 
 See [the plan](docs/PLAN.md), [build checklist](docs/BUILD-CHECKLIST.md), and [acceptance ledger](docs/ACCEPTANCE-LEDGER.md).
-The earlier one-hole Sports revision passed automated and browser checks and was played on Board. The three-hole revision adds new course, scoring, save, and club checks; current results are recorded in the acceptance ledger. The new holes and larger driver still require a physical Board playtest. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
+The three-hole revision passed 208 automated checks, with three catalog-only checks skipped. Tests cover the full round, hazards, clubs, saves, and rematch. It retains the correctness fixes for slow returns, consistent shot timing, and pause/resume. Earlier browser evidence includes a two-stroke birdie after those fixes; current browser checks cover the new courses, water penalties, driver carry, scorecards, and rematch.
+
+The three-hole package is installed and launched on KT's Board. Native rendering confirms all six club controls. The new holes and larger driver still require a physical playtest. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
 
 Artwork, the Board SDK, font, platform layer, and piece-set assets have separate provenance and terms; see the [asset manifest](docs/ASSET-MANIFEST.md). Keep the vendored SDK and package lockfile so a fresh checkout uses the tested SDK version.

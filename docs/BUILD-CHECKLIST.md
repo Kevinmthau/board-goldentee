@@ -115,7 +115,11 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Make slow return swings work across input sample rates; add regression coverage.
 - [x] Make landing and scoring consistent across uneven frame durations; add regression coverage.
 - [x] Keep one rendering loop through pause/resume before a pending frame executes; add regression coverage.
-
+- [x] Verify old-save compatibility and fractional-step save/restore continuity.
+- [x] Re-review the fixes independently; no further actionable findings in the changed code.
+- [x] Final automated checks: 190 pass, three catalog-only skips; TypeScript, Vite, and 18-file package pass.
+- [x] Browser: piece placement, full swing, pause/resume during roll, short putt, birdie, and retained-piece rematch.
+- [ ] Board: validate these corrections with native input, pause, saves, and sustained play.
 
 ## Three holes and six clubs — October 27, 2026
 

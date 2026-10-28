@@ -25,7 +25,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - The new holes include water hazards and multiple bunkers. Fairways provide room to lay up or carry the water.
 - Club buttons offer driver, 5 iron, 7 iron, 9 iron, wedge, and putter. Recommendations follow the current lie and distance.
 - Approximate full-shot distances are 250, 185, 150, 125, and 60 yards; a full putter rolls 111 feet on the green.
-- A full 7 iron reaches the green from the tee. Terrain can reduce distance.
+- A full 7 iron reaches the first green from the tee. Terrain can reduce distance.
 - Club choices apply explicitly to the next shot. Recommend a club at each new lie.
 - Fixed left and right aim controls adjust direction separately from swing power.
 - Each deliberate shot adds one stroke. Out of bounds or grounded water contact adds one penalty and returns to the last safe lie.
@@ -124,22 +124,20 @@ The earlier attached-club, native-tolerance, and fixed-camera revision passed 17
 Browser inspection confirms the attached club's size and disappearance on lift, with the course and resting ball fixed through placement and a full backswing. The absent-piece character placeholder is removed. Native logs from the fixed-camera build confirm five further hits at 91%, 48%, 17%, 100%, and 64%, followed by cup capture and rematch. None of those armed swings canceled.
 Native physical alignment, comfortable full swing/putting, sustained performance, platform behavior, and uncoached teaching remain open. Earlier ring-build evidence does not validate those Sports checks.
 
-## Prior correctness findings — October 27, 2026
+## Correctness fixes — October 27, 2026
 
-The requested source and automated review found three reproducible issues. The review did not change gameplay code.
+The review found three reproducible issues. The person requested fixes, regression tests, and another review. All three fixes remain in the three-hole build.
 
-- A 30-degree-per-second return from a 60-degree backswing commits at 20/30 Hz but fails at 60/120 Hz. The per-event reverse-motion threshold excludes valid slow returns. Measure reverse movement over time and verify the same gesture at different sensor rates.
-- Landing timing changes shot outcomes. A straight 99.7% 7-iron shot holes at 59/61 FPS but misses at 60 FPS. Uneven frame times with the same average rate can also change the result. Resolve ground contact at the correct time or use persistent fixed simulation steps.
-- Resume can schedule another rendering loop while an earlier frame is pending. Two pause/resume cycles before pending frames execute increase callbacks per frame from one to three. Keep one scheduled frame and cancel it on pause.
+- Return samples qualify by angular speed instead of movement per event. Regressions cover 20/30/60/120 Hz, both turn directions, and slow putting returns. The two-sample and minimum-speed guards remain.
+- Physics uses persistent 1/120-second steps. Results stay consistent across frame timing. Saves retain fractional active time; older version-1 saves default that field to zero.
+- The game tracks one scheduled animation frame and cancels it on pause. Paused boot waits for resume. Duplicate resume notifications preserve the active swing and one rendering loop.
 
-Reproduction details and evidence limits are in the acceptance ledger. The original suite did not cover these failures. The resolution and new regression coverage are recorded below.
+The correctness revision passed 190 tests with three catalog-only skips. Independent review found no further actionable issues. A browser playthrough completed a birdie, pause/resume, and rematch. The acceptance ledger preserves that revision's evidence and package identity.
 
-The expanded club controls reserve physical clearance at the bottom and beside the aim buttons. The default placement and previously observed football position remain playable. Power stays in the fixed right-side percentage.
+## Three-hole verification
 
-## Correctness findings resolved in the three-hole worktree
+The latest local fixes were retained when this worktree was brought forward from the older tennis revision. The merge preserves their published history and browser evidence.
+The expanded controls reserve physical clearance at the bottom and beside the aim buttons. The default placement and observed football turn remain playable. Power stays in the fixed right-side percentage.
 
-The latest local fixes were preserved when this worktree was brought forward from the older tennis revision.
-Regression tests now verify slow returns across sensor rates, fixed-step ball physics, and one rendering loop through repeated pause/resume.
-The earlier review section records the original findings; these three findings are resolved in this handover.
-
-Three-hole acceptance: 208 tests pass, with three catalog-only skips. The 18-file package builds with unchanged identity and Sports model. Browser checks confirm the expanded controls, both new courses, a failed water carry, a successful driver carry, scorecards, Next hole, and rematch.
+The three-hole build passed 208 tests, with three catalog-only skips. Its 18-file package retains the app identity and Sports model. Browser checks confirm the six controls, new courses, water recovery, driver carry, scorecards, Next hole, and rematch.
+The package is installed and launched on KT's Board. Native rendering is verified; physical play of the new holes and clubs remains open.
