@@ -436,3 +436,85 @@
 - Board: installation and launch succeeded; platform state restored at 17:29:24. Native audio logs identify the current `index-Bwtc59Ji.js` bundle. Screenshot `docs/screenshots/tee-time-multiplayer-board-installed.png` shows the actual 1 of 4 Players setup with Add Player.
 - Consolidation: removed the older solo installation `73118527-b76c-581d-a357-8243da0525cf` under the user's explicit request for one version. The final native app list contains one Tee Time and no Golden Tee.
 - The older solo app's separate save namespace was removed with that app. The current multiplayer identity was kept. Full physical multiplayer pacing remains a human playtest item.
+
+## October 28, 2026 — Clear the shot view
+
+- Asked for: simplify the UI because the top of the screen hides shot direction.
+- Baseline: `af12d14`; work is on `codex/clear-shot-ui` in `/Users/kevinthau/tee-time`.
+- Source: replaced the stacked header with a 104-pixel strip for hole/par and distance. Removed the multiplayer banner across the horizon.
+- Source: moved wind, player identity, strokes, and Scorecard below the course. Combined guidance and power, removed repeated coaching, and hid unavailable controls during motion.
+- Source: play notifications stay in the footer. Placement and settling guidance take priority over penalty feedback.
+- Review: retained camera framing, direction guide, physics, input, roster, save format, app identity, and all shipped artwork.
+- Automated: 263 total checks, 260 passed, zero failures, three existing catalog-only skips. The full simulated round includes relocated scorecard access.
+- Build: TypeScript, Vite, and the 18-file package pass. Bundle `assets/index-CpXYVOSf.js`; platform build `dcfa8dd16f111aeb`.
+- Package: `tee-time.webapp.zip`, SHA-256 `99e83aa365ba3e61807ca77c53ea69304617546e6d40d1312c25770d940d9afd`. App/package identity and Sports model are unchanged.
+- Browser: actual pointer input completed a full-power tee shot, flight, and a resting 15-foot putting view. Club selection, two-degree aim, Scorecard/Back, and four-player setup/start work.
+- Browser: inspected `clear-shot-tee.png`, `clear-shot-backswing.png`, `clear-shot-flight.png`, `clear-shot-putt.png`, `clear-shot-scorecard.png`, and `clear-shot-four-player-tee.png` in `docs/screenshots/`.
+- Browser: actual-font measurements confirm long names, all twelve club labels, capacity labels, wind, and Scorecard fit. No page exceptions occurred; three favicon 404 warnings were observed.
+- Review: independent source review found a penalty-priority regression; it was corrected before the final tests and package.
+- Board: this revision has not been installed. Native input, reach, performance, and human judgment of the clearer shot view remain unverified.
+- Scope: browser screenshots cover the first tee and green. No fresh browser capture of the six later tee layouts was made.
+- Reproduce: run `npm test`, `npm run pack`, or the local `node artifacts/hud-browser-qa.mjs after` against the preview on port 5174.
+
+## October 28, 2026 — Install the simplified shot interface
+
+- Asked for: install the cleaned-up build on the person's Board.
+- Installed and launched app `e087aaee-903b-43a2-b2b9-bbd4189601b2` on KT’s Board at `10.0.0.179`.
+- The package matches the tested UI build: SHA-256 `99e83aa365ba3e61807ca77c53ea69304617546e6d40d1312c25770d940d9afd`, bundle `assets/index-CpXYVOSf.js`.
+- Independent inspection confirmed all 18 package files match `dist`, with the established app identity and Sports model. No runtime changes followed testing.
+- Native: Board Connect confirmed installation and launch. The platform became ready at device-log time 18:14:51.126.
+- Native screenshot `docs/screenshots/clear-shot-board-installed.png` confirms Tee Time’s title screen, 1–4 Players, and Players control.
+- The existing optional favicon and game-font.json 404 warnings recurred. No new startup error was observed.
+- Evidence limit: installation, launch, and startup are verified. Physical shot visibility, input, reach, and sustained performance need a person playing.
+
+## October 28, 2026 — Start from a circle on the player's name
+
+- Asked for: start by putting the Sports player in a circle on the person's name, instead of open grass.
+- Source: title/setup show a fixed 288-pixel circle containing the starter's roster name. A fresh 300-ms hold starts the first turn directly.
+- Source: the piece can swing from the circle's location. The circle disappears during play; later multiplayer handoffs retain Ready.
+- Source: only Sports Glyph contacts can confirm. The exact contact is bound even when another piece already occupies the course.
+- Source: menu, help, selector, roster changes, and setup guard retained pieces. A lift-and-replace cue explains required reentry.
+- Source: saved continuation uses the active golfer; legacy unnamed solo saves use the matching current roster name. Missing-player recovery remains explicit.
+- Automated: 277 checks, 274 passed, zero failures, three existing catalog-only skips. Includes 13 focused placement tests and the full solo/multiplayer journey.
+- Automated: coverage includes fingers/hands, slide-in, two pieces, same-glyph interference, empty pause epochs, exact ownership, saved continuation, and subsequent handoffs.
+- Browser: 13 real-input checks passed for off-target placement, circle entry, help/pause guards, four-player setup, full swing, flight, and Ready handoff.
+- Browser: four targeted return-screen checks confirm the final lift-and-replace cue. Actual-font measurements fit at 48 px.
+- Browser: screenshots `docs/screenshots/name-start-*.png` record the title, setup, quiet play, swing, flight, interruptions, and handoff. No page exceptions; only favicon 404 warnings.
+- Build: TypeScript, Vite, and the 18-file package pass. Bundle `assets/index-CKprJZ41.js`; platform build `cf4b7e258c5d613f`.
+- Package SHA-256: `4ccab88190452de439e07e42c457553019f7fd3b7994b51e5ab63eb6768670b9`. App/package identity and Sports model are unchanged.
+- Board: installed and launched on KT’s Board at `10.0.0.179`. The platform became ready at device-log time 18:22:57.127.
+- Native screenshot `docs/screenshots/name-start-board-installed.png` confirms the requested circle labeled KT and the placement instruction. Existing optional favicon/game-font.json warnings recurred.
+- Evidence limit: native startup and the placement UI are verified. Physical placement feel, reach, sensing, and multiplayer pacing require a person playing.
+
+## October 28, 2026 — Confirm every turn on the player's name
+
+- Asked for: every golfer starts each turn on the circle with their name, without Ready or the between-shot interstitial.
+- Source: normal multiplayer handoffs keep the next golfer’s course, flag, and shallow hole/distance strip visible. Only the fixed named circle and short turn announcement appear below.
+- Source: fresh settled placement binds the exact contact. Old Ready/Change setup touch locations are inert during normal handoffs. Retained pieces and pause/redetection cannot confirm.
+- Source: every multiplayer shot requires confirmation, including consecutive turns for the last unfinished golfer. Title/setup placement confirms the first turn; solo play remains continuous.
+- Source: explicit result decisions, missing-player recovery, roster identity, physics, and save format are retained. Recovery resumes an already committed ball before the next turn confirmation.
+- Review: independent review found the committed-ball recovery softlock introduced by the new placement gate; it was fixed before final verification. No further actionable issue was found.
+- Browser: 13 real-input checks passed with four players, two actual shots, and handoffs through three golfers. Retained pieces, former Ready taps, finger taps on the circle, and pause return remained inert. Fresh circle placement enabled the correct golfer without an extra stroke.
+- Browser: inspected `turn-circle-player2-circle.png`; the course and flag remain unobscured. Other `turn-circle-*.png` screenshots record retained-piece guidance, pause return, subsequent play, and backswing. The 48-pixel labels fit. No exceptions; two favicon 404 warnings.
+- Build: TypeScript, Vite, and packaging pass. All 18 zip files match dist; app identity and Sports model are unchanged.
+- Package: bundle `assets/index-BQe40-iN.js`, platform build `45747be39c620877`, ZIP SHA-256 `f6c3e463f54e95fb2b4ea9fa9d1bc08a2c6277db294893913682dfb3916bedfe`.
+- Reproduce: `npm test`, `npm run pack`, and local `node artifacts/turn-circle-browser-qa.mjs` against the preview on port 5174.
+- Automated: 280 total checks, 277 pass, zero failures, three existing catalog-only skips. Full simulated progression covers all player counts, next-hole/rematch, invalid placement, pauses, last-golfer consecutive turns, and committed-ball roster recovery. Log: local `artifacts/name-turn-tests.log`.
+- Board: installed and launched on KT’s Board (`10.0.0.179`). Platform state became ready at device-log time 18:30:01.143. Native screenshot `docs/screenshots/turn-circle-board-installed.png` shows Tee Time and the circle labeled KT.
+- Native: only the existing optional favicon/game-font.json 404 warnings appeared at startup. Package contents stayed unchanged after verification.
+- Evidence limit: physical turn placement, native contact sensing, save restoration, sustained performance, and multiplayer pacing are not established by startup or browser checks and remain human playtest items.
+
+## October 28, 2026 — Reinstall the turn-circle build
+
+- Request: install on the Board.
+- Reinstalled and launched the verified `tee-time.webapp.zip` on KT’s Board at `10.0.0.179`, retaining app `e087aaee-903b-43a2-b2b9-bbd4189601b2`.
+- Package SHA-256 remains `f6c3e463f54e95fb2b4ea9fa9d1bc08a2c6277db294893913682dfb3916bedfe`. Independent inspection verified the established identity and all 18 files against dist.
+- Native startup reached state ready at 18:38:38.124. Screenshot `docs/screenshots/turn-circle-board-reinstalled.png` confirms the running title and named KT circle. Existing optional favicon/game-font.json warnings recurred.
+- No runtime changes or rebuild were made; the prior 277 passing tests and 13 browser checks apply to this exact package. Physical play remains unverified.
+
+## October 28, 2026 — Publish the interface and turn changes
+
+- Request: commit and push all pending work to the existing repository.
+- Publication scope: source, tests, documentation, and 26 verification screenshots on `codex/clear-shot-ui`. No runtime changes after the verified installation; one stale source comment was clarified before commit.
+- Validation reused from the same runtime: 277 automated checks pass, 13 browser checks pass, TypeScript/Vite/packaging pass, and the exact package is installed and launched on KT’s Board.
+- Package SHA-256 remains `f6c3e463f54e95fb2b4ea9fa9d1bc08a2c6277db294893913682dfb3916bedfe`. Diff whitespace check passes.

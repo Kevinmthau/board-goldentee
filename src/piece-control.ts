@@ -119,10 +119,11 @@ export class PieceController {
     this.resetStroke();
   }
 
-  /** Tee Off confirms the observed piece. A legal, settled address still gates every swing. */
-  confirmPlacement(): boolean {
+  /** Confirm a chosen contact, defaulting to the currently observed piece. */
+  confirmPlacement(contactId?: number): boolean {
     if (this.paused) return false;
-    const contact = this.observedPiece;
+    const contact = contactId === undefined ? this.observedPiece : this.live.get(contactId)?.contact;
+    if (!contact || !isSportsPiece(contact)) return false;
     const identity = contact ? this.live.get(contact.contactId) : undefined;
     if (!identity) return false;
     this.owner = identity;

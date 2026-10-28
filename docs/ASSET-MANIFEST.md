@@ -27,6 +27,8 @@ Model SHA-256: 4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9.
 | src/holes.ts | Nine authored coastal hole layouts, yardages, pars, and hazards | Original project course data |
 | src/scorecard.ts | Traditional golf card, table, and scoring marks | Original project code and Canvas artwork |
 | src/wind-view.ts | Fixed wind indicator and camera-relative arrow | Original project code and Canvas artwork |
+| src/multiplayer-view.ts | Roster setup, shared scorecard, and fixed named turn circles | Original project code and Canvas artwork |
+| src/name-start.ts | Named placement target and guarded start/turn confirmation | Original project code |
 | src/green.ts | Shared green elevation, slope, and downhill acceleration; source for procedural mesh and contours | Original project code and course data |
 | src/club-picker.ts | Full-size twelve-club bag layout and two-degree aim controls | Original project code |
 | src/course-art.ts | Cached natural foliage, turf/sand fallback materials, and soft shadows | Original seeded procedural Canvas artwork |
@@ -55,7 +57,7 @@ Vite assigns content hashes to the two bundle filenames. The package inventory b
 ```text
 art/coastal-sky.png
 art/fairway-turf.png
-assets/index-CXCTlMpU.js
+assets/index-BQe40-iN.js
 assets/index-DcBmdo0M.css
 board-platform.js
 fonts/itc-kabel-ultra.otf
@@ -121,3 +123,20 @@ Bundle: `assets/index-Bwtc59Ji.js`. Package SHA-256: `cabfd91e3292a8ab50a3c95310
 October 28, 2026 Tee Time consolidation changes the package display name and generated manifest/platform configuration only; the 18-file inventory, game bundle, model, and artwork remain unchanged.
 Package: `tee-time.webapp.zip`. SHA-256: `290a92b0f1092ca1314bc520a97fc2c0c649293f634e39be824958c8aebbf1b7`.
 `docs/screenshots/tee-time-multiplayer-title.png` and `tee-time-multiplayer-board-installed.png` are browser/native evidence and do not ship.
+
+October 28, 2026 shot-interface cleanup changes the original Canvas HUD layout and generated runtime bundle.
+No external art, font, audio, model, or dependency changed. The package still contains 18 files.
+Bundle: `assets/index-CpXYVOSf.js`. Package SHA-256: `99e83aa365ba3e61807ca77c53ea69304617546e6d40d1312c25770d940d9afd`.
+The `clear-shot-*.png` screenshots record browser evidence and do not ship.
+
+`docs/screenshots/clear-shot-board-installed.png` records the October 28 native installation of the simplified interface. It is evidence and does not ship. The tested package and its SHA-256 are unchanged.
+
+October 28, 2026 named-circle start adds original procedural setup UI and input logic.
+No external art, fonts, audio, model, or dependencies changed; the package still contains 18 files.
+Bundle: `assets/index-CKprJZ41.js`. Package SHA-256: `4ccab88190452de439e07e42c457553019f7fd3b7994b51e5ab63eb6768670b9`.
+Screenshots named `name-start-*.png` record browser/native evidence and do not ship.
+
+October 28, 2026 per-turn named circles replace the original procedural handoff panel with a fixed placement target and brief turn text over the course.
+No external art, fonts, audio, models, or dependencies changed. All 18 package files match dist; the Sports model and app identity are unchanged.
+Bundle: `assets/index-BQe40-iN.js`. Platform build: `45747be39c620877`. Package SHA-256: `f6c3e463f54e95fb2b4ea9fa9d1bc08a2c6277db294893913682dfb3916bedfe`.
+Screenshots named `turn-circle-*.png` record verification evidence and do not ship.

@@ -36,7 +36,7 @@ export function drawHowTo(ctx: CanvasRenderingContext2D, now: number) {
   text(ctx, 'YOUR PLAYER. YOUR SWING.', 540, 145, 56);
   text(ctx, 'Keep hold of the piece as you turn.', 540, 235, 40, '#AEC5A3');
   const steps = [
-    ['1  PLACE YOUR PLAYER', 'Hold still on the open grass.'],
+    ['1  PLACE ON YOUR NAME', 'Hold your Sports player in the circle.'],
     ['2  TURN BACK, THEN HIT', 'Return the club to the ball to strike.'],
     ['3  READ THE GREEN', 'The grid shows the green\'s slopes.'],
   ];

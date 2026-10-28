@@ -2,7 +2,7 @@ import { CLUBS, type Club } from './rules';
 import type { Box } from './howto';
 
 /** Full-size controls leave the physical swing area open during play. */
-export const CLUB_BAG_BUTTON: Box = { x: 48, y: 1590, width: 984, height: 130 };
+export const CLUB_BAG_BUTTON: Box = { x: 48, y: 1590, width: 636, height: 130 };
 export const CLUB_BAG_BACK: Box = { x: 340, y: 1680, width: 400, height: 130 };
 export const CLUB_BOXES = CLUBS.map((club, i) => ({
   club,

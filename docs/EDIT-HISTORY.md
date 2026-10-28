@@ -291,3 +291,50 @@ The person requested installation on their Board. Installed and launched the ver
 - Renamed the current multiplayer app to Tee Time while keeping its established appId/packageId and platform save-build key. Installed and launched `tee-time.webapp.zip`.
 - Removed the older solo app `73118527-b76c-581d-a357-8243da0525cf` as requested. Board Connect now lists exactly one Tee Time and no Golden Tee.
 - Updated README commands and current document titles. All 260 active tests pass; the new browser title and native multiplayer setup are verified.
+
+## October 28, 2026 — Simplify the shot interface
+
+- Request: clean up the UI because the top of the screen hides the shot direction.
+- Replaced the stacked header with one shallow strip for hole/par and distance.
+- Moved wind, player identity, strokes, and Scorecard below the course. Removed repeated coaching.
+- Combined power and swing guidance in one footer line. Hid aiming and selection controls while the ball moves.
+- Moved play notifications and penalty feedback away from the horizon. Required placement and settling cues take priority.
+- Preserved the camera, aiming guide, physics, input, round state, package identity, and shipped assets.
+- Updated the existing scorecard interaction check for its new location. Verification is recorded in the acceptance ledger.
+
+## October 28, 2026 — Install the simplified shot interface
+
+- Request: install it on the person's Board.
+- Installed and launched the exact tested package on KT’s Board.
+- Verified startup logs and the native Tee Time title screen. No source, model, identity, or package contents changed.
+
+## October 28, 2026 — Start from a circle on the player's name
+
+- Request: start by placing the physical player in a circle on the person's name, instead of open grass.
+- Added a fixed named circle on title/setup. A fresh, settled Sports placement starts the first turn directly.
+- Removed arbitrary-grass starts and the separate Tee Off tap. The piece can swing from its starting position.
+- Bound the exact circle contact and guarded retained pieces across menus, help, selection, and setup.
+- Kept the roster, saved rounds, later Ready handoffs, swing response, and simplified shot interface.
+- Updated the teaching text and automated input journeys. Final evidence is recorded in the acceptance ledger.
+
+- Final validation: 274 tests pass, browser placement/shot/handoff checks pass, and the package installs and launches on KT’s Board. Native startup visibly shows the circle labeled KT.
+
+## October 28, 2026 — Confirm every turn on the player's name
+
+- Request: use the named circle instead of Ready for every player’s turn, and remove the between-shot interstitial.
+- Keep the next golfer’s course visible with the fixed named circle and a short turn announcement.
+- Require fresh placement for every multiplayer shot, including the last unfinished golfer. Ignore the old Ready tap, retained pieces, and menu redetection.
+- Preserve result decisions, roster recovery, saved rounds, and solo next-lie play.
+- Validation and installation evidence will be recorded in the acceptance ledger.
+- Final verification: 277 automated checks pass, 13 browser checks pass, TypeScript/Vite/packaging pass, and the updated package is installed and launched on KT’s Board. Native startup is verified; physical multiplayer pacing remains open.
+
+## October 28, 2026 — Reinstall on Board
+
+- Request: install on the Board.
+- Reinstalled and launched the exact verified per-turn circle build on KT’s Board. Confirmed native startup and the named title circle. No runtime or package changes.
+
+## October 28, 2026 — Commit and push all changes
+
+- Request: commit and push all pending work.
+- Publish the simplified HUD, named-circle starts and turns, input safeguards, automated checks, documentation, and browser/native screenshots together on `codex/clear-shot-ui`.
+- Existing ignored dependencies, build outputs, install packages, and local diagnostics remain outside version control.

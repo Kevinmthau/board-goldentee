@@ -241,3 +241,38 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Run 260 passing checks and build/package from the standalone folder.
 - [x] Verify the browser Tee Time title and native multiplayer setup.
 - [x] Remove the older solo installation and verify one Tee Time entry with no Golden Tee duplicate.
+
+## Clear the shot view — October 28, 2026
+
+- [x] Replace the stacked header with one shallow hole/par and distance strip.
+- [x] Move wind, active-player identity, strokes, and Scorecard below the course.
+- [x] Combine swing feedback into one instruction and hide unavailable controls during flight and roll.
+- [x] Keep placement and settling guidance ahead of penalty feedback.
+- [x] Verify text widths with the actual game font and retain text/touch size floors.
+- [x] Complete final automated checks and package verification: 260 pass, three catalog skips, TypeScript/Vite and 18-file package pass.
+- [x] Browser: inspect tee, backswing, flight, putting, club bag, scorecard return, and multiplayer.
+- [x] Board: install and launch the verified package; inspect startup logs and the native title screen.
+- [ ] Board: verify this interface with native input.
+- [ ] Human: confirm a clear view of the flag and comfortable access to the footer controls.
+
+## Start on the player's name — October 28, 2026
+
+- [x] Show a fixed circle labeled with the roster name on title/setup, and remove grass-based automatic starts and the Tee Off button.
+- [x] Start after a fresh 300-ms hold in the circle, bind the exact piece, and keep the same position usable for swinging.
+- [x] Preserve saved continuation, including legacy solo names and missing-player recovery.
+- [x] Guard help, menu, selector, roster changes, and setup against a retained piece confirming a new start.
+- [x] Keep later multiplayer Ready handoffs explicit.
+- [x] Complete final automated tests: 274 pass, zero failures, three existing skips. TypeScript, Vite, and the 18-file package pass.
+- [x] Browser: inspect the named circle, off-target placement, slide-in, first swing, four-player setup, and handoff.
+- [x] Board: install and launch the verified package; inspect startup and the circle labeled KT.
+- [ ] Human: confirm the named target is obvious and comfortable to reach with a physical piece.
+
+## Named circles for every turn — October 28, 2026
+
+- [x] Replace normal Ready handoffs with the active golfer’s named circle on the visible course.
+- [x] Require fresh placement and exact-piece binding for every multiplayer shot, including the last unfinished golfer.
+- [x] Preserve pause guards, missing-player recovery, result decisions, and solo progression.
+- [x] Complete automated journey, renderer, text-size, build, and package checks: 277 pass, zero failures, three existing skips; 18-file package verified.
+- [x] Browser: verify course-visible handoffs, old Ready tap rejection, retained-piece/pause guards, and subsequent shots.
+- [x] Board: install and launch the verified build; inspect startup and screenshot.
+- [ ] Human: confirm physical turn placement and multiplayer pacing on Board.

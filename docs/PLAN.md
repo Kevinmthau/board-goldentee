@@ -1,7 +1,7 @@
 # Plan: Tee Time
 
 Updated: October 28, 2026.
-Status: One-to-four-player support with restored original putting controls and no green arrows is installed and launched on Board. Automated, browser, and native startup checks are recorded in the acceptance ledger. Physical multiplayer play and putting feel remain open.
+Status: Named-circle confirmation for every multiplayer turn passes automated and browser checks and is installed on KT’s Board. The course stays visible between shots. Native startup is verified; physical multiplayer pacing and putting feel remain open.
 
 ## Summary
 
@@ -12,7 +12,7 @@ The physical Sports player replaces the Bloogs ring and digital golfer. Its visi
 ## How to play
 
 1. Sit at the left short edge of Board. The course extends away from you in portrait orientation.
-2. Place any Sports player on the open grass and hold still briefly. This establishes a comfortable starting angle.
+2. Place any Sports player in the circle on your name. Hold still briefly to start and establish a comfortable starting angle.
 3. Select a club. Turn the piece back toward yourself to bring the club back.
 4. Reverse the twist and return the club to the ball to hit. A larger backswing gives more power. Use a small turn for a short putt.
 
@@ -44,7 +44,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Rematch retains the roster and detected piece, but resets the full round and unfinished gesture.
 - Saves retain the current hole, preceding scores, and live ball state. Earlier one-hole saves resume on hole 1.
 - Change setup releases the piece binding and requires confirmation before replay.
-- Tee Off confirms a detected Sports piece and enters the course even if the piece is outside the swing area. The placement cue then guides repositioning.
+- A fresh, settled Sports placement in the named circle starts the round. The first golfer can swing from that position without moving onto the course.
 
 ## Input and ownership
 
@@ -53,13 +53,13 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Keep native contacts and the canvas at 1920 × 1080. Rotate the logical 1080 × 1920 scene onto that surface.
 - Convert positions and facing into the portrait view with a rigid quarter turn, never a native-coordinate scale.
 - Wait for BoardPlatform.state.ready(). Read and refresh the roster through src/seats.ts.
-- An eligible Sports piece on the open course controls the active roster player after their turn is confirmed. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). The club-bag button begins at y1590. Its separate twelve-club selector disables swing input.
+- A Sports piece in the named start circle confirms the first roster player. Every multiplayer turn requires a fresh placement in the active golfer’s named circle. Keep the course visible and announce whose turn it is, without a between-shot interstitial. During play, an eligible piece on the open course controls the confirmed player. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). The club-bag button begins at y1590. Its separate twelve-club selector disables swing input.
 - Require a stable initial address, then calibrate to that angle. Do not require a hidden compass direction. Small orientation noise stays inside a dead band.
 - Either twist direction can wind back toward the player. Reverse and return within ten degrees of address to strike.
 - Launch the ball and hit sound when the physical turn returns to address, with no additional animated downswing delay. Placement and rotation never reframe the course or move the resting ball.
 - Turning through the angular wrap must stay continuous. A short tracking gap and pause retain the calibrated rotation zero. A fresh lie or explicit new setup can calibrate a new address.
 - Placement, translation alone, lift, redetection, and pause return cannot create a shot. The translation guard must allow the center drift seen when a person turns a Sports piece; deliberate dragging still cancels intent.
-- Explicit Tee Off confirmation binds the visible piece separately from its position. Swinging still requires legal placement and a settled address.
+- Named-circle confirmation binds the exact detected piece to the displayed roster player. Swinging still requires a legal, settled address.
 - Pause cancels unfinished intent; a committed ball keeps its state. Rebind the piece without another splash.
 - Show one finite placement splash and sound. The attached club is the only graphic that follows the physical piece, as expressly requested; no outline, halo, trail, or digital golfer follows it. Lifting removes the club.
 - Input comes through startInput/applyContacts. The host owns model activation.
@@ -68,11 +68,12 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 
 | State | Next action | Signal | Ends |
 |---|---|---|---|
-| Title/setup | Place a Sports player on open grass | Text placement cue | Piece arrives |
+| Title/setup | Place a Sports player on the named circle | Fixed circle containing the starter’s name | Settled placement starts the round |
 | Address | Hold still, select club, turn back | Attached club, selected club, distance, fixed twist cue | Backswing begins |
 | Backswing | Return the club to the ball | Club follows the physical turn, power fills | Deliberate return to address |
 | Flight | Watch the ball | Flight, landing, sound | Ball rests |
-| Next lie | Choose club and swing | Distance, club recommendation, fresh address cue | Next shot |
+| Next turn | Place the Sports player on the next golfer’s name | Course stays visible, named circle and “[name]’s turn” | Fresh settled placement enables that golfer’s swing |
+| Next solo lie | Choose club and swing | Distance, club recommendation, fresh address cue | Next shot |
 | Putting | Read the green contours, aim, turn back and return | Shorter putter, two-degree aim, power percentage | Cup capture |
 | Menu return | Return to the starting angle and settle | Fresh address cue, no automatic shot | New gesture |
 | Hole result | Next hole | Hole score and accumulated round score | Explicit choice |
@@ -271,3 +272,34 @@ Only that confirmed choice can reconnect an ephemeral guest to an old score. Aut
 - By builder: move the complete current game to `/Users/kevinthau/tee-time` with standalone Git history and the existing remote.
 - Rename the latest multiplayer installation to Tee Time while preserving its established appId and packageId. After verifying the replacement, remove the older solo Tee Time installation.
 - Keep all four-player features, twelve clubs, original putting controls, and arrow-free greens. Update the browser preview and native package from the standalone directory.
+
+## Clear the shot view — October 28, 2026
+
+- By person: simplify the interface because the top of the screen hides the shot direction.
+- By builder: replace the stacked header with one 104-pixel strip containing hole/par and distance. Keep the horizon clear.
+- Move wind, active-player identity, strokes, and Scorecard into the existing footer below the course.
+- Keep one contextual instruction. Show swing power in that instruction, and remove repeated coaching from ordinary play.
+- Hide aim and club controls while the ball moves. Put penalties and temporary messages in the footer.
+- Preserve the course camera, direction guide, physical swing, saves, player flow, and Board text/touch size floors.
+- Verify the first tee, long holes, putting, flight, multiplayer identity, club selection, and scorecard return. Record browser and hardware evidence separately.
+
+## Start on the player's name — October 28, 2026
+
+- By person: start by placing a Sports player in a circle on their name, instead of placing it on open grass.
+- By builder: show a fixed named circle at the existing swing station on the title and player setup screens.
+- The circle names the first roster player for a new round, or the active saved golfer for Continue.
+- A Sports piece held in the circle for 300 ms confirms the named player and starts play. No additional Tee Off tap is needed.
+- Bind the exact piece in the circle. Pieces elsewhere, fingers, hands, and unsupported glyphs cannot start the round.
+- The circle disappears during play. Its location already permits swinging, so no move onto grass is required after starting.
+- Returning from setup, help, player selection, or pause with a piece left in the circle cannot start automatically. The lift-and-replace cue explains how to confirm again.
+- Keep explicit Ready handoffs after the first multiplayer shot, and preserve the roster, saved scores, and all swing behavior.
+- The fixed named placement marker is requested by the person. It is not a moving-piece outline or follower.
+- Validate placement, slide-in, multiple contacts, saved continuation, pause recovery, player selection, and the full round before updating Board.
+
+## October 28, 2026 — Named circles for every turn
+
+- By person: use the circle on each player’s name for every turn instead of tapping Ready. Remove the between-shot interstitial and simply announce whose turn it is.
+- By builder: retain the next golfer’s course, flag, aiming guide, and shallow hole/distance strip. Show the fixed name circle at the swing station and “[name]’s turn” below it. Hide playing controls until placement confirms the turn.
+- By builder: require a fresh, settled Sports placement for each multiplayer shot, including when only one golfer remains unfinished. A piece left in the circle must leave and re-enter; pause or redetection cannot confirm a turn. Solo next-lie play stays continuous.
+- By builder: title/setup placement already confirms the first turn. Next-hole and multiplayer rematch choices lead to the same named-circle confirmation. Preserve explicit shared hole/round results and missing-roster recovery. Change setup remains available through the platform menu.
+- This request supersedes the earlier Ready handoff decisions. No physics, roster identity, save format, external asset, or app identity changes.

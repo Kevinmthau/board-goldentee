@@ -2,16 +2,16 @@ import { gameFont } from './runtime';
 import { drawButton, type Box } from './howto';
 import { formatToPar, scorecardFor } from './scorecard';
 import type { GolfRound } from './multiplayer';
+import { NAME_START_CIRCLE } from './name-start';
 
 // All players use the existing left-edge swing station. Leave its physical piece area clear.
 export const PLAYER_ROWS: readonly Box[] = Array.from({length: 4}, (_, index) =>
   ({x: 64, y: 440 + index * 180, width: 808, height: 140}));
 export const REMOVE_PLAYER_ROWS: readonly Box[] = PLAYER_ROWS.map(row =>
   ({x: 896, y: row.y, width: 120, height: 140}));
-export const ADD_PLAYER: Box = {x: 280, y: 1510, width: 520, height: 130};
-export const START_ROUND: Box = {x: 280, y: 1680, width: 520, height: 140};
-export const READY_BUTTON: Box = {x: 280, y: 1500, width: 520, height: 140};
-export const PLAYERS_BUTTON: Box = {x: 280, y: 1280, width: 520, height: 130};
+export const ADD_PLAYER: Box = {x: 280, y: 1680, width: 520, height: 140};
+export const RESTORE_PLAYERS_BUTTON: Box = {x: 280, y: 1500, width: 520, height: 140};
+export const PLAYERS_BUTTON: Box = {x: 556, y: 1100, width: 476, height: 130};
 export const MULTIPLAYER_SCORECARD_BOX = {x: 48, y: 600, width: 984, height: 685} as const;
 
 const colors = ['#E5BA69', '#8FC9D1', '#C9AFDE', '#C2D58B'];
@@ -36,8 +36,24 @@ function backdrop(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = '#12392C'; ctx.fillRect(0, 0, 1080, 1920);
 }
 
-export function drawMultiplayerSetup(ctx: CanvasRenderingContext2D, players: readonly {name: string}[],
-  canStart: boolean, restoring = false): void {
+/** A fixed placement destination, removed when the player confirms; never follows a piece. */
+function drawNameCircle(ctx: CanvasRenderingContext2D, name: string): void {
+  const {x, y, radius} = NAME_START_CIRCLE;
+  ctx.fillStyle = '#244F3B'; ctx.strokeStyle = '#F1D58B'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  text(ctx, boundedPlayerName(ctx, name, 232), x, y, 48, '#FFF8E4');
+}
+
+export function drawNameStart(ctx: CanvasRenderingContext2D, name: string, restoring = false, needsReentry = false): void {
+  ctx.save();
+  drawNameCircle(ctx, name);
+  const instruction = needsReentry ? (restoring ? 'LIFT AND REPLACE TO CONTINUE' : 'LIFT AND REPLACE TO TEE OFF') :
+    restoring ? 'PLACE ON YOUR NAME TO CONTINUE' : 'PLACE ON YOUR NAME TO TEE OFF';
+  text(ctx, instruction, 540, 1580, 48, '#F1D58B');
+  ctx.restore();
+}
+
+export function drawMultiplayerSetup(ctx: CanvasRenderingContext2D, players: readonly {name: string}[], needsReentry = false): void {
   ctx.save(); backdrop(ctx);
   text(ctx, 'YOUR TEE TIME', 540, 200, 72, '#F1D58B');
   text(ctx, `${players.length} OF 4 PLAYERS  /  9 HOLES`, 540, 300, 48, '#E2EACF');
@@ -52,14 +68,10 @@ export function drawMultiplayerSetup(ctx: CanvasRenderingContext2D, players: rea
     if (i > 0) drawButton(ctx, REMOVE_PLAYER_ROWS[i], '−');
   }
   if (!players.length) text(ctx, 'Choose a player to begin', 540, 550, 48, '#E2EACF');
-  text(ctx, 'TAKE TURNS FROM THIS END', 540, 1215, 48, '#F1D58B');
-  text(ctx, 'Lift the piece before swapping it.', 540, 1280, 40, '#E2EACF');
+  if (players.length) drawNameStart(ctx, players[0].name, false, needsReentry);
   if (players.length < 4) drawButton(ctx, ADD_PLAYER, players.length ? 'ADD PLAYER' : 'CHOOSE PLAYER');
-  else text(ctx, 'FOUR PLAYERS SELECTED', 540, 1575, 40, '#E2EACF');
-  ctx.save(); if (!canStart) ctx.globalAlpha = 0.45;
-  drawButton(ctx, START_ROUND, restoring ? 'CONTINUE ROUND' : 'TEE OFF'); ctx.restore();
-  text(ctx, canStart ? 'Lowest total wins. Ties share the win.' : 'Place a Sports piece to tee off.',
-    540, 1840, 40, '#E2EACF');
+  else text(ctx, 'FOUR PLAYERS SELECTED', 540, 1750, 40, '#E2EACF');
+  text(ctx, 'Lowest total wins. Ties share the win.', 540, 1840, 40, '#E2EACF');
   ctx.restore();
 }
 
@@ -126,29 +138,35 @@ export function drawMultiplayerScorecard(ctx: CanvasRenderingContext2D, round: G
   ctx.restore();
 }
 
-export function drawTurnHandoff(ctx: CanvasRenderingContext2D, round: GolfRound, missing: readonly string[] = []): void {
+export function drawTurnHandoff(ctx: CanvasRenderingContext2D, round: GolfRound,
+  missing: readonly string[] = [], needsReentry = false): void {
   const golfer = round.players[round.activeIndex];
   if (!golfer) return;
+  if (!missing.length) {
+    ctx.save();
+    drawNameCircle(ctx, golfer.name);
+    ctx.font = gameFont(48);
+    const suffix = '’s turn';
+    const name = boundedPlayerName(ctx, golfer.name, 984 - ctx.measureText(suffix).width);
+    text(ctx, `${name}${suffix}`, 540, 1580, 48, '#F1D58B');
+    if (needsReentry) text(ctx, 'LIFT AND REPLACE YOUR PLAYER', 540, 1660, 48, '#E2EACF');
+    ctx.restore();
+    return;
+  }
   ctx.save(); backdrop(ctx);
-  text(ctx, missing.length ? 'ROUND PAUSED' : 'NEXT GOLFER', 540, 220, 64, '#F1D58B');
+  text(ctx, 'ROUND PAUSED', 540, 220, 64, '#F1D58B');
   text(ctx, boundedPlayerName(ctx, golfer.name, 940, 64), 540, 370, 64);
   text(ctx, `PLAYER ${round.activeIndex + 1}  /  HOLE ${golfer.game.holeIndex + 1}`, 540, 480, 48, '#E2EACF');
   text(ctx, `STROKES ${golfer.game.strokes}`, 540, 565, 48, colors[round.activeIndex]);
-  if (missing.length) {
-    text(ctx, 'Choose this player to rejoin the round.', 540, 710, 48, '#F1D58B');
-    text(ctx, boundedPlayerName(ctx, missing.join(', '), 940), 540, 790, 48, '#E2EACF');
-  } else {
-    text(ctx, 'Take the piece at this end.', 540, 710, 48, '#E2EACF');
-    text(ctx, 'Tap READY, then hold it still.', 540, 790, 48, '#E2EACF');
-  }
+  text(ctx, 'Choose this player to rejoin the round.', 540, 710, 48, '#F1D58B');
+  text(ctx, boundedPlayerName(ctx, missing.join(', '), 940), 540, 790, 48, '#E2EACF');
   for (let i = 0; i < round.players.length; i++) {
     const p = round.players[i], top = 930 + i * 78;
     text(ctx, `${i + 1}  ${boundedPlayerName(ctx, p.name, 570)}`, 80, top, 48, colors[i], 'left');
     text(ctx, p.game.phase === 'limit' ? 'LIMIT' : p.game.phase === 'holed' ? 'HOLED' : `${p.game.strokes} SHOT${p.game.strokes === 1 ? '' : 'S'}`,
       1000, top, 48, '#E2EACF', 'right');
   }
-  if (!missing.length) drawButton(ctx, READY_BUTTON, 'READY');
-  else drawButton(ctx, READY_BUTTON, 'RESTORE PLAYERS');
+  drawButton(ctx, RESTORE_PLAYERS_BUTTON, 'RESTORE PLAYERS');
   text(ctx, 'One shot each. Finished players wait.', 540, 1840, 40, '#E2EACF');
   ctx.restore();
 }

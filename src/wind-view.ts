@@ -8,11 +8,10 @@ export function windOnScreen(wind: {x: number; z: number}, cameraHeading: number
 
 export function drawWind(ctx: CanvasRenderingContext2D, wind: {x: number; z: number}, cameraHeading: number) {
   ctx.save();
-  ctx.fillStyle = 'rgba(12,45,36,0.9)'; ctx.fillRect(48, 248, 624, 120);
   const speed = Math.hypot(wind.x, wind.z);
   ctx.strokeStyle = '#F1D58B'; ctx.fillStyle = '#F1D58B'; ctx.lineWidth = 6;
   const direction = windOnScreen(wind, cameraHeading);
-  ctx.save(); ctx.translate(112, 308);
+  ctx.save(); ctx.translate(750, 1838);
   if (speed > 0) {
     ctx.rotate(Math.atan2(direction.y, direction.x));
     ctx.beginPath(); ctx.moveTo(-32, 0); ctx.lineTo(30, 0); ctx.stroke();
@@ -22,6 +21,7 @@ export function drawWind(ctx: CanvasRenderingContext2D, wind: {x: number; z: num
   }
   ctx.restore();
   ctx.font = gameFont(48); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#FFF8E4';
-  ctx.fillText(speed < 0.5 ? 'WIND CALM' : `WIND ${Math.round(speed)} MPH`, 178, 308);
+  ctx.fillText('WIND', 714, 1780);
+  ctx.fillText(speed < 0.5 ? 'CALM' : `${Math.round(speed)} MPH`, 806, 1840);
   ctx.restore();
 }

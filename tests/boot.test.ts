@@ -12,11 +12,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Board, BoardContactPhase, BoardContactType, BoardPlayerType, type BoardContact, type BoardPlayer } from "@board.fun/web-sdk";
 import { createGame, distanceToCup, terrainAt, CLUBS, HOLES, strike, stepGame, holeFor, roundStrokes, type GolfState } from "../src/rules";
-import { toNative } from "../src/portrait";
+import { toNative, toPortrait } from "../src/portrait";
 import { TURN_SWING } from "../src/piece-control";
 import { CLUB_BAG_BUTTON, CLUB_BOXES } from '../src/club-picker';
-import { type SavedRound, type GolfRound } from '../src/multiplayer';
-import { PLAYER_ROWS, REMOVE_PLAYER_ROWS, ADD_PLAYER, START_ROUND, READY_BUTTON } from '../src/multiplayer-view';
+import { createRound, saveRound, type SavedRound, type GolfRound } from '../src/multiplayer';
+import { PLAYER_ROWS, REMOVE_PLAYER_ROWS, ADD_PLAYER, RESTORE_PLAYERS_BUTTON } from '../src/multiplayer-view';
 
 // ---- the stand-in browser --------------------------------------------------------------------------
 type Call = { name: string; args: unknown[] };
@@ -172,7 +172,10 @@ function firstMove(x: number, y: number) {
   const id = nextId++;
   onBatch!([piece(x, y, BoardContactPhase.Began, id)]);
   run(0.5);
-  const answered = frames.slice(before).some(f => distance(frames[before - 1], f) > idle + 0.15)
+  const placed = toPortrait({x, y});
+  const arrivalSplash = frames.slice(before).some(f => f.some(c => c.name === 'arc' &&
+    c.args[0] === placed.x && c.args[1] === placed.y && Number(c.args[2]) > 0));
+  const answered = arrivalSplash || frames.slice(before).some(f => distance(frames[before - 1], f) > idle + 0.15)
     || texts(before) !== texts(before - 30, before);
   onBatch!([piece(x + 200, y, BoardContactPhase.Moved, id)]);
   run(1);
@@ -275,10 +278,46 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
 
   assert.ok(firstMove(960, 540), "a piece put down at the centre got no visible answer");
   assert.deepEqual(errors, [], "the first move threw");
-  assert.ok(firstMove(535, 540), "a piece put down at the portrait player's short edge got no visible answer");
-  assert.deepEqual(errors, [], "the second move threw");
-  assert.match(gameLabel, /play.*2 strokes.*ready/, "the first legal Sports placement adopts the pending round");
-  assert.equal(activeGame().ball.z, 82, "adopting a saved round preserves its lie");
+  assert.match(gameLabel, /^title/, "placing a piece on arbitrary grass cannot start the round");
+  assert.deepEqual(latestRun, restoredRun, "off-target placement leaves the pending save untouched");
+  assert.ok(texts(frames.length - 1).includes(profile.name), 'the start target identifies the roster player');
+
+  await t.test('the named circle ignores fingers and held pieces across help and pause, then binds the exact placed piece', () => {
+    tap(540, 1385); run(0.5);
+    assert.match(gameLabel, /^title/, 'a finger cannot claim the named placement target');
+    const handId = nextId++;
+    const hand = {...piece(535, 540, BoardContactPhase.Began, handId), type: BoardContactType.Hand};
+    onBatch!([hand]); run(0.5);
+    assert.match(gameLabel, /^title/, 'a Hand contact with a Sports glyph ID cannot start');
+    onBatch!([{...hand, phase: BoardContactPhase.Ended}]); run(0.1);
+
+    const strayId = nextId++;
+    onBatch!([piece(960, 540, BoardContactPhase.Began, strayId)]); run(0.5);
+    assert.match(gameLabel, /^title/, 'a live Sports piece elsewhere cannot start');
+    let targetId = nextId++;
+    onBatch!([piece(535, 540, BoardContactPhase.Began, targetId)]); run(0.1);
+    assert.match(gameLabel, /^title/, 'a brief pass through the circle is not a start');
+    menuAction('help'); run(0.4); tap(540, 1785); run(0.6);
+    assert.match(gameLabel, /^title/, 'returning from help cannot confirm a piece left in the circle');
+    onBatch!([piece(700, 540, BoardContactPhase.Moved, targetId)]); run(0.4);
+    onBatch!([piece(535, 540, BoardContactPhase.Moved, targetId)]); run(0.1);
+    for (const pause of pauses) pause(); run(0.4);
+    for (const resume of resumes) resume();
+    targetId = nextId++;
+    onBatch!([piece(535, 540, BoardContactPhase.Began, targetId)]); run(0.7);
+    assert.match(gameLabel, /^title/, 'pause redetection under a new contact ID cannot confirm the circle');
+    onBatch!([piece(700, 540, BoardContactPhase.Moved, targetId)]); run(0.4);
+    // Reintroduce the stray after the pause epoch cleared the sensor snapshot.
+    onBatch!([piece(960, 540, BoardContactPhase.Began, strayId)]); run(0.1);
+    onBatch!([piece(535, 540, BoardContactPhase.Moved, targetId)]); run(0.8);
+    assert.match(gameLabel, /play.*2 strokes.*ready/, 'a fresh settled entry adopts the pending round');
+    assert.equal(activeGame().ball.z, 82, 'adopting a saved round preserves its lie');
+    onBatch!([piece(535, 540, BoardContactPhase.Moved, targetId, 60)]); run(0.1);
+    assert.match(gameLabel, /backswing/, 'the piece in the named circle owns the swing, despite the other live piece');
+    assert.equal(activeGame().strokes, 2, 'placement and backswing cannot commit a shot');
+    onBatch!([piece(535, 540, BoardContactPhase.Ended, targetId, 60),
+      piece(960, 540, BoardContactPhase.Ended, strayId)]); run(0.5);
+  });
 
   // Reproduce the native contact that was previously sensed but silently rejected.
   run(3); // finish the camera's previous saved-lie transition before touching the piece
@@ -425,7 +464,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
   assert.equal(platform.state.progress.get("nineHoleBestRoundStrokes:p1"), undefined, "one hole cannot count as a complete round best");
 
   const beforeCard = structuredClone(activeGame());
-  tap(864, 308); run(0.3);
+  tap(870, 1655); run(0.3);
   assert.match(gameLabel, /^scorecard/);
   assert.match(texts(frames.length - 1), /SCORECARD/);
   run(1);
@@ -500,23 +539,18 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
   await new Promise(resolve => setTimeout(resolve, 0));
   run(0.1);
   assert.match(gameLabel, /^setup/, "canceling the player selector leaves setup in place");
+  run(0.6);
+  assert.match(gameLabel, /^setup/, 'returning to setup and canceling selection cannot reuse a piece left on the name');
   const outside = toNative({x: 540, y: 1500});
-  onBatch!([piece(outside.x, outside.y, BoardContactPhase.Moved, id)]); run(0.1);
-  assert.ok(frames[frames.length - 1].some(c => c.name === 'fillText' && c.args[0] === 'TEE OFF'),
-    "setup offers Tee Off for the detected Sports piece outside the swing area");
-  tap(START_ROUND.x + 260, START_ROUND.y + 70); // A visible Tee Off button must confirm the retained piece at its current position.
-  run(0.5);
-  assert.match(gameLabel, /play.*0 strokes.*ready/, "the visible Tee Off button starts play without replaying the startup two-stroke snapshot");
-  assert.ok(frames[frames.length - 1].some(c => c.name === 'fillText' && c.args[0] === 'MOVE ONTO THE OPEN GRASS'),
-    "play guides the confirmed piece into the swing area");
+  onBatch!([piece(outside.x, outside.y, BoardContactPhase.Moved, id)]); run(0.5);
+  assert.match(gameLabel, /^setup/, 'a detected piece outside the name circle does not start');
   for (const angle of [60, 90, 60, 0]) {
     onBatch!([piece(outside.x, outside.y, BoardContactPhase.Moved, id, angle)]); run(0.1);
-    assert.match(gameLabel, /play.*0 strokes.*ready.*Sports player present.*settling/,
-      "turning outside the swing area cannot arm or strike");
+    assert.match(gameLabel, /^setup/, 'turning outside the name circle cannot bypass startup');
   }
-  onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.5);
+  onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.8);
   assert.match(gameLabel, /play.*0 strokes.*ready.*Sports player present.*ready/,
-    "sliding the same retained piece onto the grass permits a new swing without lifting");
+    'sliding onto the named circle starts fresh play without a finger confirmation or lift');
   assert.equal(activeGame().strokes, 0);
   assert.equal(activeGame().ball.z, 0);
   assert.deepEqual(errors, [], "the complete golf journey threw");
@@ -537,15 +571,17 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.match(gameLabel, /^setup/);
   };
   const beginGroup = (count: number) => {
-    onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.1);
-    tapBox(START_ROUND); run(0.7);
-    assert.match(gameLabel, new RegExp(`^handoff.*${count} players.*Player 1`));
+    onBatch!([piece(700, 540, BoardContactPhase.Moved, id)]); run(0.4);
+    onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.8);
+    assert.match(gameLabel, new RegExp(`^play.*${count} players.*Player 1`), 'named placement confirms the first golfer');
     assert.equal(latestRound().players.length, count);
     assert.deepEqual(latestRound().players.map(p => p.game.strokes), Array(count).fill(0));
   };
-  const readyGroupTurn = () => {
-    tapBox(READY_BUTTON); run(0.7);
-    assert.match(gameLabel, /^play.*Sports player present.*ready/, 'Ready accepts the retained piece without a lift');
+  const placeForTurn = () => {
+    onBatch!([piece(700, 540, BoardContactPhase.Moved, id)]); run(0.4);
+    assert.match(gameLabel, /^handoff/, 'placing on grass outside the named circle cannot confirm a turn');
+    onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.8);
+    assert.match(gameLabel, /^play.*Sports player present.*ready/, 'a fresh settled entry in the named circle starts the turn');
   };
   let pendingGroupSave: SavedRound | null = null;
   let originalGroupRoster: BoardPlayer[] = [];
@@ -553,16 +589,39 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     for (const count of [2, 3]) {
       menuAction('setup'); run(0.1);
       await addGuest(count); beginGroup(count);
-      const waiting = structuredClone(latestRound());
-      swing(90); run(2);
-      assert.deepEqual(latestRound(), waiting, 'a physical swing cannot bypass the initial Ready decision');
-      readyGroupTurn(); swing(90); run(15);
+      assert.equal(latestRound().activeIndex, 0, 'the named starter owns the first turn');
+      swing(90); run(15);
       assert.equal(latestRound().activeIndex, 1);
       assert.deepEqual(latestRound().players.map(p => p.game.strokes), [1, ...Array(count - 1).fill(0)]);
       assert.match(gameLabel, /^handoff.*Player 2: Lee/);
       const nextTurn = structuredClone(latestRound());
       run(3);
-      assert.deepEqual(latestRound(), nextTurn, 'handoff never auto-advances');
+      assert.match(gameLabel, /^handoff/, 'a retained piece cannot start the next golfer’s turn');
+      assert.deepEqual(latestRound(), nextTurn, 'waiting for placement never advances a ball or score');
+      const selectors = selectorCalls.length;
+      tap(540, 1570); run(0.7);
+      assert.match(gameLabel, /^handoff/, 'the former Ready finger target cannot begin a turn');
+      assert.equal(selectorCalls.length, selectors, 'a normal turn does not open the roster selector');
+      assert.deepEqual(latestRound(), nextTurn);
+      assert.ok(texts(frames.length - 1).includes('Lee’s turn'), 'the course announces whose turn it is');
+      assert.ok(!texts(frames.length - 1).includes('READY'), 'normal turns have no Ready button');
+      recordGeometry = true;
+      run(1 / 60);
+      const handoffFrame = frames.at(-1)!;
+      recordGeometry = false;
+      assert.ok(handoffFrame.some(c => c.name === 'drawImage'), 'the course remains drawn while waiting for a player');
+      assert.ok(!handoffFrame.some(c => c.name === 'fillRect' &&
+        c.args[0] === 0 && c.args[1] === 0 && c.args[2] === 1080 && c.args[3] === 1920),
+      'normal turn placement cannot cover the course with an interstitial');
+      onBatch!([piece(700, 540, BoardContactPhase.Moved, id)]); run(0.7);
+      assert.match(gameLabel, /^handoff/, 'an off-circle Sports piece cannot begin a turn');
+      tap(540, 1385); run(0.7);
+      assert.match(gameLabel, /^handoff/, 'a finger on the named circle cannot begin a turn');
+      const wrongId = nextId++;
+      onBatch!([{...piece(535, 540, BoardContactPhase.Began, wrongId), glyphId: 9}]); run(0.7);
+      assert.match(gameLabel, /^handoff/, 'a non-player glyph cannot claim the named circle');
+      onBatch!([{...piece(535, 540, BoardContactPhase.Ended, wrongId), glyphId: 9}]); run(0.1);
+      assert.deepEqual(latestRound(), nextTurn, 'rejected placements keep the next player’s lie');
     }
   });
 
@@ -575,6 +634,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.equal(selectorCalls.length, selectors, 'four players cannot open a fifth add selector');
     beginGroup(4);
     let checkedPause = false;
+    let checkedMovingRoster = false;
     let shotCount = 0;
     while (!latestRound().players.every(p => p.game.phase === 'limit' || p.game.phase === 'holed')) {
       frames.length = 0;
@@ -596,17 +656,31 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
           assert.match(gameLabel, /^handoff.*Player 2: Lee/);
           assert.deepEqual(latestRound(), before, 'piece redetection does not confirm another person’s turn');
         }
-        readyGroupTurn();
+        placeForTurn();
       }
       // Tiny real putts from the tee finish by the normal ten-stroke limit.
       // This exercises input, settlement, rotation, and the final shared result cheaply.
-      chooseClub('PUTTER'); swing(40); run(12);
+      chooseClub('PUTTER'); swing(40);
+      if (!checkedMovingRoster) {
+        checkedMovingRoster = true;
+        assert.ok(['flight', 'rolling'].includes(activeGame().phase), 'the roster interrupt starts during a committed shot');
+        const moving = structuredClone(latestRound());
+        changeRoster(originalGroupRoster.slice(0, 3)); run(1);
+        assert.match(gameLabel, /^handoff/);
+        assert.ok(texts(frames.length - 1).includes('ROUND PAUSED'));
+        assert.deepEqual(latestRound(), moving, 'a missing participant freezes the committed ball without discarding its stroke');
+        changeRoster(originalGroupRoster); run(0.1);
+        assert.match(gameLabel, /^play/, 'restoring the roster resumes the committed shot');
+        assert.equal(latestRound().players[activeIndex].game.strokes, moving.players[activeIndex].game.strokes);
+      }
+      run(12);
       const after = latestRound();
       assert.equal(after.players[activeIndex].game.strokes, before.players[activeIndex].game.strokes + 1, 'exactly the active player receives the stroke');
       for (let i = 0; i < 4; i++) if (i !== activeIndex) assert.deepEqual(after.players[i].game, before.players[i].game, `player ${i + 1} keeps their own lie, penalties, and score`);
       assert.ok(++shotCount <= 40, 'four ten-stroke limits bound the hole');
     }
     assert.ok(checkedPause, 'the group journey exercised a pending-turn pause');
+    assert.ok(checkedMovingRoster, 'the group journey exercised roster recovery during a committed shot');
     assert.equal(shotCount, 40);
     assert.match(gameLabel, /^over/);
     assert.deepEqual(latestRound().players.map(p => p.game.strokes), [10, 10, 10, 10]);
@@ -642,9 +716,8 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     tapBox(REMOVE_PLAYER_ROWS[2]); run(0.2);
     assert.equal(sessionPlayers.length, 3);
     assert.deepEqual(latestRound(), oldRound, 'removing a participant from setup preserves the previous saved scores');
-    onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.1);
-    tapBox(START_ROUND); run(0.7);
-    assert.match(gameLabel, /^handoff.*3 players/);
+    beginGroup(3);
+    assert.match(gameLabel, /^play.*3 players/);
     assert.deepEqual(latestRound().players.map(p => p.name), ['Player 1', 'Jo', 'Alex']);
     assert.ok(latestRound().players.every(p => p.game.strokes === 0 && p.game.completedStrokes.length === 0), 'an explicit new setup starts every participant from zero');
     assert.equal(latestRound().players[1].playerId, 'replacement-lee');
@@ -660,14 +733,15 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.equal(savedRuns.length, savesBeforeSwitch, 'profile transitions cannot write the old round into a new owner’s slot');
     loadSnapshot = structuredClone(pendingGroupSave);
     for (const restore of restoreListeners) restore(); run(0.2);
-    assert.ok(texts(frames.length - 1).includes('CONTINUE ROUND'), 'a late multiplayer save becomes available from the title');
+    assert.match(texts(frames.length - 1), /CONTINUE/, 'a late multiplayer save becomes available from the title');
+    assert.ok(texts(frames.length - 1).includes('Sam'), 'the continuation target identifies the saved active golfer');
     onBatch!([piece(535, 540, BoardContactPhase.Ended, id)]); run(1.2);
     id = nextId++;
     onBatch!([piece(535, 540, BoardContactPhase.Began, id)]); run(0.7);
     assert.match(gameLabel, /^handoff.*4 players.*Player 3: Sam/, 'placing a piece restores multiplayer directly, without losing Continue behind setup');
     assert.deepEqual(latestRun, pendingGroupSave, 'restore keeps every saved ball, score, and the next player');
     assert.ok(texts(frames.length - 1).includes('ROUND PAUSED'), 'missing roster participants stop play');
-    tapBox(READY_BUTTON); await settleSelector();
+    tapBox(RESTORE_PLAYERS_BUTTON); await settleSelector();
     assert.equal(selectorCalls.at(-1), undefined, 'missing players use Add while seats are available');
     assert.match(gameLabel, /^handoff/);
     assert.deepEqual(latestRun, pendingGroupSave, 'canceling restoration cannot discard or alter the saved round');
@@ -677,13 +751,13 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
       changeRoster(originalGroupRoster);
       return true;
     };
-    tapBox(READY_BUTTON); await settleSelector();
+    tapBox(RESTORE_PLAYERS_BUTTON); await settleSelector();
     assert.match(gameLabel, /^handoff.*Player 3: Sam/);
-    assert.ok(texts(frames.length - 1).includes('READY'), 'restored participants unlock the explicit Ready decision');
+    assert.ok(texts(frames.length - 1).includes('Sam’s turn'), 'restored participants return to the named placement on the course');
     assert.deepEqual(latestRun, pendingGroupSave, 'rejoining participants retain their own saved progress');
-    readyGroupTurn();
+    placeForTurn();
     assert.match(gameLabel, /^play.*Player 3: Sam/);
-    assert.deepEqual(latestRun, pendingGroupSave, 'Ready preserves the restored lie without inventing a stroke');
+    assert.deepEqual(latestRun, pendingGroupSave, 'named placement preserves the restored lie without inventing a stroke');
   });
   await t.test('explicit guest restoration accepts a new session ID without transferring scores during ordinary replacement', async () => {
     const saved = structuredClone(latestRun as SavedRound);
@@ -694,7 +768,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.match(gameLabel, /^handoff.*Player 3: Sam/);
     assert.ok(texts(frames.length - 1).includes('Player 2: Lee'), 'restoration identifies the specific missing guest');
     const beforeCancel = structuredClone(latestRun);
-    tapBox(READY_BUTTON); await settleSelector();
+    tapBox(RESTORE_PLAYERS_BUTTON); await settleSelector();
     assert.equal(selectorCalls.at(-1), undefined);
     assert.deepEqual(latestRun, beforeCancel, 'canceling the guest selector changes neither identity nor game state');
     assert.equal(sessionPlayers.length, 3);
@@ -703,7 +777,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
       changeRoster([...sessionPlayers, {...priorGuest, sessionId: 22}]);
       return true;
     };
-    tapBox(READY_BUTTON); await settleSelector();
+    tapBox(RESTORE_PLAYERS_BUTTON); await settleSelector();
     const restored = structuredClone(latestRun as SavedRound);
     const expected = structuredClone(saved);
     expected.round.players[1].sessionId = 22;
@@ -711,8 +785,8 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.equal(latestRound().activeIndex, 2, 'restoring another participant preserves the pending Sam turn');
     assert.equal(latestRound().players[1].game.strokes, 1);
     assert.match(gameLabel, /^handoff.*Player 3: Sam/);
-    assert.ok(texts(frames.length - 1).includes('READY'));
-    readyGroupTurn();
+    assert.ok(texts(frames.length - 1).includes('Sam’s turn'));
+    placeForTurn();
     assert.deepEqual(latestRun, restored, 'confirming play keeps the restored score and ball');
 
     menuAction('setup'); run(0.1);
@@ -725,6 +799,36 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     tapBox(PLAYER_ROWS[index]); await settleSelector();
     assert.match(gameLabel, /^setup/);
     assert.deepEqual(latestRun, restored, 'the ordinary Change player selector cannot reassign saved guest scores to another guest in the same seat');
+  });
+  await t.test('the last unfinished multiplayer golfer must place again for each shot', () => {
+    const finalRoster = [profile, {playerId: '', sessionId: 25, name: 'Finisher', type: BoardPlayerType.Guest, avatarId: '0'}];
+    const finishingRound = createRound(finalRoster);
+    const finished = finishingRound.players[0].game;
+    finished.strokes = 1; finished.phase = 'holed';
+    finished.ball = {...finished.ball, ...holeFor(finished).flag, y: 0, vx: 0, vz: 0, vy: 0};
+    finishingRound.activeIndex = 1;
+    loadSnapshot = undefined;
+    changeRoster([{...profile, playerId: 'other-profile', sessionId: 99, name: 'Other profile'}]); run(0.2);
+    changeRoster(finalRoster); run(0.2);
+    loadSnapshot = saveRound(finishingRound, profile.playerId);
+    for (const restore of restoreListeners) restore(); run(0.2);
+    assert.match(gameLabel, /^title/);
+    assert.ok(texts(frames.length - 1).includes('Finisher'));
+    onBatch!([piece(700, 540, BoardContactPhase.Moved, id)]); run(0.4);
+    onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.8);
+    assert.match(gameLabel, /^play.*Player 2: Finisher/, 'saved continuation confirms this golfer directly from the title circle');
+    for (const expectedStrokes of [1, 2]) {
+      chooseClub('PUTTER'); swing(40); run(12);
+      assert.equal(latestRound().activeIndex, 1, 'finished golfers are skipped');
+      assert.equal(activeGame().strokes, expectedStrokes);
+      assert.match(gameLabel, /^handoff.*Player 2: Finisher/, 'the same remaining golfer gets a fresh placement turn');
+      const settled = structuredClone(latestRound());
+      run(1); tap(540, 1570); run(0.7);
+      assert.match(gameLabel, /^handoff/, 'a held piece or finger cannot start the next shot');
+      assert.deepEqual(latestRound(), settled, 'waiting for reentry keeps both golfers’ progress');
+      assert.deepEqual(latestRound().players[0].game, finished, 'the finished golfer keeps the completed hole');
+      if (expectedStrokes === 1) placeForTurn();
+    }
   });
   assert.deepEqual(errors, [], 'the complete one-to-four-player journey threw');
 });
