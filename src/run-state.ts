@@ -1,4 +1,4 @@
-import { createGame, HOLES, PHYSICS_STEP_SECONDS, terrainAt, type GolfState } from './rules';
+import { createGame, HOLES, MAX_WIND_MPH, PHYSICS_STEP_SECONDS, terrainAt, windSpeed, type GolfState } from './rules';
 export interface SavedRun { version: 1; playerId: string; game: GolfState }
 /** Saves contain game state, never physical contacts or an unfinished swing. */
 export function readRun(value: unknown, playerId: string): GolfState | null {
@@ -30,6 +30,11 @@ export function readRun(value: unknown, playerId: string): GolfState | null {
   // Earlier version-1 runs did not retain a fractional physics step.
   const stepRemainder = g.stepRemainder === undefined ? 0 : g.stepRemainder;
   if (!Number.isFinite(stepRemainder) || stepRemainder < 0 || stepRemainder >= PHYSICS_STEP_SECONDS) return null;
+  // Keep pre-wind shots and lies unchanged for the rest of their current hole.
+  // Explicit advancement selects the next hole's normal wind.
+  const wind = g.wind === undefined ? { x: 0, z: 0 } : g.wind;
+  if (!wind || typeof wind !== 'object' || !Number.isFinite(wind.x) || !Number.isFinite(wind.z) ||
+      windSpeed(wind) > MAX_WIND_MPH) return null;
   return {...createGame(holeIndex, completedStrokes),...g,holeIndex,completedStrokes:[...completedStrokes],
-    ball:{...g.ball},lastSafe:{...g.lastSafe},penaltyKind,stepRemainder};
+    ball:{...g.ball},lastSafe:{...g.lastSafe},wind:{x:wind.x,z:wind.z},penaltyKind,stepRemainder};
 }

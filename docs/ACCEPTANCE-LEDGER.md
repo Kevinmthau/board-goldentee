@@ -254,3 +254,45 @@
 - Validation: the preceding 209-test pass, three catalog-only skips, package verification, and native installation cover the unchanged game code.
 - Final review: no actionable blockers; whitespace checks pass. The new screenshot contains no player information, and generated output remains excluded.
 - Publication target: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the established game-subtree workflow.
+
+## October 28, 2026 — Wind, traditional scorecard, and nine holes
+
+- Asked for: wind, a normal golf scorecard, and six additional holes for nine holes totaling par 36.
+- Delivered: a 3,200-yard coastal course, steady per-hole winds, and a classic card with yards, pars, strokes, scoring marks, and totals.
+- Source: wind accelerates airborne balls only. The fixed-step integrator preserves frame timing. Camera-relative arrows show where the wind blows.
+- Source: scorecards record completed holes only. Future scores stay blank. Next hole, Rematch, and Change setup remain explicit choices.
+- Compatibility: old runs preserve scores and ball positions, with calm wind for the current hole. Advancing selects the next hole's wind.
+- Compatibility: old three-hole personal bests retain their storage key. Nine-hole bests use a separate key. App/package IDs and the Sports model are unchanged.
+- Automated: 228 tests total, 225 passed, zero failures, three existing catalog-only skips.
+- Integration: simulated piece contacts complete all nine holes, with wind, pauses, scoring, menu/card navigation, and rematch.
+- Solver: every hole has a safe route using recommended clubs in calm conditions and default winds. Geometry tests validate tees, cups, hazards, and bounds.
+- Review: independent source review found an overlay Back loop. Flattened return targets and added regressions for both help/card switching sequences. Re-review found no blockers.
+- Browser: actual pointer twists completed a full 7-iron shot in 4 mph crosswind, then a short putt for birdie. Next hole retained the piece and advanced correctly.
+- Browser: live scorecard opens and returns to the same lie. Actual-font measurements fit hole names, yardages, title, wind labels, and scorecard text.
+- Browser fixtures: validated saves showed all six new tee layouts, a partial three-hole card, the final par-36 card, and rematch. These fixtures do not claim a human full-round playthrough.
+- Visual correction: result controls now sit below the default physical piece position, avoiding overlap with its browser proxy and expected footprint.
+- Evidence: `docs/screenshots/nine-hole-wind.png`, `nine-hole-birdie.png`, `nine-hole-live-card.png`, `nine-hole-partial-scorecard.png`, `nine-hole-final-scorecard.png`, and the six new-hole tee screenshots.
+- Browser runtime: no page errors in the tested journeys. Native framebuffer stays 1920×1080; screenshots show the player's rotated portrait view.
+- Build: TypeScript, Vite, and packaging pass. The 18-file package contains `index-C7Uk5TDl.js`, platform build `9e3c9a12371901a4`.
+- Package SHA-256: `5385c8353d8f2409850cc3dfe6f843f4eff9d918b9d7ab7c65a0a16a00cf3924`.
+- Board: NOT TESTED for this revision. No hardware installation was requested or performed. Earlier native evidence does not validate these changes.
+- Human: wind judgment, physical control clearance, hazard readability, and nine-hole pacing remain open.
+
+## October 28, 2026 — Install the nine-hole build on Board
+
+- Asked for: install the new version on the person's Board.
+- Device: Board Connect reported `ready: true`, with web-app installation, launch, logs, and screenshot capabilities.
+- Installed and launched app `e087aaee-903b-43a2-b2b9-bbd4189601b2` successfully. Existing app/package IDs and saves were retained; no uninstall or data deletion occurred.
+- Package: the verified 18-file build, SHA-256 `5385c8353d8f2409850cc3dfe6f843f4eff9d918b9d7ab7c65a0a16a00cf3924`, bundle `index-C7Uk5TDl.js`.
+- Artifact inspection confirms the six additional holes, wind, scorecard, nine-hole/par-36 text, unchanged Sports model, and absence of browser simulation or QA fixtures.
+- Native startup: platform state became ready at 16:30:50 in the device log. Only the previously observed optional favicon and game-font.json 404 warnings appeared in the new startup segment.
+- Native screenshot: `docs/screenshots/nine-hole-board-installed.png` confirms the game title, nine-hole message, par 36, and Sports placement cue.
+- Evidence limit: installation, launch, platform startup, and title rendering are verified. Native wind, scorecard interaction, full-round play, and human feel remain open.
+
+## October 28, 2026 — Nine-hole publication handover
+
+- Asked for: commit and push all changes.
+- Scope: nine holes/par 36, steady wind, the traditional scorecard, compatible saves, tests, documentation, and verification screenshots.
+- Validation: the preceding 225 passing tests, three catalog-only skips, browser journeys, package checks, and native installation cover the unchanged game code.
+- Destination: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the established golf-subtree publishing workflow.
+- Final review: whitespace checks pass. Generated builds, local QA scripts, logs, dependencies, and the install package remain excluded.

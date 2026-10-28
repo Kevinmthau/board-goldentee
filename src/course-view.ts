@@ -129,6 +129,9 @@ export class CourseView {
     this.aim = Number.isFinite(angleRadians) ? angleRadians : 0;
   }
 
+  /** HUD directions follow the visible course as the camera turns toward a new lie. */
+  get heading(): number { return this.camera.yaw; }
+
   /** Club selection changes the address pose without depending on the recommended club. */
   setPutting(putting: boolean): void { this.selectedPutter = putting; }
 

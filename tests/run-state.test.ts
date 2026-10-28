@@ -1,10 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,strike,stepGame,PHYSICS_STEP_SECONDS} from '../src/rules';
+import {createGame,strike,stepGame,PHYSICS_STEP_SECONDS,HOLES} from '../src/rules';
 import {readRun} from '../src/run-state';
 test('a saved shot resumes its ball and score without sharing mutable state',()=>{
  const game=createGame();strike(game,{power:.8,angle:.1});stepGame(game,.4);
- const loaded=readRun({version:1,playerId:'p1',game},'p1');assert.deepEqual(loaded,game);assert.notEqual(loaded?.ball,game.ball);
+ const loaded=readRun({version:1,playerId:'p1',game},'p1');assert.deepEqual(loaded,game);assert.notEqual(loaded?.ball,game.ball);assert.notEqual(loaded?.wind,game.wind);
 });
 test('a different profile or malformed save cannot replace a run',()=>{
  const game=createGame();assert.equal(readRun({version:1,playerId:'p1',game},'p2'),null);
@@ -83,7 +83,7 @@ test('par-4 and par-5 saves retain prior scores and resume the correct shot',()=
 test('invalid course progress and unsafe recovery locations cannot replace a run',()=>{
  const valid=createGame(2,[3,4]);
  for(const changes of [
-  {holeIndex:-1},{holeIndex:3},{holeIndex:1.5},{holeIndex:null},
+  {holeIndex:-1},{holeIndex:HOLES.length},{holeIndex:1.5},{holeIndex:null},
   {completedStrokes:[]},{completedStrokes:[3]},{completedStrokes:[3,4,5]},
   {completedStrokes:[0,4]},{completedStrokes:[3,11]},{completedStrokes:[3,4.5]},
   {completedStrokes:'3,4'},{completedStrokes:undefined},{penaltyKind:'bunker'},

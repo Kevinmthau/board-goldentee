@@ -1,10 +1,10 @@
 # Golden Tee — Board web prototype
 
-A solo three-hole coastal golf round controlled with any physical Sports player. Play a 150-yard par 3, a 340-yard par 4, and a 510-yard par 5. Built from the Board Studio starter with TypeScript, Vite, and Canvas 2D. Play in portrait orientation from Board’s left short edge.
+A solo nine-hole coastal golf round controlled with any physical Sports player. Play 3,200 yards across nine holes totaling par 36, with steady wind and a traditional golf scorecard. Built from the Board Studio starter with TypeScript, Vite, and Canvas 2D. Play in portrait orientation from Board’s left short edge.
 
 Place the piece on the open grass and hold it still to set your starting angle. Turn it back toward yourself, then return the club to the ball to hit. Backswing sets power; a quarter turn (90 degrees) reaches 100%. Use a smaller turn for a putt. Select a driver, 5 iron, 7 iron, 9 iron, wedge, or putter, and use the arrows to aim. The club appears only with the piece, attached to its center front and sized to its footprint. The camera and resting ball stay fixed while you place or turn the piece; the camera follows the ball after a hit.
 
-![Portrait Sports golf](docs/screenshots/three-hole-par5-carry.png)
+![Portrait Sports golf](docs/screenshots/nine-hole-wind.png)
 
 ## Play in a browser
 
@@ -21,7 +21,9 @@ Open the local address Vite prints. The browser toolbar is a simulator and does 
 2. Drag sideways across the simulated player to bring the club back.
 3. Grab it again and drag the other way until the club returns to the ball. A larger backswing gives more power.
 4. Select a club and use the aim arrows before the next swing. A full 7 iron reaches the first green.
-5. Choose **Next hole** after each of the first two holes. The last scorecard totals the round against par 12.
+5. Choose **Next hole** after each hole. The final scorecard totals all nine holes against par 36.
+
+The wind arrow points where the wind blows, at the displayed mph. Wind affects airborne shots; putts and grounded rolls are unchanged. Open **Scorecard** between shots or through the platform menu to see hole-by-hole yards, par, strokes, and totals.
 
 Water costs one penalty stroke and returns the ball to its previous lie. Carry it in the air or use a shorter club to lay up. Sand reduces carry and roll. Each hole has a ten-stroke limit.
 
@@ -55,12 +57,10 @@ The native system menu provides How to swing, Restart round, and Change setup. T
 ## Design and evidence
 
 See [the plan](docs/PLAN.md), [build checklist](docs/BUILD-CHECKLIST.md), and [acceptance ledger](docs/ACCEPTANCE-LEDGER.md).
-The three-hole revision passed 208 automated checks, with three catalog-only checks skipped. Tests cover the full round, hazards, clubs, saves, and rematch. It retains the correctness fixes for slow returns, consistent shot timing, and pause/resume. Earlier browser evidence includes a two-stroke birdie after those fixes; current browser checks cover the new courses, water penalties, driver carry, scorecards, and rematch.
+The nine-hole revision passes 225 automated checks, with three catalog-only checks skipped. Tests complete a full round through simulated contacts, including wind, saves, scorecards, progression, and rematch. TypeScript, Vite, and the 18-file Board package pass.
 
-The three-hole package is installed and launched on KT's Board. Native rendering confirms all six club controls. The new holes and larger driver still require a physical playtest. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
+Browser checks include a pointer-driven windy iron and putt for birdie, scorecard navigation, all six new tee layouts, partial/final cards, and rematch. Result fixtures are documented separately from actual played shots. This revision is installed and launched on Board, with its nine-hole/par-36 title verified. Physical play remains unverified.
 
-The October 28 control revision reaches full power at 90 degrees instead of 150. All 208 automated checks and packaging pass, with three catalog-only checks skipped. This package is installed and launched on KT's Board. The shorter twist still requires a physical playtest.
-
-The subsequent Tee Off correction is also installed. Tee Off now enters play with a detected Sports piece outside the swing area. Follow the placement cue, move that piece onto the open grass, and hold still before swinging. The revised suite passes 209 checks, with three catalog-only skips.
+Older saves keep their scores and ball state. A save without wind continues its current hole in calm conditions, then gains wind on the next hole. Earlier three-hole personal bests remain stored separately from nine-hole records. The 90-degree full-power twist and responsive Tee Off confirmation are retained.
 
 Artwork, the Board SDK, font, platform layer, and piece-set assets have separate provenance and terms; see the [asset manifest](docs/ASSET-MANIFEST.md). Keep the vendored SDK and package lockfile so a fresh checkout uses the tested SDK version.

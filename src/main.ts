@@ -13,8 +13,10 @@ import { drawPieceClub } from './piece-club';
 import { drawPortrait, toPortrait, portraitFacing, isPiecePlacement } from './portrait';
 import { playCue } from './sound';
 import { readRun } from './run-state';
+import { drawScorecard } from './scorecard';
+import { drawWind } from './wind-view';
 
-type Mode = 'title' | 'setup' | 'play' | 'over' | 'howto';
+type Mode = 'title' | 'setup' | 'play' | 'over' | 'howto' | 'scorecard';
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const ctx = createSurface(canvas);
 const view = new CourseView();
@@ -31,6 +33,7 @@ let selectedClub: Club = clubFor(game);
 let aim = 0;
 let mode: Mode = 'title';
 let helpReturn: Mode = 'title';
+let scorecardReturn: Mode = 'play';
 let player: BoardPlayer | undefined;
 let booted = false;
 let paused = false;
@@ -47,11 +50,12 @@ let best: number | null = null;
 let setupConfirm = false;
 let taps: {x: number; y: number}[] = [];
 let lastLabel = '';
+const SCORECARD: Box = {x: 696, y: 248, width: 336, height: 120};
 const HELP: Box = {x: 340, y: 1120, width: 400, height: 120};
 const PLAYER: Box = {x: 280, y: 1050, width: 520, height: 130};
 const CONTINUE: Box = {x: 280, y: 1250, width: 520, height: 130};
-const REMATCH: Box = {x: 280, y: 1270, width: 520, height: 140};
-const SETUP: Box = {x: 280, y: 1460, width: 520, height: 140};
+const REMATCH: Box = {x: 280, y: 1500, width: 520, height: 140};
+const SETUP: Box = {x: 280, y: 1680, width: 520, height: 140};
 const AIM_LEFT: Box = {x: 64, y: 1360, width: 160, height: 130};
 const AIM_RIGHT: Box = {x: 856, y: 1360, width: 160, height: 130};
 const CLUB_BOXES = CLUBS.map((club, i) => ({club, box: {x: 48 + (i % 3) * 336, y: 1590 + Math.floor(i / 3) * 150, width: 312, height: 130}}));
@@ -74,7 +78,7 @@ function readSaved() {
   refreshBest();
 }
 function refreshBest() {
-  const n = player ? BoardPlatform.state.progress.get<number>(`bestRoundStrokes:${player.playerId}`) : undefined;
+  const n = player ? BoardPlatform.state.progress.get<number>(`nineHoleBestRoundStrokes:${player.playerId}`) : undefined;
   best = typeof n === 'number' && n > 0 ? n : null;
 }
 function freshLie() { selectedClub = clubFor(game); aim = 0; view.setAim(aim); controller.resetStroke(); }
@@ -92,7 +96,8 @@ function nextHole() {
   freshLie(); view.reset(game); mode = 'play'; toast = ''; persist();
 }
 function changeSetup() { controller.release(); controller.setEnabled(false); mode = 'setup'; setupConfirm = true; syncRoster(); }
-function showHelp() { if (mode === 'howto') return; helpReturn = mode; mode = 'howto'; controller.setEnabled(false); controller.resetStroke(); }
+function showScorecard() { if (mode === 'scorecard' || !roundActive) return; scorecardReturn = mode === 'howto' ? helpReturn : mode; mode = 'scorecard'; controller.setEnabled(false); controller.resetStroke(); }
+function showHelp() { if (mode === 'howto') return; helpReturn = mode === 'scorecard' ? scorecardReturn : mode; mode = 'howto'; controller.setEnabled(false); controller.resetStroke(); }
 function leaveHelp() { mode = helpReturn; controller.resetStroke(); if (mode === 'title' && controller.piece && player) startRound(!!saved); }
 async function changePlayer() {
   if (selectorOpen()) return;
@@ -152,20 +157,17 @@ function result(now: number) {
   text(final ? 'ROUND COMPLETE' : `HOLE ${game.holeIndex + 1} COMPLETE`, 540, 260, 48, '#C5D5B7', 'center');
   text(final ? score : game.phase === 'holed' ? scoreLabel(game.strokes, hole.par).toUpperCase() : 'STROKE LIMIT', 540, 390, 72, '#F1D58B', 'center');
   text(final ? `${total} STROKES  /  PAR ${par}` : `${game.strokes} STROKES  /  PAR ${hole.par}`, 540, 500, 56, '#FFFFFF', 'center');
-  text('HOLE', 90, 660, 48, '#C5D5B7');
-  text('PAR', 720, 660, 48, '#C5D5B7', 'center');
-  text('SCORE', 975, 660, 48, '#C5D5B7', 'right');
-  for (let i = 0; i < HOLES.length; i++) {
-    const y = 760 + i * 105;
-    const strokes = i < game.holeIndex ? game.completedStrokes[i] : i === game.holeIndex ? game.strokes : null;
-    text(`${i + 1}  ${HOLES[i].name.toUpperCase()}`, 90, y, 48, strokes === null ? '#A4B5A2' : '#FFFFFF');
-    text(String(HOLES[i].par), 720, y, 48, '#EEDA9E', 'center');
-    text(strokes === null ? '—' : String(strokes), 975, y, 48, '#FFFFFF', 'right');
-  }
-  if (!final) text(`ROUND SO FAR  ${total}  /  ${score}`, 540, 1110, 48, '#F1D58B', 'center');
+  drawScorecard(ctx, game);
   drawButton(ctx, REMATCH, final ? 'REMATCH' : 'NEXT HOLE'); drawButton(ctx, SETUP, 'CHANGE SETUP');
-  if (best !== null) text(`BEST ROUND  ${best}`, 540, 1740, 48, '#C5D5B7', 'center');
+  if (best !== null) text(`BEST ROUND  ${best}`, 540, 1250, 48, '#C5D5B7', 'center');
   if (now - resultAt < 2400) particles.draw(ctx);
+}
+function roundCard() {
+  ctx.fillStyle = 'rgba(9,42,37,0.96)'; ctx.fillRect(0, 0, 1080, 1920);
+  text('ROUND SCORECARD', 540, 320, 64, '#F1D58B', 'center');
+  text('9 HOLES  /  PAR 36', 540, 440, 48, '#FFFFFF', 'center');
+  drawScorecard(ctx, game);
+  drawButton(ctx, REMATCH, 'BACK');
 }
 function drawPlay(now: number) {
   ctx.fillStyle = 'rgba(12,45,36,0.82)'; ctx.fillRect(48, 48, 984, 184);
@@ -175,7 +177,10 @@ function drawPlay(now: number) {
   const amount = putting ? distance * 3 : distance;
   text(`${amount < 10 ? amount.toFixed(1) : Math.round(amount)} ${putting ? 'FT' : 'YD'}`, 1004, 102, 64, '#FFF8E4', 'right');
   text(`STROKES ${game.strokes}`, 1004, 174, 48, '#EEDA9E', 'right');
+  drawWind(ctx, game.wind, view.heading);
   const ready = game.phase === 'ready';
+  ctx.save(); if (!ready) ctx.globalAlpha = 0.55;
+  drawButton(ctx, SCORECARD, 'SCORECARD'); ctx.restore();
   for (const {club, box} of CLUB_BOXES) {
     ctx.save(); if (!ready) ctx.globalAlpha = 0.55;
     drawButton(ctx, box, `${club.label} ${club.id === 'PUTTER' ? club.distanceYards * 3 : club.distanceYards}${club.id === 'PUTTER' ? 'FT' : 'YD'}`);
@@ -194,7 +199,7 @@ function drawPlay(now: number) {
   if (ready && swing.windup > 0) {
     text(`${Math.round(swing.power * 100)}%`, 790, 1423, 48, '#F1D58B', 'right');
   }
-  if (game.penalty && (!toast || now >= toastUntil)) text(game.penaltyKind === 'water' ? 'WATER  +1  /  REPLAY SHOT' : 'OUT OF BOUNDS  +1', 540, 300, 48, '#F4DA94', 'center');
+  if (game.penalty && (!toast || now >= toastUntil)) text(game.penaltyKind === 'water' ? 'WATER  +1  /  REPLAY SHOT' : 'OUT OF BOUNDS  +1', 540, 425, 48, '#F4DA94', 'center');
 }
 function draw(now: number, dt: number) {
   drawPortrait(ctx);
@@ -210,8 +215,8 @@ function draw(now: number, dt: number) {
     ctx.fillStyle = 'rgba(6,37,35,0.3)'; ctx.fillRect(0, 0, 1080, 1920);
     text('SEABREEZE LINKS', 540, 220, 40, '#E8E0BE', 'center');
     drawTitle(ctx, {x: 48, y: 320, width: 984, height: 460});
-    text('THREE HOLES. EVERY SHOT COUNTS.', 540, 900, 48, '#F4DA94', 'center');
-    text('PAR 3 + PAR 4 + PAR 5', 540, 990, 48, '#FFFFFF', 'center');
+    text('NINE HOLES. EVERY SHOT COUNTS.', 540, 900, 48, '#F4DA94', 'center');
+    text('COASTAL GOLF  /  PAR 36', 540, 990, 48, '#FFFFFF', 'center');
     text('Place any Sports player to tee off', 540, 1840, 48, '#FFFFFF', 'center');
     drawButton(ctx, HELP, 'HOW TO PLAY');
     if (saved) drawButton(ctx, CONTINUE, 'CONTINUE ROUND');
@@ -219,16 +224,17 @@ function draw(now: number, dt: number) {
     ctx.fillStyle = 'rgba(6,37,35,0.6)'; ctx.fillRect(0, 0, 1080, 1920);
     text('YOUR TEE TIME', 540, 360, 80, '#F4DA94', 'center');
     if (player) nameLines(player.name, 540, 520, 900);
-    text('SOLO  /  3 HOLES  /  PAR 12', 540, 800, 48, '#FFFFFF', 'center');
+    text('SOLO  /  9 HOLES  /  PAR 36', 540, 800, 48, '#FFFFFF', 'center');
     text(player ? 'Place your player on the open grass' : 'Choose a player to begin', 540, 930, 48, '#FFFFFF', 'center');
     if (!controller.observedPiece) text('Place the player on the open grass', 540, 1840, 48, '#FFFFFF', 'center');
     drawButton(ctx, PLAYER, player ? 'CHANGE PLAYER' : 'CHOOSE PLAYER');
     if (player && (controller.piece || controller.observedPiece)) drawButton(ctx, CONTINUE, 'TEE OFF');
   } else if (mode === 'howto') drawHowTo(ctx, now);
   else if (mode === 'over') result(now);
+  else if (mode === 'scorecard') roundCard();
   else drawPlay(now);
   if (toast && now < toastUntil) {
-    ctx.fillStyle = 'rgba(7,35,31,0.94)'; ctx.fillRect(48, 265, 984, 110); text(toast, 540, 320, 48, '#FFF8E4', 'center');
+    ctx.fillStyle = 'rgba(7,35,31,0.94)'; ctx.fillRect(48, 390, 984, 110); text(toast, 540, 445, 48, '#FFF8E4', 'center');
   }
   splashes.draw(ctx);
 }
@@ -242,10 +248,13 @@ function update(now: number, dt: number) {
     if (tapped(PLAYER)) { playCue('button'); void changePlayer(); }
     else if (tapped(CONTINUE) && player && (controller.piece || controller.confirmPlacement())) { playCue('button'); startRound(!!saved); }
   } else if (mode === 'howto' && tapped(BACK_BUTTON)) { playCue('button'); leaveHelp(); }
-  else if (mode === 'over') {
+  else if (mode === 'scorecard') {
+    if (tapped(REMATCH)) { playCue('button'); mode = scorecardReturn; controller.resetStroke(); }
+  } else if (mode === 'over') {
     if (tapped(REMATCH)) { playCue('button'); if (isFinalHole(game)) startRound(); else nextHole(); }
     else if (tapped(SETUP)) { playCue('button'); changeSetup(); }
   } else if (mode === 'play' && game.phase === 'ready') {
+    if (tapped(SCORECARD)) { playCue('button'); showScorecard(); }
     for (const {club, box} of CLUB_BOXES) if (tapped(box)) { selectedClub = club.id; controller.resetStroke(); playCue('button'); }
     if (tapped(AIM_LEFT) || tapped(AIM_RIGHT)) {
       aim = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, aim + (tapped(AIM_LEFT) ? -1 : 1) * Math.PI / 90));
@@ -268,7 +277,7 @@ function update(now: number, dt: number) {
 
         } else playCue('penalty');
         if (isFinalHole(game) && (best === null || roundStrokes(game) < best)) {
-          best = roundStrokes(game); BoardPlatform.state.progress.set(`bestRoundStrokes:${player!.playerId}`, best);
+          best = roundStrokes(game); BoardPlatform.state.progress.set(`nineHoleBestRoundStrokes:${player!.playerId}`, best);
         }
       }
       persist();
@@ -276,7 +285,7 @@ function update(now: number, dt: number) {
     if (now - saveAt > 400) { persist(); saveAt = now; }
   }
   splashes.update(dt); particles.update(dt); taps = [];
-  const label = `${mode}. Solo golf. Hole ${game.holeIndex + 1} of ${HOLES.length}, par ${holeFor(game).par}. ${game.strokes} strokes. ${game.phase}. ${distanceToCup(game).toFixed(1)} yards to cup. ${selectedClub}. ${controller.piece ? 'Sports player present' : 'Place Sports player on the open grass'}. ${controller.swing.stage}. ${Math.round(controller.swing.power * 100)}% power.`;
+  const label = `${mode}. Solo golf. Hole ${game.holeIndex + 1} of ${HOLES.length}, par ${holeFor(game).par}. ${game.strokes} strokes. ${game.phase}. ${distanceToCup(game).toFixed(1)} yards to cup. ${selectedClub}. ${controller.piece ? 'Sports player present' : 'Place Sports player on the open grass'}. ${controller.swing.stage}. ${Math.round(controller.swing.power * 100)}% power. Wind ${Math.round(Math.hypot(game.wind.x, game.wind.z))} mph.`;
   if (label !== lastLabel) { canvas.setAttribute('aria-label', label); lastLabel = label; }
 }
 function scheduleFrame() {
@@ -304,8 +313,8 @@ void (async () => {
   await BoardPlatform.state.ready(); syncRoster(); readSaved();
   Board.session.onPlayersChanged(syncRoster);
   BoardPlatform.state.onRestore(() => { syncRoster(); readSaved(); });
-  BoardPlatform.menu.setButtons([{id: 'help', title: 'How to swing', icon: 'square'}, {id: 'restart', title: 'Restart round', icon: 'circular_arrow'}, {id: 'setup', title: 'Change setup', icon: 'left_arrow'}]);
-  BoardPlatform.menu.onButton(id => { if (id === 'help') showHelp(); if (id === 'restart') startRound(); if (id === 'setup') changeSetup(); });
+  BoardPlatform.menu.setButtons([{id: 'scorecard', title: 'Scorecard', icon: 'square'}, {id: 'help', title: 'How to swing', icon: 'square'}, {id: 'restart', title: 'Restart round', icon: 'circular_arrow'}, {id: 'setup', title: 'Change setup', icon: 'left_arrow'}]);
+  BoardPlatform.menu.onButton(id => { if (id === 'scorecard') showScorecard(); if (id === 'help') showHelp(); if (id === 'restart') startRound(); if (id === 'setup') changeSetup(); });
   [footprints] = await Promise.all([loadPieceFootprints(), loadTitleFont(), loadSportsArt()]);
   view.reset(game); booted = true; scheduleFrame();
 })();

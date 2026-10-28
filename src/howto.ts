@@ -38,7 +38,7 @@ export function drawHowTo(ctx: CanvasRenderingContext2D, now: number) {
   const steps = [
     ['1  PLACE YOUR PLAYER', 'Hold still on the open grass.'],
     ['2  TURN BACK, THEN HIT', 'Return the club to the ball to strike.'],
-    ['3  CHOOSE YOUR CLUB', 'Carry water or lay up. Water costs +1.'],
+    ['3  CHOOSE CLUB AND AIM', 'Wind bends flight. Putts stay true.'],
   ];
   for (let i = 0; i < steps.length; i++) {
     const y = 320 + i * 440;
@@ -62,8 +62,9 @@ export function drawHowTo(ctx: CanvasRenderingContext2D, now: number) {
     } else {
       drawButton(ctx, {x: 170, y: y + 128, width: 330, height: 120}, 'DRIVER');
       drawButton(ctx, {x: 580, y: y + 128, width: 330, height: 120}, '5 IRON');
-      text(ctx, 'Three holes. Six clubs. Use arrows to aim.', 540, y + 290, 40, '#B1C5A4');
+      text(ctx, 'Use arrows to aim. Water costs +1.', 540, y + 290, 40, '#B1C5A4');
     }
   }
+  text(ctx, 'NINE HOLES  /  PAR 36  /  SIX CLUBS', 540, 1650, 40, '#F1D899');
   drawButton(ctx, BACK_BUTTON, 'BACK'); ctx.restore();
 }

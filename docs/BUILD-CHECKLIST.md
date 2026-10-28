@@ -159,3 +159,21 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Run the complete suite (209 passed, three catalog-only skips) and package the correction.
 - [x] Install and launch the corrected build on Board; inspect native startup and the title screen.
 - [ ] Human: tap Tee Off and confirm the placement-to-swing flow on Board.
+
+## Nine holes, wind, and traditional scorecard — October 28, 2026
+
+- [x] Preserve the original three holes and add six distinct holes for 3,200 yards and par 36.
+- [x] Verify safe tees, greens, hazards, recommended-club routes, and explicit progression through all nine holes.
+- [x] Add steady per-hole wind, mph display, and a camera-relative arrow pointing where it blows.
+- [x] Verify crosswind, headwind, tailwind, frame timing, saved wind, and unchanged putting/rolling behavior.
+- [x] Preserve older saves and three-hole scores; keep nine-hole personal bests separate.
+- [x] Add a traditional nine-hole scorecard with yards, pars, strokes, scoring marks, totals, and blank future holes.
+- [x] Open the scorecard during play and through the menu; return to the same lie, including after switching help/card views.
+- [x] Move result controls below the default piece position and verify font widths at actual rendering sizes.
+- [x] Final automated checks: 225 passed, zero failures, three existing catalog-only skips.
+- [x] TypeScript, Vite, and the final 18-file Board package pass with unchanged identity and Sports model.
+- [x] Browser: first windy iron, putt, birdie, next hole, live scorecard, partial/final results, and rematch.
+- [x] Browser: inspect all six new tee layouts using validated save fixtures.
+- [x] Board: install and launch this revision; verify the native nine-hole/par-36 title screen.
+- [ ] Board: verify wind, scorecard interaction, nine-hole progression, saves, audio, and performance with native input.
+- [ ] Human: assess wind strength, hazard readability, physical control clearance, and nine-hole pacing.

@@ -195,3 +195,27 @@ The person requested installation on their Board. Installed and launched the ver
 - Person requested committing and pushing all changes.
 - Include the shorter full-power twist, Tee Off correction, regression tests, documentation, and native installation screenshot.
 - Publish the game subtree to the existing `golden-tee` remote's `main` branch. Generated build output, dependencies, and install packages remain ignored.
+
+## October 28, 2026 — Wind, normal scorecard, and nine holes
+
+- Request: add wind, replace scoring with a traditional golf scorecard, and add six holes for nine holes totaling par 36.
+- The initial worktree lacked the golf directory. Advanced this clean checkout to the latest control-fix revision on `codex/golf-wind-nine-holes`.
+- Preserve the shorter full-power twist, Tee Off correction, original three holes, saved scores, package identity, and Sports model.
+- Implement steady airborne wind, a camera-relative direction indicator, six coastal holes, and a nine-column scorecard.
+- Keep prior three-hole best scores separate from nine-hole totals. Verification follows in the acceptance ledger.
+- Completed 225 passing automated checks, browser shot/result/card verification, independent review, and the 18-file package.
+- Moved result controls below the default piece and fixed a return loop when switching between help and scorecard.
+- This revision has not been installed on Board. Native and human checks remain open.
+
+## October 28, 2026 — Install the nine-hole version
+
+- Request: install the new version on the person's Board.
+- Installed and launched the previously verified package through Board Connect, preserving app identity and saved data.
+- Confirmed platform startup and the native nine-hole/par-36 title screen. Physical play remains unverified.
+
+## October 28, 2026 — Commit and publish the nine-hole version
+
+- Request: commit and push all changes.
+- Include the nine-hole/par-36 course, wind, scorecard, save compatibility, regressions, documentation, and browser/native screenshots.
+- Publish the game subtree to the existing `golden-tee` remote's `main` branch.
+- The verified installed game code is unchanged. Build output, dependencies, scratch logs, and the install ZIP remain ignored.

@@ -5,7 +5,7 @@ Status: Shorter full-power twist and the Tee Off correction pass automated check
 
 ## Summary
 
-Golden Tee is a solo coastal golf game with three holes and a total par of 12. Finish the round in the fewest strokes.
+Golden Tee is a solo coastal golf game with nine holes and a total par of 36. Finish the round in the fewest strokes.
 Use the Board Studio TypeScript, Vite, and Canvas 2D starter with the vendored SDK.
 The physical Sports player replaces the Bloogs ring and digital golfer. Its visible club is attached to the center front of the real piece and exists only while that piece is detected.
 
@@ -23,7 +23,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 
 ## Scope and rules
 
-- A three-hole round: the original 150-yard par 3, a 340-yard par 4, and a 510-yard par 5. Total par is 12.
+- A nine-hole round totaling par 36. Preserve the original three holes and add six distinct coastal holes.
 - The new holes include water hazards and multiple bunkers. Fairways provide room to lay up or carry the water.
 - Club buttons offer driver, 5 iron, 7 iron, 9 iron, wedge, and putter. Recommendations follow the current lie and distance.
 - Approximate full-shot distances are 250, 185, 150, 125, and 60 yards; a full putter rolls 111 feet on the green.
@@ -33,7 +33,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Each deliberate shot adds one stroke. Out of bounds or grounded water contact adds one penalty and returns to the last safe lie.
 - Airborne balls can carry water. Sand reduces flight distance from the lie and absorbs the landing and roll.
 - The cup captures a slowly rolling ball. Each hole has a ten-stroke limit.
-- Each completed hole waits for an explicit Next hole choice. The last result shows all three scores and the round total.
+- Each completed hole waits for an explicit Next hole choice. Every result shows a traditional scorecard with all nine holes, yardage, par, strokes, and totals.
 - The final result waits for one shared Rematch or Change setup choice.
 - Rematch retains the roster and detected piece, but resets the full round and unfinished gesture.
 - Saves retain the current hole, preceding scores, and live ball state. Earlier one-hole saves resume on hole 1.
@@ -70,7 +70,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 | Putting | Make a small backswing | Shorter attached putter and distance in feet | Cup capture |
 | Menu return | Return to the starting angle and settle | Fresh address cue, no automatic shot | New gesture |
 | Hole result | Next hole | Hole score and accumulated round score | Explicit choice |
-| Round result | Rematch or Change setup | Three-hole scorecard and total relative to par 12 | Explicit choice |
+| Round result | Rematch or Change setup | Nine-hole scorecard and total relative to par 36 | Explicit choice |
 
 The optional help demonstrates the same twist used in play. It also explains the club selector.
 Browser controls simulate the same Sports contacts, including orientation, and show a browser-only piece proxy.
@@ -162,3 +162,39 @@ The visible Tee Off button now confirms the observed Sports piece, including one
 The same piece can move into the swing area and settle without lifting. Outside placement cannot arm or strike.
 Regression tests reproduced the silent rejection before the fix. The updated suite passes 209 tests, with three catalog-only skips.
 The corrected 18-file package is installed and launched on Board. Native startup is verified; a person's Tee Off tap remains to be confirmed.
+
+## Nine holes, wind, and scorecard — October 28, 2026
+
+- By person: add wind, a normal golf scorecard, and six more holes for nine holes totaling par 36.
+- By builder: keep a steady wind per hole. Show speed in mph and an arrow pointing where it blows, relative to the camera.
+- By builder: wind changes airborne travel. Putts and grounded roll are unchanged. The wind stays fixed through shots and pauses.
+- By builder: use a traditional horizontal scorecard with hole numbers, yards, par, strokes, and a total. Future holes remain blank.
+- By builder: total only completed holes and compare with their par. Use circles for under-par scores and squares for over-par scores.
+- By builder: retain the ten-stroke cap and explicit Next hole, Rematch, and Change setup choices. No automatic transitions.
+- By builder: preserve older scores and ball states. Saves without wind continue the current hole in calm conditions, then use the next hole's wind.
+- By builder: keep earlier three-hole personal bests in their existing storage key. Record nine-hole bests separately.
+- Retain the 90-degree full-power twist and Tee Off correction from the latest published control revision.
+- Verify all nine holes, total par, wind and pause consistency, old saves, scorecard totals, and a complete simulated round.
+- Browser and native results will be recorded separately. Physical wind judgment and nine-hole pacing require a person on Board.
+
+### Course card
+
+| Hole | Name | Yards | Par |
+|---|---|---:|---:|
+| 1 | Seabreeze | 150 | 3 |
+| 2 | Lagoon Bend | 340 | 4 |
+| 3 | Pelican Reach | 510 | 5 |
+| 4 | Dune Crossing | 375 | 4 |
+| 5 | Gull Cove | 175 | 3 |
+| 6 | Heron Marsh | 530 | 5 |
+| 7 | Cypress Turn | 390 | 4 |
+| 8 | Breakwater | 320 | 4 |
+| 9 | Lighthouse | 410 | 4 |
+| Total | | 3,200 | 36 |
+
+The scorecard button opens the card between shots. The platform menu also provides Scorecard.
+Back returns to the same lie. Switching between help and the card retains the underlying screen.
+Result and Back controls sit below the default physical piece position. Scoring text remains outside its footprint.
+All nine holes have tested playable routes in calm conditions and their default wind.
+A browser pointer playthrough completed the first hole in two strokes and advanced to hole two.
+The complete nine-hole journey uses simulated contacts; it does not establish physical feel or full-round human pacing.

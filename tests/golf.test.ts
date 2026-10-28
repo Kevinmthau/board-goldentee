@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CLUBS, clubFor, createGame, createSwing, distanceToCup, HOLE, resetSwing, sampleSwing, scoreLabel,
+import { CLUBS, clubFor, createGame as createWindyGame, createSwing, distanceToCup, HOLE, resetSwing, sampleSwing, scoreLabel,
   stepGame, strike, terrainAt, type GolfState, type SwingState } from "../src/rules";
+
+// Calibrate clubs and terrain in still air; wind behavior has its own regression suite.
+function createGame(holeIndex = 0, completedStrokes: readonly number[] = []): GolfState {
+  return { ...createWindyGame(holeIndex, completedStrokes), wind: { x: 0, z: 0 } };
+}
 
 function finish(game: GolfState, dt = 1 / 60) {
   for (let i = 0; i < 2000 && (game.phase === "flight" || game.phase === "rolling"); i++) stepGame(game, dt);

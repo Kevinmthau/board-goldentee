@@ -124,7 +124,8 @@ test('each hole renders its own hazards, cup and cached terrain when advancing a
   const harness = renderHarness();
   try {
     const view = new CourseView();
-    let previousFlagY = Infinity;
+    let previousFlagY: number | null = null;
+    let previousDistance = 0;
     for (let index = 0; index < HOLES.length; index++) {
       const game = createGame(index);
       const priorPaints = harness.terrainPaints, priorWater = harness.waterSurfaces, priorSand = harness.sandSurfaces;
@@ -133,8 +134,14 @@ test('each hole renders its own hazards, cup and cached terrain when advancing a
       assert.equal(harness.terrainPaints, priorPaints + 1, 'a new hole invalidates the terrain cache');
       assert.equal(harness.waterSurfaces - priorWater, HOLES[index].water.length, 'every water hazard has a visible blue surface');
       assert.equal(harness.sandSurfaces - priorSand, HOLES[index].bunkers.length, 'every bunker has a visible sand surface');
-      assert.ok(harness.flagTip && harness.flagTip.y < previousFlagY, 'the cup uses the current, progressively longer hole');
-      previousFlagY = harness.flagTip!.y;
+      assert.ok(harness.flagTip && Number.isFinite(harness.flagTip.y), 'every hole has a visible cup flag');
+      const distance = Math.hypot(HOLES[index].flag.x - game.ball.x, HOLES[index].flag.z - game.ball.z);
+      if (previousFlagY !== null) {
+        assert.equal(Math.sign(harness.flagTip.y - previousFlagY), -Math.sign(distance - previousDistance),
+          'the cup moves nearer or farther with this hole, including a short par 3 after a par 4');
+      }
+      previousFlagY = harness.flagTip.y;
+      previousDistance = distance;
       for (let frame = 0; frame < 20; frame++) harness.draw(view, game);
       assert.equal(harness.terrainPaints, priorPaints + 1, 'the resting course remains cached');
     }
@@ -147,7 +154,7 @@ test('long-hole approach and putting views render finite geometry from the actua
   try {
     for (let index = 1; index < HOLES.length; index++) {
       const hole = HOLES[index], game = createGame(index), view = new CourseView();
-      for (const position of [{x: 0, z: 235}, {x: hole.flag.x + 3, z: hole.flag.z - 8}]) {
+      for (const position of [{x: 0, z: Math.min(235, hole.flag.z - 45)}, {x: hole.flag.x + 3, z: hole.flag.z - 8}]) {
         game.ball.x = position.x; game.ball.z = position.z;
         view.reset(game);
         const ball = harness.draw(view, game);

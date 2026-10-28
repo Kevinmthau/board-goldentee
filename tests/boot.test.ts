@@ -11,13 +11,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Board, BoardContactPhase, BoardContactType, BoardPlayerType, type BoardContact } from "@board.fun/web-sdk";
-import { createGame, distanceToCup, terrainAt, CLUBS, strike, stepGame, holeFor, roundStrokes, type GolfState } from "../src/rules";
+import { createGame, distanceToCup, terrainAt, CLUBS, HOLES, strike, stepGame, holeFor, roundStrokes, type GolfState } from "../src/rules";
 import { toNative } from "../src/portrait";
 import { TURN_SWING } from "../src/piece-control";
 
 // ---- the stand-in browser --------------------------------------------------------------------------
 type Call = { name: string; args: unknown[] };
 let calls: Call[] = [];
+let recordGeometry = true;
 let gameLabel = "";
 const frames: Call[][] = []; // the calls of each frame, newest last
 const recorder = () => new Proxy({} as Record<string, unknown>, {
@@ -26,7 +27,7 @@ const recorder = () => new Proxy({} as Record<string, unknown>, {
     if (key === "canvas") return { width: 1920, height: 1080 };
     if (key in state) return state[key];
     return (...args: unknown[]) => {
-      calls.push({ name: key, args });
+      if (recordGeometry || key === "fillText") calls.push({ name: key, args });
       if (key === "measureText") {
         const width = String(args[0]).length * 0.6 * (parseFloat(String(state.font)) || 32);
         return { width, actualBoundingBoxAscent: 30, actualBoundingBoxDescent: 8, actualBoundingBoxLeft: 0, actualBoundingBoxRight: width };
@@ -36,7 +37,7 @@ const recorder = () => new Proxy({} as Record<string, unknown>, {
     };
   },
   set(state, key, value) {
-    if (typeof key === "string") { state[key] = value; calls.push({ name: `set ${key}`, args: [value] }); }
+    if (typeof key === "string") { state[key] = value; if (recordGeometry) calls.push({ name: `set ${key}`, args: [value] }); }
     return true;
   },
 }) as unknown as CanvasRenderingContext2D;
@@ -163,7 +164,7 @@ function firstMove(x: number, y: number) {
 }
 
 // One test: it is one walk through the game in one process.
-test("portrait Sports golf restores, selects all clubs, survives pauses and completes a three-hole round and rematch", async t => {
+test("portrait Sports golf restores, selects all clubs, survives pauses and completes a nine-hole windy round, scorecard, and rematch", async t => {
   // The real platform's load() remains its startup snapshot after save(). Reproduce that
   // contract so menu visits and canceled selectors cannot accidentally resurrect old progress.
   await import("../src/platform-stub");
@@ -181,9 +182,10 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   });
   let menuAction: (id: string) => void = () => assert.fail("game did not register menu actions");
   const platform = g.BoardPlatform as {
-    state: { progress: { get: (key: string) => unknown } };
+    state: { progress: { get: (key: string) => unknown; set: (key: string, value: number) => void } };
     menu: Record<string, unknown>;
   };
+  platform.state.progress.set("bestRoundStrokes:p1", 8); // Previous three-hole best must stay separate.
   stub(platform.state, {
     ready: () => ready,
     load: () => structuredClone(restoredRun),
@@ -284,6 +286,8 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   assert.ok(frames[frames.length - 1].length > 5, "the game stopped drawing when left alone");
   assert.deepEqual(errors, [], "a pause and resume threw");
 
+  // The long round needs text evidence only; discard earlier geometry instead of retaining every terrain point.
+  recordGeometry = false; frames.length = 0;
   // Drive real piece rotation and finger club/aim selection through a complete hole.
   menuAction("restart"); run(0.1);
   assert.match(gameLabel, /play.*0 strokes.*ready/, "the real Restart hole action begins a new round");
@@ -351,7 +355,7 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   }
   // Constant green friction is 3 yd/s²; leave 1 yd/s at the cup instead of aiming for zero.
   const puttPower = (Math.sqrt(6 * distanceToCup(latestRun.game) + 1) - 1) / 14;
-  assert.ok(puttPower > 0.1 && puttPower < 0.5, "the 7 iron leaves a short, controlled putt");
+  assert.ok(puttPower > 0.1 && puttPower < 0.8, "the 7 iron leaves a short, controlled putt");
   const puttBackswing = TURN_SWING.backswingDeg - TURN_SWING.powerLeadDeg + puttPower * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg);
   swing(puttBackswing);
   run(8);
@@ -359,27 +363,47 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   run(5);
   assert.match(gameLabel, /over.*2 strokes.*holed/, "the result waits for a shared choice");
   // The result waits, then advances explicitly while preserving the seated piece and scorecard.
-  tap(540, 1340);
+  tap(540, 1570);
   run(0.5);
-  assert.match(gameLabel, /play.*Hole 2 of 3, par 4.*0 strokes.*ready.*DRIVER.*Sports player present/);
+  assert.match(gameLabel, /play.*Hole 2 of 9, par 4.*0 strokes.*ready.*DRIVER.*Sports player present/);
   assert.deepEqual(latestRun.game.completedStrokes, [2]);
-  assert.equal(platform.state.progress.get("bestRoundStrokes:p1"), undefined, "one hole cannot count as a complete round best");
+  assert.equal(platform.state.progress.get("nineHoleBestRoundStrokes:p1"), undefined, "one hole cannot count as a complete round best");
 
   const chooseClub = (club: typeof CLUBS[number]['id']) => {
     const index = CLUBS.findIndex(option => option.id === club);
     tap(48 + (index % 3) * 336 + 156, 1590 + Math.floor(index / 3) * 150 + 65);
     assert.ok(gameLabel.includes(club), `club selection should choose ${club}`);
   };
+  const beforeCard = structuredClone(latestRun.game);
+  tap(864, 308); run(0.3);
+  assert.match(gameLabel, /^scorecard/);
+  assert.match(texts(frames.length - 1), /SCORECARD/);
+  run(1);
+  assert.deepEqual(latestRun.game, beforeCard, 'looking at the scorecard cannot change strokes or wind');
+  tap(540, 1570); run(0.5);
+  assert.match(gameLabel, /^play/);
+  assert.deepEqual(latestRun.game, beforeCard, 'Back returns to the same lie');
+  menuAction('scorecard'); run(0.1);
+  menuAction('help'); run(0.1);
+  menuAction('scorecard'); run(0.1);
+  tap(540, 1570); run(0.5);
+  assert.match(gameLabel, /^play/, 'switching help and scorecard preserves the underlying play screen');
+  menuAction('scorecard'); run(0.1); menuAction('help'); run(0.1);
+  tap(540, 1785); run(0.5);
+  assert.match(gameLabel, /^play/, 'help opened over the card also returns to play');
   chooseClub('5 IRON');
   chooseClub('DRIVER');
-  for (let holeIndex = 1; holeIndex < 3; holeIndex++) {
+  for (let holeIndex = 1; holeIndex < HOLES.length; holeIndex++) {
+    frames.length = 0; // Keep capture memory bounded across nine complete holes.
     assert.equal(latestRun.game.holeIndex, holeIndex);
-    // Deliberately play the new driver from each tee through the actual contact path.
-    chooseClub('DRIVER'); swing(90); run(18);
-    assert.equal(latestRun.game.strokes, 1, 'the driver clears the water and counts one stroke');
-    assert.equal(latestRun.game.penalty, false);
-    assert.equal(latestRun.game.phase, 'ready');
-    let shots = 1;
+    // Exercise the long driver carries, then use the selected club appropriate to each new hole.
+    if (holeIndex === 1 || holeIndex === 2) {
+      chooseClub('DRIVER'); swing(90); run(18);
+      assert.equal(latestRun.game.strokes, 1, 'the driver clears the water and counts one stroke');
+      assert.equal(latestRun.game.penalty, false);
+      assert.equal(latestRun.game.phase, 'ready');
+    }
+    let shots = latestRun.game.strokes;
     while (latestRun.game.phase === 'ready' && shots < 10) {
       // Search legal clean shots in the rule model, then execute the same chosen gesture in main.
       const source = latestRun.game;
@@ -403,16 +427,21 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
     const finishedScore = latestRun.game.strokes;
     run(3);
     assert.equal(latestRun.game.holeIndex, holeIndex, 'results never auto-advance');
-    if (holeIndex === 1) {
-      tap(540, 1340); run(0.5);
-      assert.deepEqual(latestRun.game.completedStrokes, [2, finishedScore]);
-      assert.match(gameLabel, /Hole 3 of 3, par 5/);
+    if (holeIndex < HOLES.length - 1) {
+      const priorScores = [...latestRun.game.completedStrokes];
+      assert.equal(platform.state.progress.get('nineHoleBestRoundStrokes:p1'), undefined);
+      tap(540, 1570); run(0.5);
+      assert.deepEqual(latestRun.game.completedStrokes, [...priorScores, finishedScore]);
+      assert.ok(gameLabel.includes(`Hole ${holeIndex + 2} of 9`));
     }
   }
   const total = roundStrokes(latestRun.game);
-  assert.equal(platform.state.progress.get("bestRoundStrokes:p1"), total, "the complete three-hole round records its total");
-  tap(540, 1340); run(0.5);
-  assert.match(gameLabel, /play.*Hole 1 of 3.*0 strokes.*ready.*Sports player present/, "rematch resets the round with the piece left down");
+  assert.match(texts(frames.length - 1), /ROUND COMPLETE/);
+  assert.match(texts(frames.length - 1), /SCORECARD/);
+  assert.equal(platform.state.progress.get('bestRoundStrokes:p1'), 8, 'the earlier three-hole record is preserved');
+  assert.equal(platform.state.progress.get("nineHoleBestRoundStrokes:p1"), total, "the complete nine-hole round records its total");
+  tap(540, 1570); run(0.5);
+  assert.match(gameLabel, /play.*Hole 1 of 9.*0 strokes.*ready.*Sports player present/, "rematch resets the round with the piece left down");
   assert.deepEqual(latestRun.game.completedStrokes, []);
 
   menuAction("setup"); run(0.1);

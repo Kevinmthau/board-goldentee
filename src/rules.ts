@@ -1,3 +1,6 @@
+import { HOLE, HOLES, type Hole } from './holes';
+export { HOLE, HOLES, type Hole, type Ellipse } from './holes';
+
 /** Golf uses yards for x/z and height. Input uses the Board's unscaled screen pixels. */
 export type Phase = "ready" | "flight" | "rolling" | "holed" | "limit";
 export type Terrain = "fairway" | "rough" | "bunker" | "green" | "water" | "out";
@@ -21,10 +24,26 @@ const CLUB_LAUNCH: Record<Club, { speedMin: number; speedGain: number; liftMin: 
 };
 export interface Shot { power: number; angle: number }
 export interface Ball { x: number; z: number; y: number; vx: number; vz: number; vy: number }
+/** Miles per hour, blowing toward +x (right) and +z (down the course). */
+export interface Wind { x: number; z: number }
+export const MAX_WIND_MPH = 20;
+const HOLE_WINDS: readonly Wind[] = [
+  { x: 4, z: 0 }, { x: -4, z: -3 }, { x: 3, z: 4 },
+  { x: -6, z: 0 }, { x: 0, z: -7 }, { x: 5, z: 5 },
+  { x: -5, z: 4 }, { x: 6, z: -4 }, { x: -3, z: -6 },
+];
+/** A steady, repeatable breeze lets players learn each hole and keeps restores exact. */
+export function windForHole(holeIndex: number): Wind {
+  return { ...(HOLE_WINDS[holeIndex] ?? { x: 0, z: 0 }) };
+}
+export function windSpeed(wind: Wind): number { return Math.hypot(wind.x, wind.z); }
+// Arcade tuning: acceleration in yards / second² per mph of wind. Grounded balls ignore it.
+const WIND_ACCELERATION = 0.18;
 export interface GolfState {
   holeIndex: number;
   /** One entry per completed hole, excluding the current hole. */
   completedStrokes: number[];
+  wind: Wind;
   ball: Ball;
   strokes: number;
   phase: Phase;
@@ -40,68 +59,6 @@ export interface GolfState {
 export const PHYSICS_STEP_SECONDS = 1 / 120;
 const PHYSICS_TIME_EPSILON = 1e-12;
 
-export interface Ellipse { x: number; z: number; rx: number; rz: number }
-export interface Hole {
-  id: string;
-  name: string;
-  par: number;
-  maxStrokes: number;
-  tee: { x: number; z: number };
-  flag: { x: number; z: number };
-  green: Ellipse;
-  /** First bunker remains available for the original single-hole callers. */
-  bunker: Ellipse;
-  bunkers: readonly Ellipse[];
-  water: readonly Ellipse[];
-  bounds: { left: number; right: number; near: number; far: number };
-  cupRadius: number;
-  fairway: readonly { x: number; z: number; width: number }[];
-}
-
-const seabreezeBunker = { x: -20, z: 123, rx: 10, rz: 12 };
-const lagoonBunkers = [
-  { x: -21, z: 235, rx: 10, rz: 16 },
-  { x: -22, z: 318, rx: 11, rz: 12 },
-  { x: 24, z: 336, rx: 9, rz: 13 },
-];
-const pelicanBunkers = [
-  { x: -24, z: 254, rx: 10, rz: 17 },
-  { x: -23, z: 476, rx: 12, rz: 14 },
-  { x: 24, z: 511, rx: 10, rz: 16 },
-];
-export const HOLES: readonly Hole[] = [
-  {
-    id: "seabreeze", name: "Seabreeze", par: 3, maxStrokes: 10,
-    tee: { x: 0, z: 0 }, flag: { x: 0, z: 150 },
-    green: { x: 0, z: 150, rx: 24, rz: 20 },
-    bunker: seabreezeBunker, bunkers: [seabreezeBunker], water: [],
-    bounds: { left: -58, right: 58, near: -12, far: 190 }, cupRadius: 0.85,
-    fairway: [{ x: 0, z: 0, width: 19 }, { x: 5, z: 70, width: 24 }, { x: -1, z: 150, width: 19 }],
-  },
-  {
-    id: "lagoon-bend", name: "Lagoon Bend", par: 4, maxStrokes: 10,
-    tee: { x: 0, z: 0 }, flag: { x: 0, z: 340 },
-    green: { x: 0, z: 340, rx: 22, rz: 21 },
-    bunker: lagoonBunkers[0], bunkers: lagoonBunkers,
-    water: [{ x: -25, z: 148, rx: 23, rz: 37 }, { x: 35, z: 280, rx: 19, rz: 30 }],
-    bounds: { left: -72, right: 72, near: -12, far: 385 }, cupRadius: 0.85,
-    fairway: [{ x: 0, z: 0, width: 24 }, { x: 12, z: 135, width: 27 },
-      { x: 7, z: 245, width: 29 }, { x: -5, z: 300, width: 25 }, { x: 0, z: 340, width: 22 }],
-  },
-  {
-    id: "pelican-reach", name: "Pelican Reach", par: 5, maxStrokes: 10,
-    tee: { x: 0, z: 0 }, flag: { x: 0, z: 510 },
-    green: { x: 0, z: 510, rx: 23, rz: 22 },
-    bunker: pelicanBunkers[0], bunkers: pelicanBunkers,
-    water: [{ x: 0, z: 170, rx: 29, rz: 27 }, { x: 34, z: 385, rx: 23, rz: 42 }],
-    bounds: { left: -78, right: 78, near: -12, far: 555 }, cupRadius: 0.85,
-    fairway: [{ x: 0, z: 0, width: 25 }, { x: -9, z: 110, width: 29 },
-      { x: -24, z: 175, width: 30 }, { x: 0, z: 250, width: 30 },
-      { x: -8, z: 370, width: 29 }, { x: -3, z: 450, width: 26 }, { x: 0, z: 510, width: 23 }],
-  },
-];
-/** Compatibility alias: old single-hole saves and callers start on Seabreeze. */
-export const HOLE = HOLES[0];
 export function holeFor(game: GolfState): Hole { return HOLES[game.holeIndex] ?? HOLE; }
 export function isFinalHole(game: GolfState): boolean { return game.holeIndex === HOLES.length - 1; }
 export function roundStrokes(game: GolfState): number {
@@ -137,7 +94,7 @@ export function createGame(holeIndex = 0, completedStrokes: readonly number[] = 
   const hole = HOLES[holeIndex];
   if (!hole) throw new RangeError("Unknown golf hole");
   return {
-    holeIndex, completedStrokes: [...completedStrokes],
+    holeIndex, completedStrokes: [...completedStrokes], wind: windForHole(holeIndex),
     ball: { ...hole.tee, y: 0, vx: 0, vz: 0, vy: 0 },
     strokes: 0, phase: "ready", lastSafe: { ...hole.tee }, penalty: false, penaltyKind: null,
     shotPower: 0, shotAngle: 0, stepRemainder: 0,
@@ -249,8 +206,11 @@ export function stepGame(game: GolfState, dtSeconds: number): void {
     const ball = game.ball;
     const oldX = ball.x, oldZ = ball.z;
     if (game.phase === "flight") {
-      ball.x += ball.vx * dt;
-      ball.z += ball.vz * dt;
+      const ax = game.wind.x * WIND_ACCELERATION, az = game.wind.z * WIND_ACCELERATION;
+      ball.x += ball.vx * dt + 0.5 * ax * dt * dt;
+      ball.z += ball.vz * dt + 0.5 * az * dt * dt;
+      ball.vx += ax * dt;
+      ball.vz += az * dt;
       ball.y += ball.vy * dt - 9 * dt * dt;
       ball.vy -= 18 * dt;
       if (ball.y <= 0 && ball.vy < 0) {

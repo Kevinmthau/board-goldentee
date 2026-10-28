@@ -22,8 +22,11 @@ Model SHA-256: 4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9.
 
 | Source | Role | Origin and licence |
 |---|---|---|
-| src/course-view.ts | Three-hole terrain, water and sand hazards, cup, flag, ball, camera, and generated-art composition; procedural image-failure fallback | Original project code and Canvas artwork |
+| src/course-view.ts | Nine-hole terrain, water and sand hazards, cup, flag, ball, camera, and generated-art composition; procedural image-failure fallback | Original project code and Canvas artwork |
 | src/piece-club.ts | Six-club visuals, including a rounded driver, attached to the Sports footprint’s center front and scaled to its width | Original project code and Canvas artwork |
+| src/holes.ts | Nine authored coastal hole layouts, yardages, pars, and hazards | Original project course data |
+| src/scorecard.ts | Traditional golf card, table, and scoring marks | Original project code and Canvas artwork |
+| src/wind-view.ts | Fixed wind indicator and camera-relative arrow | Original project code and Canvas artwork |
 | src/course-art.ts | Cached natural foliage, turf/sand fallback materials, and soft shadows | Original seeded procedural Canvas artwork |
 | src/howto.ts | Animated control lesson and buttons | Original project drawing; Sports render retains Board source above |
 | src/sound.ts | Placement, swing, putt, landing, sand, cup, button, and penalty cues | Original deterministic synthesized audio; no sampled recordings |
@@ -50,7 +53,7 @@ Vite assigns content hashes to the two bundle filenames. The package inventory b
 ```text
 art/coastal-sky.png
 art/fairway-turf.png
-assets/index-DTec-BIL.js
+assets/index-C7Uk5TDl.js
 assets/index-DXc9XbkK.css
 board-platform.js
 fonts/itc-kabel-ultra.otf
@@ -79,3 +82,10 @@ The initial shorter-twist package has SHA-256 `257defe9ee632e050b71e1fa70ee3c3a5
 `docs/screenshots/shorter-twist-board-installed.png` records the October 28 native title screen after installation. It is verification evidence and is not packaged.
 
 The October 28 Tee Off correction changes only the generated game bundle. The inventory above records its 18-file package, SHA-256 `78df7023b656e5d5bb238dbe7596ddbb8531d3fcc0089817e7da95c1e427e8b5`.
+
+October 28, 2026 nine-hole revision adds procedural course layouts, the scorecard, and the wind indicator.
+No external art, fonts, recordings, models, or dependencies were added. The inventory above records the current 18-file package.
+Package SHA-256: `5385c8353d8f2409850cc3dfe6f843f4eff9d918b9d7ab7c65a0a16a00cf3924`.
+Screenshots named `nine-hole-*.png` document this revision. They and the local QA scripts in `artifacts/` are excluded from the package.
+
+`docs/screenshots/nine-hole-board-installed.png` records the October 28 native installation of this package. It is verification evidence and is not packaged.
