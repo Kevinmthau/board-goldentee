@@ -55,18 +55,20 @@ test("a new stable placement accepts any physical facing without creating a shot
   }
 });
 
-test("unarmed takeaway follows rotation immediately and a full return twist fires once across 360", () => {
+test("unarmed takeaway follows rotation and a 90-degree return twist fires once across 360", () => {
   const { controller, address, frame } = rig();
   address();
   assert.equal(frame(350, contact(1, 300)).shot, null);
   assert.equal(controller.swing.stage, "ready");
-  assert.ok(controller.swing.windup > 0.1 && controller.swing.windup < 0.3);
-  frame(400, contact(1, 330)); frame(450, contact(1, 30)); frame(500, contact(1, 60));
+  assert.ok(controller.swing.windup > 0 && controller.swing.windup < 1);
+  frame(400, contact(1, 330)); frame(450, contact(1, 359));
+  assert.ok(controller.swing.power < 1, "89 degrees is still below full power");
+  assert.equal(frame(500, contact(1, 0)).shot, null);
   assert.equal(controller.swing.stage, "backswing");
   assert.equal(controller.swing.power, 1);
-  assert.equal(frame(540, contact(1, 45)).shot, null);
-  assert.equal(frame(580, contact(1, 30)).shot, null, "reversing is not contact while the club is behind the piece");
-  assert.equal(frame(620, contact(1, 330)).shot, null);
+  assert.equal(frame(540, contact(1, 345)).shot, null);
+  assert.equal(frame(580, contact(1, 330)).shot, null, "reversing is not contact while the club is behind the piece");
+  assert.equal(frame(620, contact(1, 300)).shot, null);
   assert.deepEqual(frame(660, contact(1, 270)).shot, { power: 1, angle: 0 });
   assert.equal(controller.swing.stage, "committed");
   assert.equal(frame(700, contact(1, 250)).shot, null);
@@ -74,21 +76,21 @@ test("unarmed takeaway follows rotation immediately and a full return twist fire
   assert.equal(frame(780, contact(1, 90)).shot, null);
 });
 
-test("either hand can wind back: clockwise and counterclockwise produce equal power", () => {
+test("either hand can wind back: a 60-degree turn produces equal partial power", () => {
   const powers: number[] = [];
   for (const direction of [-1, 1]) {
     const { address, frame } = rig();
     address();
-    frame(350, contact(1, 270 + direction * 60));
-    frame(400, contact(1, 270 + direction * 120));
-    frame(440, contact(1, 270 + direction * 105));
-    assert.equal(frame(480, contact(1, 270 + direction * 60)).shot, null);
+    frame(350, contact(1, 270 + direction * 40));
+    frame(400, contact(1, 270 + direction * 60));
+    frame(440, contact(1, 270 + direction * 45));
+    assert.equal(frame(480, contact(1, 270 + direction * 30)).shot, null);
     const shot = frame(520, contact(1, 270)).shot;
     assert.ok(shot);
     powers.push(shot.power);
   }
   assert.equal(powers[0], powers[1]);
-  assert.ok(powers[0] > 0.7 && powers[0] < 0.8);
+  assert.ok(powers[0] > 0.4 && powers[0] < 0.5);
 });
 
 test("the observed football player's 41-degree address works in either direction and across angular wrap", () => {
@@ -96,10 +98,10 @@ test("the observed football player's 41-degree address works in either direction
     const { controller, address, frame } = rig();
     address(1, 6, 41);
     assert.equal(controller.addressFacing, 41);
-    for (let i = 1; i <= 3; i++) assert.equal(frame(300 + i * 50, contact(1, 41 + direction * i * 50, Phase.Moved, 6)).shot, null);
+    for (let i = 1; i <= 3; i++) assert.equal(frame(300 + i * 50, contact(1, 41 + direction * i * 30, Phase.Moved, 6)).shot, null);
     assert.equal(controller.swing.power, 1);
-    assert.equal(frame(500, contact(1, 41 + direction * 100, Phase.Moved, 6)).shot, null);
-    assert.equal(frame(550, contact(1, 41 + direction * 50, Phase.Moved, 6)).shot, null);
+    assert.equal(frame(500, contact(1, 41 + direction * 60, Phase.Moved, 6)).shot, null);
+    assert.equal(frame(550, contact(1, 41 + direction * 30, Phase.Moved, 6)).shot, null);
     assert.deepEqual(frame(600, contact(1, 41 - direction * 3, Phase.Moved, 6)).shot, { power: 1, angle: 0 });
     assert.equal(frame(650, contact(1, 41, Phase.Moved, 6)).shot, null);
   }
@@ -226,7 +228,7 @@ test("the native football backswing survives hand drift and can return to strike
     [2022, 131, 687, 354], [2543, 124, 662, 361], [3036, 105, 650, 372],
   ]) assert.equal(frame(time, native(facing, x, y)).shot, null);
   assert.equal(controller.swing.stage, "backswing", "the old 48 px cutoff canceled this observed turn");
-  assert.ok(controller.swing.power > 0.7 && controller.swing.power < 0.8);
+  assert.equal(controller.swing.power, 1, "the recorded 120-degree backswing caps at full power");
   // The recorded attempt ended in a lift. This synthetic continuation verifies
   // a deliberate return can hit while the center remains at its observed offset.
   assert.equal(frame(3086, native(83, 650, 372)).shot, null);
@@ -247,13 +249,13 @@ test("one orientation jump or one reversed sample cannot commit", () => {
 
 test("holding the backswing keeps power but needs fresh return samples", () => {
   const { controller, address, frame } = rig(); address();
-  frame(350, contact(1, 330)); frame(400, contact(1, 30)); frame(450, contact(1, 60));
+  frame(350, contact(1, 300)); frame(400, contact(1, 330)); frame(450, contact(1, 0));
   controller.tick(3000);
   assert.equal(controller.swing.stage, "backswing");
   assert.equal(controller.swing.power, 1);
-  assert.equal(frame(3020, contact(1, 45)).shot, null);
-  assert.equal(frame(3060, contact(1, 30)).shot, null);
-  assert.equal(frame(3100, contact(1, 330)).shot, null);
+  assert.equal(frame(3020, contact(1, 345)).shot, null);
+  assert.equal(frame(3060, contact(1, 330)).shot, null);
+  assert.equal(frame(3100, contact(1, 300)).shot, null);
   assert.ok(frame(3140, contact(1, 270)).shot);
 });
 
@@ -373,6 +375,33 @@ test("observation, placement legality, and explicit setup confirmation stay sepa
   assert.equal(controller.confirmPlacement(), true);
   assert.equal(controller.piece?.contactId, 1);
   assert.equal(controller.swing.stage, "settling");
+});
+
+test("explicit setup confirmation keeps an outside Sports piece bound until it moves into the swing area", () => {
+  const { controller, frame } = rig();
+  frame(0, contact(1, 270, Phase.Began, 9));
+  assert.equal(controller.confirmPlacement(), false, "unknown glyphs cannot confirm a player");
+  frame(50, contact(2, 270, Phase.Began)); controller.tick(350);
+  controller.release();
+  frame(400, contact(2, 270, Phase.Moved, 5, 400, 500));
+  assert.equal(controller.piece, null);
+  assert.equal(controller.observedPiece?.contactId, 2);
+  assert.equal(controller.confirmPlacement(), true, "Tee Off accepts a detected Sports piece outside the swing area");
+  assert.equal(controller.piece?.contactId, 2);
+  for (const [time, orientation] of [[500, 330], [800, 0], [850, 330], [900, 270]]) {
+    const event = frame(time, contact(2, orientation, Phase.Moved, 5, 400, 500));
+    assert.equal(event.shot, null, "an outside piece cannot strike");
+    assert.equal(event.arrivals.length, 0, "confirmation and turning cannot replay the landing splash");
+    assert.equal(controller.swing.stage, "settling");
+  }
+  assert.equal(frame(1000, contact(2, 270)).arrivals.length, 0, "the same piece can slide into play without lifting");
+  controller.tick(1299);
+  assert.equal(controller.swing.stage, "settling");
+  controller.tick(1300);
+  assert.equal(controller.swing.stage, "ready");
+  frame(1350, contact(2, 330)); frame(1400, contact(2, 0));
+  assert.equal(frame(1450, contact(2, 330)).shot, null);
+  assert.deepEqual(frame(1500, contact(2, 270)).shot, { power: 1, angle: 0 });
 });
 
 test("disabled control binds but cannot wind up or strike", () => {

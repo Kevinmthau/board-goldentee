@@ -139,3 +139,23 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Keep the default piece and observed football turn playable while reserving clearance for the expanded controls.
 
 - [x] Native: install and launch the three-hole package on KT's Board; confirm current bundle and all six club controls.
+
+## Shorter full-power twist — October 28, 2026
+
+- [x] Reduce the full-power turn from 150 to 90 degrees and retain approximately 7% minimum shot power.
+- [x] Verify partial/full power, both turn directions, angular wrap, overshoot, return-only commitment, short putts, pause, and tracking recovery.
+- [x] Complete the automated three-hole contact journey with 90-degree full shots; 208 tests pass, three catalog-only skips.
+- [x] Run TypeScript, Vite, and packaging; preserve app/package IDs and the Sports model.
+- [ ] Browser: check the revised full-power gesture and percentage display.
+- [x] Board: install and launch the revised package; verify the title screen in a native screenshot.
+- [ ] Board: verify the revised twist range with native input.
+- [ ] Human: confirm a quarter turn feels comfortable and short putts remain controllable.
+
+## Tee Off correction — October 28, 2026
+
+- [x] Reproduce the visible button's silent rejection of a Sports piece outside the swing area.
+- [x] Confirm that piece explicitly on Tee Off; retain legal-placement and settled-address requirements for swinging.
+- [x] Verify entry, placement cue, blocked outside swings, repositioning without lift or splash, and a fresh full-power shot.
+- [x] Run the complete suite (209 passed, three catalog-only skips) and package the correction.
+- [x] Install and launch the corrected build on Board; inspect native startup and the title screen.
+- [ ] Human: tap Tee Off and confirm the placement-to-swing flow on Board.

@@ -329,10 +329,10 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
     for (let i = 1; i <= returnSamples; i++) turn(backswing * (1 - i / returnSamples));
     run(0.1);
   };
-  swing(TURN_SWING.fullBackswingDeg);
+  swing(90);
   assert.ok(checkedImpactPause,'the real swing must exercise the impact/pause check');
   assert.match(gameLabel, /1 strokes/, "one backward-then-forward twist counts once");
-  assert.equal(latestRun.game.shotPower, 1, "a full turn gives the selected 7 iron its full distance");
+  assert.equal(latestRun.game.shotPower, 1, "a quarter turn gives the selected 7 iron its full distance");
   assert.ok(latestRun.game.shotAngle > 0, "the finger aim control sets the shot direction");
   run(12);
   assert.match(gameLabel, /1 strokes.*ready/, "flight and roll reach a playable rest");
@@ -352,7 +352,7 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   // Constant green friction is 3 yd/s²; leave 1 yd/s at the cup instead of aiming for zero.
   const puttPower = (Math.sqrt(6 * distanceToCup(latestRun.game) + 1) - 1) / 14;
   assert.ok(puttPower > 0.1 && puttPower < 0.5, "the 7 iron leaves a short, controlled putt");
-  const puttBackswing = TURN_SWING.backswingDeg - 8 + puttPower * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + 8);
+  const puttBackswing = TURN_SWING.backswingDeg - TURN_SWING.powerLeadDeg + puttPower * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg);
   swing(puttBackswing);
   run(8);
   assert.match(gameLabel, /over.*2 strokes.*holed/, "the physical gesture can finish the hole");
@@ -375,7 +375,7 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   for (let holeIndex = 1; holeIndex < 3; holeIndex++) {
     assert.equal(latestRun.game.holeIndex, holeIndex);
     // Deliberately play the new driver from each tee through the actual contact path.
-    chooseClub('DRIVER'); swing(TURN_SWING.fullBackswingDeg); run(18);
+    chooseClub('DRIVER'); swing(90); run(18);
     assert.equal(latestRun.game.strokes, 1, 'the driver clears the water and counts one stroke');
     assert.equal(latestRun.game.penalty, false);
     assert.equal(latestRun.game.phase, 'ready');
@@ -395,7 +395,7 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
       }
       assert.ok(bestShot && Number.isFinite(bestShot.distance), 'each lie has a playable next stroke');
       chooseClub(bestShot.club);
-      const turnDegrees = TURN_SWING.backswingDeg - 8 + bestShot.power * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + 8);
+      const turnDegrees = TURN_SWING.backswingDeg - TURN_SWING.powerLeadDeg + bestShot.power * (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg);
       swing(turnDegrees); run(18); shots++;
     }
     assert.equal(latestRun.game.phase, 'holed', `hole ${holeIndex + 1} can be finished with the real swing`);
@@ -421,9 +421,23 @@ test("portrait Sports golf restores, selects all clubs, survives pauses and comp
   await new Promise(resolve => setTimeout(resolve, 0));
   run(0.1);
   assert.match(gameLabel, /^setup/, "canceling the player selector leaves setup in place");
-  tap(540, 1315); // Explicitly confirm the retained piece and tee off again.
+  const outside = toNative({x: 540, y: 1500});
+  onBatch!([piece(outside.x, outside.y, BoardContactPhase.Moved, id)]); run(0.1);
+  assert.ok(frames[frames.length - 1].some(c => c.name === 'fillText' && c.args[0] === 'TEE OFF'),
+    "setup offers Tee Off for the detected Sports piece outside the swing area");
+  tap(540, 1315); // A visible Tee Off button must confirm the retained piece at its current position.
   run(0.5);
-  assert.match(gameLabel, /play.*0 strokes.*ready/, "a canceled selector cannot replay the startup two-stroke snapshot");
+  assert.match(gameLabel, /play.*0 strokes.*ready/, "the visible Tee Off button starts play without replaying the startup two-stroke snapshot");
+  assert.ok(frames[frames.length - 1].some(c => c.name === 'fillText' && c.args[0] === 'MOVE ONTO THE OPEN GRASS'),
+    "play guides the confirmed piece into the swing area");
+  for (const angle of [60, 90, 60, 0]) {
+    onBatch!([piece(outside.x, outside.y, BoardContactPhase.Moved, id, angle)]); run(0.1);
+    assert.match(gameLabel, /play.*0 strokes.*ready.*Sports player present.*settling/,
+      "turning outside the swing area cannot arm or strike");
+  }
+  onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.5);
+  assert.match(gameLabel, /play.*0 strokes.*ready.*Sports player present.*ready/,
+    "sliding the same retained piece onto the grass permits a new swing without lifting");
   assert.equal(latestRun.game.strokes, 0);
   assert.equal(latestRun.game.ball.z, 0);
   assert.deepEqual(errors, [], "the complete golf journey threw");

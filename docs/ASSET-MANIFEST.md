@@ -50,7 +50,7 @@ Vite assigns content hashes to the two bundle filenames. The package inventory b
 ```text
 art/coastal-sky.png
 art/fairway-turf.png
-assets/index-BwgBIobr.js
+assets/index-DTec-BIL.js
 assets/index-DXc9XbkK.css
 board-platform.js
 fonts/itc-kabel-ultra.otf
@@ -72,4 +72,10 @@ piece-footprints.json
 October 27, 2026 three-hole revision adds original procedural course and club artwork in the sources listed above.
 No external images, audio recordings, fonts, models, or dependencies were added. The inventory above reflects the final 18-file package. Developer fixtures and screenshots under artifacts/ are excluded from the package.
 
-Final three-hole package SHA-256: `fdb86a9948b525e71a62053cc7991131d8985ad5f97ca671a086d583c70d87b3`.
+Prior three-hole package SHA-256: `fdb86a9948b525e71a62053cc7991131d8985ad5f97ca671a086d583c70d87b3`.
+
+October 28, 2026 twist tuning changes only the generated game bundle. No art, audio, fonts, models, or dependencies changed.
+The initial shorter-twist package has SHA-256 `257defe9ee632e050b71e1fa70ee3c3a5972c12c4bbe544266172ff5e91d5b2c`.
+`docs/screenshots/shorter-twist-board-installed.png` records the October 28 native title screen after installation. It is verification evidence and is not packaged.
+
+The October 28 Tee Off correction changes only the generated game bundle. The inventory above records its 18-file package, SHA-256 `78df7023b656e5d5bb238dbe7596ddbb8531d3fcc0089817e7da95c1e427e8b5`.

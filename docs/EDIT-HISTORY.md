@@ -167,3 +167,31 @@ The person requested installation on their Board. Installed and launched the ver
 - Merge the published correctness fixes with the three-hole work, preserving source behavior, regression tests, review history, and screenshots.
 - Publish the golf subtree to the existing `golden-tee` remote's `main`. Build output, dependencies, and the install ZIP remain outside Git.
 - Merged validation: 208 tests pass, with three catalog-only skips. The production build matches the installed `index-BwgBIobr.js` bundle. The push to `board-goldentee/main` succeeded; its root tree matches the merged golf subtree. The primary working checkout contains the merged changes.
+
+## October 28, 2026 — Less twist for full power
+
+- Person requested less rotation to reach 100% power.
+- Reduce the full backswing from 150 to 90 degrees. Keep the shortest valid shot near 7% power and retain existing gesture guards.
+- Update controller and full-round contact checks for quarter-turn shots, partial power, overshoot, and controlled putting.
+- Automated checks pass: 208 passed, zero failures, three catalog-only skips. The 18-file Board package builds successfully.
+- Updated the plan, control notes, checklist, asset inventory, and acceptance ledger. The revision remains local and has not been installed on Board.
+
+## October 28, 2026 — Install the shorter twist
+
+- Person requested installation on their Board.
+- Installed and launched the verified 90-degree package through Board Connect, retaining the app and package identities.
+- Verified platform startup and the native title screen. Physical swing comfort remains for the person's playtest.
+
+## October 28, 2026 — Fix Tee Off
+
+- Person reported that Tee Off did not work on the installed build.
+- Found a visible button that silently rejected a detected Sports piece outside the swing area. Reproduced both controller and screen failures.
+- Explicit confirmation now binds the observed piece and enters play. Swing guards still require legal placement and a settled address.
+- Added regression coverage for the rejected tap, outside swing attempts, repositioning the same piece, and a fresh shot.
+- All 209 tests pass, with three catalog-only skips. Built, installed, and launched the correction on Board; physical tap confirmation remains open.
+
+## October 28, 2026 — Commit and publish the control fixes
+
+- Person requested committing and pushing all changes.
+- Include the shorter full-power twist, Tee Off correction, regression tests, documentation, and native installation screenshot.
+- Publish the game subtree to the existing `golden-tee` remote's `main` branch. Generated build output, dependencies, and install packages remain ignored.

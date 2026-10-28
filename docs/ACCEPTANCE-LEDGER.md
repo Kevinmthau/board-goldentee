@@ -210,3 +210,47 @@
 - Pre-merge evidence: 208 tests passed, three catalog-only skips, browser checks passed, and the verified package is installed on KT's Board.
 - Merged automated evidence: 211 tests total, 208 passed, zero failures, three catalog-only skips. TypeScript and Vite pass. The generated `index-BwgBIobr.js` matches the installed build; source and tests are unchanged from the verified three-hole revision.
 - Publication verified: remote `main` reached `a1b046393c526c911c3a8ad078f49ffd92c4694f`. Its root tree exactly matches the merged golf subtree (`19633d536a3e6dfce5628d0c00df5aa2f2352cae`). The primary working checkout was fast-forwarded to the merged revision.
+
+## October 28, 2026 — Shorter full-power twist
+
+- Asked for: less twisting to reach 100% power.
+- Delivered: a 90-degree full backswing, reduced from 150 degrees. Minimum armed power remains approximately 7%; a 60-degree turn gives approximately 44%.
+- Source: the shared power mapping drives the preview and committed shot. Arming remains 40 degrees; return-to-address, jitter, drift, and pause guards are unchanged.
+- Workspace: the initial task worktree lacked the golf folder. Advanced its clean checkout to the published three-hole revision on `codex/shorter-golf-twist`.
+- Automated: `npm test` reports 211 total, 208 passed, zero failures, and three existing catalog-only skips. Updated tests cover 89/90-degree boundaries, both directions, wrap, overshoot, short putting, and 90-degree full shots through the real main-module contact path.
+- Integration: the automated journey completes the three-hole round, short putts, results, and rematch. Existing pause, tracking-gap, and contact-rate checks pass.
+- Build: TypeScript, Vite, and `npm run pack` pass. The 18-file package contains `index-CSTxyhbs.js`, platform build `053111cae0cecc80`, unchanged app/package IDs, and the unchanged Sports model.
+- Package SHA-256: `257defe9ee632e050b71e1fa70ee3c3a5972c12c4bbe544266172ff5e91d5b2c`.
+- Browser: NOT TESTED for this revision. Automated canvas calls do not establish visual or physical feel.
+- Board and human: NOT TESTED for this revision. Package is built locally; installation, comfortable turning, and short-putt feel remain open.
+
+## October 28, 2026 — Install the shorter twist on KT's Board
+
+- Asked for: install the updated package on the person's Board.
+- Device: Board Connect reported `ready: true`. Installation and launch succeeded for `e087aaee-903b-43a2-b2b9-bbd4189601b2`.
+- Package: SHA-256 `257defe9ee632e050b71e1fa70ee3c3a5972c12c4bbe544266172ff5e91d5b2c`, 18 files, bundle `index-CSTxyhbs.js`. Artifact inspection confirms 90-degree full power, a four-degree power offset, and the unchanged 40-degree arming threshold.
+- Identity: existing app/package IDs and the Sports model were retained. No app removal or save deletion occurred.
+- Native startup: platform state became ready at 16:07:20 in the device log. Optional favicon and game-font.json requests returned 404, as in the prior installed build; the bundled title font rendered.
+- Native screenshot: `docs/screenshots/shorter-twist-board-installed.png` shows the title screen and Sports placement prompt.
+- Evidence limit: installation, launch, platform startup, and native title rendering are verified. The shorter swing and putting feel still require physical play.
+
+## October 28, 2026 — Tee Off button correction
+
+- Asked for: fix Tee Off after the newly installed build remained on setup.
+- Native observation: the screenshot showed setup with Tee Off visible. Logs identified the installed shorter-twist bundle; no crash appeared.
+- Root cause: drawing accepted any observed Sports piece, while confirmation required a piece inside the swing area. A piece at portrait (540,1500) reproduced the silent rejection.
+- Red regression: controller and main-module contact tests failed on the old source; 30 focused checks passed and two failed.
+- Fix: Tee Off confirms the observed Sports piece independently of placement legality. The existing swing gates still require legal placement and a settled address.
+- Automated: 212 tests total, 209 passed, zero failures, three catalog-only skips. Regressions cover the visible button, placement cue, no outside strokes, same-contact repositioning, no repeated splash, and a fresh 90-degree shot.
+- Build: TypeScript, Vite, and the 18-file package pass. Bundle `index-DTec-BIL.js`, platform build `80ecb7a031886357`, unchanged app/package IDs and Sports model.
+- Package SHA-256: `78df7023b656e5d5bb238dbe7596ddbb8531d3fcc0089817e7da95c1e427e8b5`.
+- Native: installation and launch succeeded. Platform state became ready at 16:11:54 in the device log. The native title screen rendered correctly.
+- Evidence limit: the bug and correction are verified with simulated contacts. A person's Tee Off tap and repositioning on Board remain unverified.
+
+## October 28, 2026 — Publish the control fixes
+
+- Asked for: commit and push all changes.
+- Scope: 90-degree full power, approximately 7% minimum shot power, responsive Tee Off confirmation, regression tests, control notes, and installation evidence.
+- Validation: the preceding 209-test pass, three catalog-only skips, package verification, and native installation cover the unchanged game code.
+- Final review: no actionable blockers; whitespace checks pass. The new screenshot contains no player information, and generated output remains excluded.
+- Publication target: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the established game-subtree workflow.

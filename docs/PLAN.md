@@ -1,7 +1,7 @@
 # Plan: Golden Tee
 
-Updated: October 27, 2026.
-Status: Three-hole build passes automated and browser checks. The three-hole package is installed and launched on KT's Board. New-hole physical play remains open.
+Updated: October 28, 2026.
+Status: Shorter full-power twist and the Tee Off correction pass automated checks and packaging. The revised package is installed and launched on KT's Board; physical confirmation remains open.
 
 ## Summary
 
@@ -15,6 +15,8 @@ The physical Sports player replaces the Bloogs ring and digital golfer. Its visi
 2. Place any Sports player on the open grass and hold still briefly. This establishes a comfortable starting angle.
 3. Select a club. Turn the piece back toward yourself to bring the club back.
 4. Reverse the twist and return the club to the ball to hit. A larger backswing gives more power. Use a small turn for a short putt.
+
+A quarter turn (90 degrees) reaches full power. The shortest armed turn remains 40 degrees and gives about 7% power.
 
 Keep hold of the piece. Placement, translation alone, and lifting do not hit the ball.
 The grip attaches just outside the center front of the footprint; the shaft extends in the piece's actual facing direction. The driver shaft is 1.45 piece widths long; the 5 iron is 1.32 widths. Other iron shafts are 1.25 widths; the putter is 1.1 widths. The address camera, terrain, and digital ball stay fixed when the piece is placed, translated, or turned. Only the attached club follows the piece. The camera may follow the ball after a committed shot.
@@ -36,6 +38,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Rematch retains the roster and detected piece, but resets the full round and unfinished gesture.
 - Saves retain the current hole, preceding scores, and live ball state. Earlier one-hole saves resume on hole 1.
 - Change setup releases the piece binding and requires confirmation before replay.
+- Tee Off confirms a detected Sports piece and enters the course even if the piece is outside the swing area. The placement cue then guides repositioning.
 
 ## Input and ownership
 
@@ -50,6 +53,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Launch the ball and hit sound when the physical turn returns to address, with no additional animated downswing delay. Placement and rotation never reframe the course or move the resting ball.
 - Turning through the angular wrap must stay continuous. A short tracking gap and pause retain the calibrated rotation zero. A fresh lie or explicit new setup can calibrate a new address.
 - Placement, translation alone, lift, redetection, and pause return cannot create a shot. The translation guard must allow the center drift seen when a person turns a Sports piece; deliberate dragging still cancels intent.
+- Explicit Tee Off confirmation binds the visible piece separately from its position. Swinging still requires legal placement and a settled address.
 - Pause cancels unfinished intent; a committed ball keeps its state. Rebind the piece without another splash.
 - Show one finite placement splash and sound. The attached club is the only graphic that follows the physical piece, as expressly requested; no outline, halo, trail, or digital golfer follows it. Lifting removes the club.
 - Input comes through startInput/applyContacts. The host owns model activation.
@@ -99,6 +103,9 @@ Audio uses gameAudio(); saves use BoardPlatform.state. Keep existing appId and p
 | Stable initial angle calibrates address | Builder | Native football at portrait (301,1233), facing 41 degrees, was detected but rejected by the old hidden placement/facing gates |
 | Broad open-grass placement | Builder | Native input showed ordinary placement and small movements crossing the previous hidden boundary |
 | Backswing sets power; return to address commits | Builder | Makes short putts controllable and places physical contact at the strike |
+| Less twist to reach 100% | Person | October 28 feedback: the full backswing requires too much rotation |
+| Full power at 90 degrees instead of 150 | Builder | Reduce the required turn by 40%; keep the 40-degree arming threshold and a roughly 7% minimum shot |
+| Tee Off responds to a detected piece outside the swing area | Builder | October 28 bug report: the visible button silently rejected placement; enter play and retain the placement guard for swinging |
 | Separate aim buttons | Builder | Rotation is reserved for swing intent |
 | Add a par 4 and par 5 with hazards | Person | Current request |
 | Add driver and 5 iron | Person | Current request |
@@ -141,3 +148,17 @@ The expanded controls reserve physical clearance at the bottom and beside the ai
 
 The three-hole build passed 208 tests, with three catalog-only skips. Its 18-file package retains the app identity and Sports model. Browser checks confirm the six controls, new courses, water recovery, driver carry, scorecards, Next hole, and rematch.
 The package is installed and launched on KT's Board. Native rendering is verified; physical play of the new holes and clubs remains open.
+
+## Shorter full-power twist — October 28, 2026
+
+Full power now requires 90 degrees instead of 150 degrees. The 40-degree arming threshold, return-to-address strike, and motion guards remain unchanged.
+The power ramp starts four degrees before arming, retaining approximately 7% power for the shortest valid swing. Additional rotation caps at 100%.
+All 208 automated checks pass, with three catalog-only skips. The production build and 18-file Board package pass.
+The revised package is installed and launched on Board, with the title screen verified in a native screenshot. Physical comfort and putting control require a playtest.
+
+## Tee Off correction — October 28, 2026
+
+The visible Tee Off button now confirms the observed Sports piece, including one outside the swing area. The course then shows the placement cue.
+The same piece can move into the swing area and settle without lifting. Outside placement cannot arm or strike.
+Regression tests reproduced the silent rejection before the fix. The updated suite passes 209 tests, with three catalog-only skips.
+The corrected 18-file package is installed and launched on Board. Native startup is verified; a person's Tee Off tap remains to be confirmed.

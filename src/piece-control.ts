@@ -20,7 +20,9 @@ export const TURN_SWING = {
   restAngleDeg: 8,
   addressToleranceDeg: 30,
   backswingDeg: 40,
-  fullBackswingDeg: 150,
+  fullBackswingDeg: 90,
+  // Start the power ramp just before arming so the shortest putt stays near 7%.
+  powerLeadDeg: 4,
   forwardDeg: 24,
   impactToleranceDeg: 10,
   minSpeed: 25,
@@ -59,8 +61,8 @@ const angleDelta = (from: number, to: number) => ((to - from + 540) % 360 + 360)
 export const isSportsPiece = (contact: BoardContact): boolean =>
   contact.type === BoardContactType.Glyph && Number.isInteger(contact.glyphId) && contact.glyphId >= 1 && contact.glyphId <= 8;
 const emptySwing = (): TurnSwingState => ({ stage: "settling", windup: 0, power: 0, backswingDeg: 0, forwardDeg: 0 });
-const powerFor = (degrees: number) => clamp01((degrees - TURN_SWING.backswingDeg + 8) /
-  (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + 8));
+const powerFor = (degrees: number) => clamp01((degrees - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg) /
+  (TURN_SWING.fullBackswingDeg - TURN_SWING.backswingDeg + TURN_SWING.powerLeadDeg));
 
 /** Observation, seat authority, and deliberate twist intent remain separate. */
 export class PieceController {
@@ -117,9 +119,11 @@ export class PieceController {
     this.resetStroke();
   }
 
+  /** Tee Off confirms the observed piece. A legal, settled address still gates every swing. */
   confirmPlacement(): boolean {
     if (this.paused) return false;
-    const identity = this.identities.find(i => i.live && isSportsPiece(i.contact) && this.options.isPlacement(i.contact));
+    const contact = this.observedPiece;
+    const identity = contact ? this.live.get(contact.contactId) : undefined;
     if (!identity) return false;
     this.owner = identity;
     identity.autoBind = true;

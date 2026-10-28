@@ -2,7 +2,7 @@
 
 A solo three-hole coastal golf round controlled with any physical Sports player. Play a 150-yard par 3, a 340-yard par 4, and a 510-yard par 5. Built from the Board Studio starter with TypeScript, Vite, and Canvas 2D. Play in portrait orientation from Board’s left short edge.
 
-Place the piece on the open grass and hold it still to set your starting angle. Turn it back toward yourself, then return the club to the ball to hit. Backswing sets power. Select a driver, 5 iron, 7 iron, 9 iron, wedge, or putter, and use the arrows to aim. The club appears only with the piece, attached to its center front and sized to its footprint. The camera and resting ball stay fixed while you place or turn the piece; the camera follows the ball after a hit.
+Place the piece on the open grass and hold it still to set your starting angle. Turn it back toward yourself, then return the club to the ball to hit. Backswing sets power; a quarter turn (90 degrees) reaches 100%. Use a smaller turn for a putt. Select a driver, 5 iron, 7 iron, 9 iron, wedge, or putter, and use the arrows to aim. The club appears only with the piece, attached to its center front and sized to its footprint. The camera and resting ball stay fixed while you place or turn the piece; the camera follows the ball after a hit.
 
 ![Portrait Sports golf](docs/screenshots/three-hole-par5-carry.png)
 
@@ -58,5 +58,9 @@ See [the plan](docs/PLAN.md), [build checklist](docs/BUILD-CHECKLIST.md), and [a
 The three-hole revision passed 208 automated checks, with three catalog-only checks skipped. Tests cover the full round, hazards, clubs, saves, and rematch. It retains the correctness fixes for slow returns, consistent shot timing, and pause/resume. Earlier browser evidence includes a two-stroke birdie after those fixes; current browser checks cover the new courses, water penalties, driver carry, scorecards, and rematch.
 
 The three-hole package is installed and launched on KT's Board. Native rendering confirms all six club controls. The new holes and larger driver still require a physical playtest. Comfortable physical scale, all Sports shapes, native platform behavior, and sustained performance remain open.
+
+The October 28 control revision reaches full power at 90 degrees instead of 150. All 208 automated checks and packaging pass, with three catalog-only checks skipped. This package is installed and launched on KT's Board. The shorter twist still requires a physical playtest.
+
+The subsequent Tee Off correction is also installed. Tee Off now enters play with a detected Sports piece outside the swing area. Follow the placement cue, move that piece onto the open grass, and hold still before swinging. The revised suite passes 209 checks, with three catalog-only skips.
 
 Artwork, the Board SDK, font, platform layer, and piece-set assets have separate provenance and terms; see the [asset manifest](docs/ASSET-MANIFEST.md). Keep the vendored SDK and package lockfile so a fresh checkout uses the tested SDK version.
