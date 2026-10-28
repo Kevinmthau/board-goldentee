@@ -209,4 +209,4 @@
 - Destination: `https://github.com/Kevinmthau/board-goldentee`, branch `main`, through the established golf-subtree workflow.
 - Pre-merge evidence: 208 tests passed, three catalog-only skips, browser checks passed, and the verified package is installed on KT's Board.
 - Merged automated evidence: 211 tests total, 208 passed, zero failures, three catalog-only skips. TypeScript and Vite pass. The generated `index-BwgBIobr.js` matches the installed build; source and tests are unchanged from the verified three-hole revision.
-- Remote-tree verification: pending.
+- Publication verified: remote `main` reached `a1b046393c526c911c3a8ad078f49ffd92c4694f`. Its root tree exactly matches the merged golf subtree (`19633d536a3e6dfce5628d0c00df5aa2f2352cae`). The primary working checkout was fast-forwarded to the merged revision.

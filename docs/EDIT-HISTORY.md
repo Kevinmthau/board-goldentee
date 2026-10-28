@@ -166,4 +166,4 @@ The person requested installation on their Board. Installed and launched the ver
 - Person requested merging, committing, and pushing the completed changes.
 - Merge the published correctness fixes with the three-hole work, preserving source behavior, regression tests, review history, and screenshots.
 - Publish the golf subtree to the existing `golden-tee` remote's `main`. Build output, dependencies, and the install ZIP remain outside Git.
-- Merged validation: 208 tests pass, with three catalog-only skips. The production build matches the installed `index-BwgBIobr.js` bundle. Remote verification is pending.
+- Merged validation: 208 tests pass, with three catalog-only skips. The production build matches the installed `index-BwgBIobr.js` bundle. The push to `board-goldentee/main` succeeded; its root tree matches the merged golf subtree. The primary working checkout contains the merged changes.
