@@ -51,3 +51,7 @@
 - [x] Inspect intermediate poses, full swing, putting, and pause in the browser.
 - [x] Run final tests and pack; update provenance and handover evidence (137 passed, 3 catalog-only skips; 14-file package).
 - [ ] Board: native GPU performance and physical swing feel remain untested.
+
+## Native installation
+- [x] Current package installed and launched through Board Connect; title screen and 3D golfer confirmed in a native screenshot.
+- [ ] Complete the remaining Board sensing, performance, native platform, and human play checks above.

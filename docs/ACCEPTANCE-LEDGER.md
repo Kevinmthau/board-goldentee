@@ -60,3 +60,11 @@
 - Evidence: `docs/screenshots/solid-swing-sequence.png`, `solid-swing-backswing.png`, `solid-swing-ready.png`, and `solid-swing-par.png`. Final reload and ring placement produced no new browser console warnings or errors; preview is left at the tee, ready to swing.
 - Package: TypeScript, Vite, platform build, and web-pack passed; 14 files with the existing appId/packageId and unchanged Board model. Removed the unused photographic motion sheet from the shipped package and preserved it under docs/art-reference.
 - Board/Human: NOT TESTED. The added offscreen GPU rendering still needs native performance verification, along with the existing sensing/audio/physical-feel checks.
+
+## October 27, 2026 — Installed on Board
+
+- Asked for: “install on the board.”
+- Package verified: all 14 archive files match the current dist build byte-for-byte; appId and packageId match board.config.json.
+- Device: `board-connect status` reported `ready: true`. `board-connect install golden-tee.webapp.zip --launch` confirmed installation and launch of e087aaee-903b-43a2-b2b9-bbd4189601b2.
+- Native startup evidence: `docs/screenshots/board-first-launch.png` shows the title screen, course, rendered 3D golfer, and Bloogs ring instruction on the Board at 1920×1080. Startup logs report platform state ready, no-save. The only warnings are 404s for the optional game-font.json and favicon.ico; no game exception is reported.
+- Scope: installation, launch, and initial native rendering are verified. Physical ring sensing, sustained animation performance, native pause/saves/audio, and an uncoached human playthrough remain open.

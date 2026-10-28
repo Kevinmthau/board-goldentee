@@ -66,3 +66,8 @@
 - Preserved the active-time swing clock, once-committed shot, exact impact delay, and pause behavior.
 - Added graceful Canvas fallback for unavailable WebGL; geometry is allocated once and stationary poses are cached.
 - Browser verification completed an iron, wedge, putt, three-stroke par, pause/resume, and retained-ring rematch. All 137 tests passed (3 catalog-only skips); the 14-file Board package passed. Full evidence is in the acceptance ledger.
+
+## October 27, 2026 — Install on Board
+
+- Person requested installation on the Board.
+- Installed and launched the verified current package using Board Connect. Confirmed native title rendering and recorded the screenshot/startup logs in the acceptance ledger. No game code or package identity changed.

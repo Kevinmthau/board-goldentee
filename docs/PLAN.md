@@ -192,5 +192,5 @@ Record every shipped asset in `docs/ASSET-MANIFEST.md` when the starter is prepa
 - Screenshots: `docs/screenshots/third-person-ready.png`, `third-person-backswing.png`, and `birdie-result.png`.
 - Realism pass: `realistic-close-address.png` and `realistic-close-backswing.png` show the closer camera and generated golfer. Address, backswing, follow-through, flight, and putting were inspected in the browser.
 - Continuous swing: `solid-swing-sequence.png` and `solid-swing-backswing.png` show one opaque golfer throughout the motion. Full iron, wedge, putt, pause/resume, par result, and rematch verified with pointer input.
-- Board: not tested.
+- Board: installed and launched through Board Connect; title, course, and 3D golfer render verified in `docs/screenshots/board-first-launch.png`. Physical sensing, sustained performance, native saves/audio/pause, and full playthrough remain open.
 - Human: no swing or teaching playtest yet.
