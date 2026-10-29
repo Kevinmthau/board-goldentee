@@ -6,7 +6,6 @@ import { createGame, HOLES } from '../src/rules';
 import { ADD_PLAYER, PLAYER_ROWS, REMOVE_PLAYER_ROWS, RESTORE_PLAYERS_BUTTON, PLAYERS_BUTTON,
   MULTIPLAYER_SCORECARD_BOX, boundedPlayerName, drawMultiplayerSetup, drawMultiplayerScorecard,
   drawTurnHandoff } from '../src/multiplayer-view';
-import { NAME_START_CIRCLE } from '../src/name-start';
 
 interface Label {text: string; x: number; y: number; size: number; left: number; right: number; alpha: number}
 function drawing() {
@@ -126,35 +125,24 @@ test('final scorecards support ten-stroke holes and all four nine-hole totals wi
   assert.equal(labels.filter(label => label.text === String(HOLES.length) + ' HOLES').length, 4);
 });
 
-test('normal handoffs keep the course visible with only a named circle and the active turn', () => {
+test('normal handoffs keep the course visible and allow placement anywhere', () => {
   const round = createRound(roster(4));
   for (let index = 0; index < round.players.length; index++) {
     round.activeIndex = index;
     const before = structuredClone(round), ready = drawing();
     drawTurnHandoff(ready.ctx, round);
     safeLabels(ready.labels);
-    assert.equal(ready.labels.length, 2, 'normal handoffs have only the circle name and turn label');
+    assert.equal(ready.labels.length, 2, 'normal handoffs have only the turn label and placement cue');
     assert.ok(ready.labels.every(label => label.size >= 48));
-    const circleName = ready.labels.find(label => label.y === NAME_START_CIRCLE.y)!;
-    assert.ok(circleName.left >= NAME_START_CIRCLE.x - 116 && circleName.right <= NAME_START_CIRCLE.x + 116);
     assert.ok(ready.labels.some(label => label.y === 1580 && label.text.endsWith('’s turn')));
     assert.ok(!ready.labels.some(label => /READY|NEXT GOLFER|CHANGE SETUP|SHOT|HOLED|LIMIT/.test(label.text)));
     assert.ok(!ready.geometry.some(args => args.length === 4 && args[0] === 0 && args[1] === 0 &&
       args[2] === 1080 && args[3] === 1920), 'handoff cannot cover the course with a full-screen panel');
-    assert.ok(ready.geometry.some(args => args[0] === NAME_START_CIRCLE.x && args[1] === NAME_START_CIRCLE.y &&
-      args[2] === NAME_START_CIRCLE.radius), 'the circle marks the same physical target used for starting');
+    assert.equal(ready.geometry.length, 0, 'normal handoff adds no circle or placement area');
+    assert.ok(ready.labels.some(label => label.text === 'PLACE YOUR PLAYER ANYWHERE' && label.y === 1660));
+    assert.ok(!ready.labels.some(label => /LIFT|REPLACE/.test(label.text)), 'retained pieces do not need to be lifted');
     assert.deepEqual(round, before, 'handoff rendering cannot advance a turn or alter a score');
   }
-});
-
-test('a retained piece gets a bounded reentry cue without hiding the course', () => {
-  const round = createRound(roster(2)), ready = drawing();
-  drawTurnHandoff(ready.ctx, round, [], true);
-  safeLabels(ready.labels);
-  assert.equal(ready.labels.length, 3);
-  assert.ok(ready.labels.some(label => label.text === 'LIFT AND REPLACE YOUR PLAYER' && label.y === 1660 && label.size === 48));
-  assert.ok(ready.labels.some(label => label.text === 'Alex’s turn'));
-  assert.ok(!ready.labels.some(label => label.text === 'READY'));
 });
 
 test('missing roster players retain explicit recovery controls and the paused round details', () => {

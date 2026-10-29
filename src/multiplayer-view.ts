@@ -139,17 +139,16 @@ export function drawMultiplayerScorecard(ctx: CanvasRenderingContext2D, round: G
 }
 
 export function drawTurnHandoff(ctx: CanvasRenderingContext2D, round: GolfRound,
-  missing: readonly string[] = [], needsReentry = false): void {
+  missing: readonly string[] = []): void {
   const golfer = round.players[round.activeIndex];
   if (!golfer) return;
   if (!missing.length) {
     ctx.save();
-    drawNameCircle(ctx, golfer.name);
     ctx.font = gameFont(48);
     const suffix = '’s turn';
     const name = boundedPlayerName(ctx, golfer.name, 984 - ctx.measureText(suffix).width);
     text(ctx, `${name}${suffix}`, 540, 1580, 48, '#F1D58B');
-    if (needsReentry) text(ctx, 'LIFT AND REPLACE YOUR PLAYER', 540, 1660, 48, '#E2EACF');
+    text(ctx, 'PLACE YOUR PLAYER ANYWHERE', 540, 1660, 48, '#E2EACF');
     ctx.restore();
     return;
   }

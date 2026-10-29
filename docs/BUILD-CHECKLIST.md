@@ -276,3 +276,14 @@ This section supersedes the earlier ring and onscreen-golfer implementation chec
 - [x] Browser: verify course-visible handoffs, old Ready tap rejection, retained-piece/pause guards, and subsequent shots.
 - [x] Board: install and launch the verified build; inspect startup and screenshot.
 - [ ] Human: confirm physical turn placement and multiplayer pacing on Board.
+
+## Anywhere placement for turns — October 28, 2026
+
+- [x] Remove the normal turn circle and accept settled Sports pieces anywhere on the glass.
+- [x] Let a retained shared piece continue without lifting; keep fresh deliberate swing intent.
+- [x] Expand actual swinging to the full glass and retain the course-visible turn announcement.
+- [x] Complete automated input, full-round, portrait, view, and recovery checks: 296 pass, zero failures, three existing skips.
+- [x] Verify a new piece takes control while the old piece stays, with club/aim preserved and exactly one deliberate shot.
+- [x] Browser: verify upper, footer, and side placement, swings outside the old grass area, and retained-piece turns; all 14 final-runtime checks pass.
+- [x] Build/package and install on KT’s Board; inspect native startup and screenshot.
+- [ ] Human: confirm comfortable physical placement and multiplayer handoff pacing.

@@ -57,7 +57,7 @@ test('native Sports facing rotates with positions into the player’s portrait f
   }
 });
 
-test('Sports placement includes the native football location and a broad open course area', () => {
+test('Sports placement accepts the whole Board, including the footer, buttons, and margins', () => {
   assert.deepEqual(toPortrait({x: 535, y: 540}), {x: 540, y: 1385});
   assert.equal(isPiecePlacement({x: 535, y: 540}), true);
   // Actual rejected contact from the Board log: football player at portrait (301,1233).
@@ -69,7 +69,15 @@ test('Sports placement includes the native football location and a broad open co
   assert.equal(isPiecePlacement(toNative({x: 940, y: 1240})), true);
   assert.equal(isPiecePlacement(toNative({x: 540, y: 1430})), true);
   for (const point of [{x: 139, y: 1000}, {x: 941, y: 1000}, {x: 540, y: 399}, {x: 540, y: 1431},
-    {x: 540, y: 1530}, {x: 144, y: 1400}, {x: 936, y: 1400}, {x: 540, y: 1805}, {x: 144, y: 1595}, {x: 936, y: 1595}]) {
-    assert.equal(isPiecePlacement(toNative(point)), false, 'buttons and margins cannot bind a player');
+    {x: 540, y: 1530}, {x: 144, y: 1400}, {x: 936, y: 1400}, {x: 540, y: 1805}, {x: 144, y: 1595}, {x: 936, y: 1595},
+    {x: 0, y: 0}, {x: 1080, y: 0}, {x: 0, y: 1920}, {x: 1080, y: 1920}]) {
+    assert.equal(isPiecePlacement(toNative(point)), true, 'a Sports piece can bind anywhere on the Board');
+  }
+});
+
+test('Sports placement rejects nonfinite coordinates and contacts outside the native canvas', () => {
+  for (const point of [{x: -0.01, y: 540}, {x: 1920.01, y: 540}, {x: 960, y: -0.01}, {x: 960, y: 1080.01},
+    {x: NaN, y: 540}, {x: 960, y: NaN}, {x: Infinity, y: 540}, {x: 960, y: -Infinity}]) {
+    assert.equal(isPiecePlacement(point), false);
   }
 });

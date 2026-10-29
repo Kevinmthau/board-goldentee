@@ -518,3 +518,26 @@
 - Publication scope: source, tests, documentation, and 26 verification screenshots on `codex/clear-shot-ui`. No runtime changes after the verified installation; one stale source comment was clarified before commit.
 - Validation reused from the same runtime: 277 automated checks pass, 13 browser checks pass, TypeScript/Vite/packaging pass, and the exact package is installed and launched on KT’s Board.
 - Package SHA-256 remains `f6c3e463f54e95fb2b4ea9fa9d1bc08a2c6277db294893913682dfb3916bedfe`. Diff whitespace check passes.
+
+## October 28, 2026 — Place anywhere on each turn
+
+- Asked for: remove the circle requirement on turns and allow the physical piece anywhere.
+- Source: normal handoffs show the next golfer’s course and brief turn text with no circle. Any settled Sports piece on the finite native glass is eligible; the same bounds now apply to actual swinging.
+- Source: a shared piece may remain on the glass. A newly arrived piece takes priority before backswing, even when the previous piece remains; exact contact ownership, club, aim, balls, and scores are retained.
+- Source: initial title/setup circles, explicit results, saved rounds, and missing-roster recovery remain. Placement and pause/redetection never manufacture a stroke.
+- Review: independent review found the separate-piece ownership case; it was fixed before final verification.
+- Automated: 299 total checks, 296 pass, zero failures, three existing skips. Full boot coverage includes off-circle/top/footer/side eligibility, real swings from footer/side locations, retained-piece progression, separate-piece ownership, score isolation, last-golfer turns, pauses, and mid-shot roster recovery. Eighteen focused placement tests also pass.
+- Build: TypeScript, Vite, and the 18-file package pass. Each packaged file matches dist; app identity and Sports model are unchanged.
+- Package: bundle `assets/index-CQIcZOkO.js`, platform build `abf7a4f2d361e7e7`, ZIP SHA-256 `2b717ecc951400c9b574036755fefab56dba3aab1c7bde99aadb6baa38cb67cc`.
+- Browser: all 14 checks pass on the final runtime after restarting the preview. Actual shots succeed from portrait upper (540,250), footer (540,1830), and side (80,1000) positions. A retained piece carries the next turn without an extra stroke. Normal handoffs have no circle; the initial start circle remains.
+- Browser: inspected the course-visible `anywhere-turn-player2-handoff.png`; all 12 `anywhere-turn-*.png` captures were refreshed against the final runtime. No page exceptions; existing favicon 404 warnings only. Report: local `artifacts/anywhere-turn-browser-report.json`.
+- Reproduce: `npm test`, `npm run pack`, and local `node artifacts/anywhere-turn-browser-qa.mjs` against the preview on port 5174.
+- Board: the verified package installed and launched on KT’s Board at `10.0.0.179`. Platform state became ready at device-log time 18:45:32.466; screenshot `docs/screenshots/anywhere-turn-board-installed.png` confirms the running title and preserved initial KT circle. Existing optional favicon/game-font.json warnings recurred.
+- Evidence limit: actual physical placement/sensing, native multiplayer input, save restoration, sustained performance, and handoff feel remain human playtest items. Installation and startup do not establish those results.
+
+## October 28, 2026 — Publish anywhere placement
+
+- Request: commit and push all pending changes to the existing repository.
+- Scope: anywhere-turn source, tests, documentation, and 13 verification screenshots on `codex/clear-shot-ui`. Independent publication inspection found no unexpected files; diff whitespace checks pass.
+- Validation reused from the unchanged runtime: 296 automated checks and 14 browser checks pass; TypeScript/Vite/packaging pass; the exact package is installed and launched on KT’s Board.
+- Package SHA-256 remains `2b717ecc951400c9b574036755fefab56dba3aab1c7bde99aadb6baa38cb67cc`.

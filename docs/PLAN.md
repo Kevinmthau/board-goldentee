@@ -1,7 +1,7 @@
 # Plan: Tee Time
 
 Updated: October 28, 2026.
-Status: Named-circle confirmation for every multiplayer turn passes automated and browser checks and is installed on KT’s Board. The course stays visible between shots. Native startup is verified; physical multiplayer pacing and putting feel remain open.
+Status: Anywhere-on-Board placement for turns passes 296 automated checks and 14 browser checks and is installed on KT’s Board. Native startup is verified. The course and turn announcement remain visible; physical multiplayer pacing remains open.
 
 ## Summary
 
@@ -53,13 +53,13 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 - Keep native contacts and the canvas at 1920 × 1080. Rotate the logical 1080 × 1920 scene onto that surface.
 - Convert positions and facing into the portrait view with a rigid quarter turn, never a native-coordinate scale.
 - Wait for BoardPlatform.state.ready(). Read and refresh the roster through src/seats.ts.
-- A Sports piece in the named start circle confirms the first roster player. Every multiplayer turn requires a fresh placement in the active golfer’s named circle. Keep the course visible and announce whose turn it is, without a between-shot interstitial. During play, an eligible piece on the open course controls the confirmed player. The permitted portrait area is x140–940, y400–1430, narrowed to x300–780 below y1250 to clear the aim controls; the suggested position is near (540,1385). The club-bag button begins at y1590. Its separate twelve-club selector disables swing input.
+- A Sports piece in the named start circle confirms the first roster player. On later turns, a settled Sports piece anywhere on the native 1920×1080 glass controls the active golfer. A shared piece may stay in place. Keep the course visible and announce whose turn it is, without a circle or between-shot interstitial. The club-bag button begins at portrait y1590. Its separate twelve-club selector disables swing input.
 - Require a stable initial address, then calibrate to that angle. Do not require a hidden compass direction. Small orientation noise stays inside a dead band.
 - Either twist direction can wind back toward the player. Reverse and return within ten degrees of address to strike.
 - Launch the ball and hit sound when the physical turn returns to address, with no additional animated downswing delay. Placement and rotation never reframe the course or move the resting ball.
 - Turning through the angular wrap must stay continuous. A short tracking gap and pause retain the calibrated rotation zero. A fresh lie or explicit new setup can calibrate a new address.
 - Placement, translation alone, lift, redetection, and pause return cannot create a shot. The translation guard must allow the center drift seen when a person turns a Sports piece; deliberate dragging still cancels intent.
-- Named-circle confirmation binds the exact detected piece to the displayed roster player. Swinging still requires a legal, settled address.
+- Initial named-circle confirmation and later anywhere placement bind the exact detected contact to the displayed roster player. Swinging requires a settled address and a deliberate twist; every finite on-glass position is eligible.
 - Pause cancels unfinished intent; a committed ball keeps its state. Rebind the piece without another splash.
 - Show one finite placement splash and sound. The attached club is the only graphic that follows the physical piece, as expressly requested; no outline, halo, trail, or digital golfer follows it. Lifting removes the club.
 - Input comes through startInput/applyContacts. The host owns model activation.
@@ -72,7 +72,7 @@ The grip attaches just outside the center front of the footprint; the shaft exte
 | Address | Hold still, select club, turn back | Attached club, selected club, distance, fixed twist cue | Backswing begins |
 | Backswing | Return the club to the ball | Club follows the physical turn, power fills | Deliberate return to address |
 | Flight | Watch the ball | Flight, landing, sound | Ball rests |
-| Next turn | Place the Sports player on the next golfer’s name | Course stays visible, named circle and “[name]’s turn” | Fresh settled placement enables that golfer’s swing |
+| Next turn | Place the Sports player anywhere, or keep the shared piece where it is | Course stays visible with “[name]’s turn” | A settled piece enables a fresh swing |
 | Next solo lie | Choose club and swing | Distance, club recommendation, fresh address cue | Next shot |
 | Putting | Read the green contours, aim, turn back and return | Shorter putter, two-degree aim, power percentage | Cup capture |
 | Menu return | Return to the starting angle and settle | Fresh address cue, no automatic shot | New gesture |
@@ -303,3 +303,13 @@ Only that confirmed choice can reconnect an ephemeral guest to an old score. Aut
 - By builder: require a fresh, settled Sports placement for each multiplayer shot, including when only one golfer remains unfinished. A piece left in the circle must leave and re-enter; pause or redetection cannot confirm a turn. Solo next-lie play stays continuous.
 - By builder: title/setup placement already confirms the first turn. Next-hole and multiplayer rematch choices lead to the same named-circle confirmation. Preserve explicit shared hole/round results and missing-roster recovery. Change setup remains available through the platform menu.
 - This request supersedes the earlier Ready handoff decisions. No physics, roster identity, save format, external asset, or app identity changes.
+
+## October 28, 2026 — Place anywhere on each turn
+
+- By person: do not require putting the piece in a circle on each turn; allow placement anywhere.
+- By builder: remove the normal handoff circle and lift/reentry requirement. Any Sports piece settled for 300 ms anywhere on the native glass can confirm the active golfer, including a shared piece retained from the previous shot.
+- By builder: remove the old hidden grass/aim/footer placement restriction from swinging too. Finite native positions from (0,0) through (1920,1080) are valid; fingers and unsupported glyphs remain ineligible.
+- By builder: preserve the initial title/setup named-circle start, explicit roster recovery, shared result decisions, score isolation, and the deliberate twist required for every shot.
+- By builder: retain a short turn announcement in the play footer after confirmation, so a retained piece does not make the next player’s name flash past.
+- By builder: if the next golfer brings a new piece while the old piece remains, prefer that newly arrived contact before a backswing begins. Confirm its settled address without changing the selected club, aim, scores, or balls.
+- Supersedes the per-turn named-circle and forced-lift decisions. The initial start circle remains as requested previously; the new request applies to turns during a round.

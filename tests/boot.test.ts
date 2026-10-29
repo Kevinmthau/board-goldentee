@@ -376,9 +376,10 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
   tap(936, 1425); // Aim two degrees right so the first stroke leaves a playable putt.
   run(0.5);
   let checkedImpactPause=false;
+  let swingPosition = {x: 535, y: 540};
   const turn = (angle: number, seconds = 0.05) => {
     run(seconds);
-    onBatch!([piece(535, 540, BoardContactPhase.Moved, id, angle)]);
+    onBatch!([piece(swingPosition.x, swingPosition.y, BoardContactPhase.Moved, id, angle)]);
     if(!checkedImpactPause&&activeGame().strokes===1&&activeGame().phase==='flight') {
       checkedImpactPause=true;
       run(0.04);
@@ -571,17 +572,16 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.match(gameLabel, /^setup/);
   };
   const beginGroup = (count: number) => {
+    swingPosition = {x: 535, y: 540};
     onBatch!([piece(700, 540, BoardContactPhase.Moved, id)]); run(0.4);
     onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.8);
     assert.match(gameLabel, new RegExp(`^play.*${count} players.*Player 1`), 'named placement confirms the first golfer');
     assert.equal(latestRound().players.length, count);
     assert.deepEqual(latestRound().players.map(p => p.game.strokes), Array(count).fill(0));
   };
-  const placeForTurn = () => {
-    onBatch!([piece(700, 540, BoardContactPhase.Moved, id)]); run(0.4);
-    assert.match(gameLabel, /^handoff/, 'placing on grass outside the named circle cannot confirm a turn');
-    onBatch!([piece(535, 540, BoardContactPhase.Moved, id)]); run(0.8);
-    assert.match(gameLabel, /^play.*Sports player present.*ready/, 'a fresh settled entry in the named circle starts the turn');
+  const settleForTurn = () => {
+    run(0.8);
+    assert.match(gameLabel, /^play.*Sports player present.*ready/, 'a settled Sports piece starts the turn without a lift or finger confirmation');
   };
   let pendingGroupSave: SavedRound | null = null;
   let originalGroupRoster: BoardPlayer[] = [];
@@ -590,13 +590,14 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
       menuAction('setup'); run(0.1);
       await addGuest(count); beginGroup(count);
       assert.equal(latestRound().activeIndex, 0, 'the named starter owns the first turn');
-      swing(90); run(15);
+      swing(90);
+      onBatch!([piece(535, 540, BoardContactPhase.Ended, id)]); run(15);
       assert.equal(latestRound().activeIndex, 1);
       assert.deepEqual(latestRound().players.map(p => p.game.strokes), [1, ...Array(count - 1).fill(0)]);
       assert.match(gameLabel, /^handoff.*Player 2: Lee/);
       const nextTurn = structuredClone(latestRound());
       run(3);
-      assert.match(gameLabel, /^handoff/, 'a retained piece cannot start the next golfer’s turn');
+      assert.match(gameLabel, /^handoff/, 'the next golfer waits when no Sports piece is present');
       assert.deepEqual(latestRound(), nextTurn, 'waiting for placement never advances a ball or score');
       const selectors = selectorCalls.length;
       tap(540, 1570); run(0.7);
@@ -613,16 +614,50 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
       assert.ok(!handoffFrame.some(c => c.name === 'fillRect' &&
         c.args[0] === 0 && c.args[1] === 0 && c.args[2] === 1080 && c.args[3] === 1920),
       'normal turn placement cannot cover the course with an interstitial');
-      onBatch!([piece(700, 540, BoardContactPhase.Moved, id)]); run(0.7);
-      assert.match(gameLabel, /^handoff/, 'an off-circle Sports piece cannot begin a turn');
       tap(540, 1385); run(0.7);
-      assert.match(gameLabel, /^handoff/, 'a finger on the named circle cannot begin a turn');
+      assert.match(gameLabel, /^handoff/, 'a finger cannot begin a turn');
       const wrongId = nextId++;
       onBatch!([{...piece(535, 540, BoardContactPhase.Began, wrongId), glyphId: 9}]); run(0.7);
-      assert.match(gameLabel, /^handoff/, 'a non-player glyph cannot claim the named circle');
+      assert.match(gameLabel, /^handoff/, 'a non-player glyph cannot begin a turn');
       onBatch!([{...piece(535, 540, BoardContactPhase.Ended, wrongId), glyphId: 9}]); run(0.1);
       assert.deepEqual(latestRound(), nextTurn, 'rejected placements keep the next player’s lie');
+      for (const pause of pauses) pause(); run(0.4);
+      for (const resume of resumes) resume();
+      swingPosition = toNative(count === 2 ? {x: 90, y: 1800} : {x: 1000, y: 300});
+      id = nextId++;
+      onBatch!([piece(swingPosition.x, swingPosition.y, BoardContactPhase.Began, id)]); run(0.1);
+      assert.match(gameLabel, /^handoff/, 'the player must settle before the new turn begins');
+      settleForTurn();
+      assert.deepEqual(latestRound(), nextTurn, 'placing after the menu cannot invent a stroke');
+      chooseClub('PUTTER'); swing(40); run(12);
+      assert.equal(latestRound().players[1].game.strokes, 1, 'a deliberate twist works outside the old grass placement area');
+      assert.equal(latestRound().players[0].game.strokes, 1);
+      if (count === 3) assert.equal(latestRound().players[2].game.strokes, 0);
+      assert.match(gameLabel, /^play/, 'the retained piece starts the following turn without being moved');
     }
+  });
+
+  await t.test('a newly placed player takes the turn even when the previous piece remains on the Board', () => {
+    assert.match(gameLabel, /^play.*Player 3: Sam/);
+    const previousId = id, previousPosition = {...swingPosition};
+    chooseClub('PUTTER'); tap(936, 1425); run(0.1);
+    assert.match(gameLabel, /PUTTER.*Aim R 2°/);
+    const before = structuredClone(latestRound());
+    const incomingId = nextId++, incomingPosition = toNative({x: 90, y: 1800});
+    onBatch!([piece(incomingPosition.x, incomingPosition.y, BoardContactPhase.Began, incomingId)]); run(0.1);
+    assert.match(gameLabel, /^handoff.*Player 3: Sam/, 'a new Sports arrival gets its own settling period');
+    settleForTurn();
+    assert.match(gameLabel, /PUTTER.*Aim R 2°/, 'changing physical pieces preserves the chosen club and aim');
+    assert.deepEqual(latestRound(), before, 'the new arrival cannot add a stroke or move a ball');
+
+    // Both contacts are still present: only the newly placed Sports player may swing.
+    swing(40); run(0.5);
+    assert.deepEqual(latestRound(), before, 'the previous piece cannot steal the new player’s shot');
+    id = incomingId; swingPosition = incomingPosition;
+    swing(40); run(12);
+    assert.equal(latestRound().players[2].game.strokes, 1, 'the exact incoming contact can make a deliberate shot from the footer');
+    for (const index of [0, 1]) assert.deepEqual(latestRound().players[index].game, before.players[index].game);
+    onBatch!([piece(previousPosition.x, previousPosition.y, BoardContactPhase.Ended, previousId)]); run(0.1);
   });
 
   await t.test('four players finish a hole, retain turns through pause, and advance together', async () => {
@@ -641,22 +676,18 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
       const before = structuredClone(latestRound());
       const activeIndex = before.activeIndex;
       if (activeIndex === 2 && !pendingGroupSave) pendingGroupSave = structuredClone(latestRun as SavedRound);
-      assert.match(gameLabel, /^handoff|^play/);
-      if (gameLabel.startsWith('handoff')) {
-        // The previous person's return gesture cannot become the new player's shot.
-        swing(90);
-        assert.deepEqual(latestRound(), before, 'unconfirmed turn input leaves every ball and score unchanged');
-        if (!checkedPause && activeIndex === 1) {
-          checkedPause = true;
-          for (const pause of pauses) pause(); run(1);
-          assert.deepEqual(latestRound(), before, 'pause keeps the pending handoff and all four lies');
-          for (const resume of resumes) resume();
-          id = nextId++;
-          onBatch!([piece(535, 540, BoardContactPhase.Began, id)]); run(0.7);
-          assert.match(gameLabel, /^handoff.*Player 2: Lee/);
-          assert.deepEqual(latestRound(), before, 'piece redetection does not confirm another person’s turn');
-        }
-        placeForTurn();
+      assert.match(gameLabel, /^play/, 'the settled retained piece can serve each golfer without a placement ritual');
+      run(0.8);
+      assert.deepEqual(latestRound(), before, 'settling the retained piece cannot create a shot');
+      if (!checkedPause && activeIndex === 1) {
+        checkedPause = true;
+        for (const pause of pauses) pause(); run(1);
+        assert.deepEqual(latestRound(), before, 'pause keeps the active golfer and all four lies');
+        for (const resume of resumes) resume();
+        id = nextId++;
+        onBatch!([piece(535, 540, BoardContactPhase.Began, id)]); run(0.8);
+        assert.match(gameLabel, /^play.*Player 2: Lee/);
+        assert.deepEqual(latestRound(), before, 'piece redetection readies the golfer without creating a stroke');
       }
       // Tiny real putts from the tee finish by the normal ten-stroke limit.
       // This exercises input, settlement, rotation, and the final shared result cheaply.
@@ -679,7 +710,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
       for (let i = 0; i < 4; i++) if (i !== activeIndex) assert.deepEqual(after.players[i].game, before.players[i].game, `player ${i + 1} keeps their own lie, penalties, and score`);
       assert.ok(++shotCount <= 40, 'four ten-stroke limits bound the hole');
     }
-    assert.ok(checkedPause, 'the group journey exercised a pending-turn pause');
+    assert.ok(checkedPause, 'the group journey exercised a turn pause');
     assert.ok(checkedMovingRoster, 'the group journey exercised roster recovery during a committed shot');
     assert.equal(shotCount, 40);
     assert.match(gameLabel, /^over/);
@@ -689,7 +720,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     const result = structuredClone(latestRound()); run(3);
     assert.deepEqual(latestRound(), result, 'the shared result waits for a decision');
     tap(540, 1570); run(0.7);
-    assert.match(gameLabel, /^handoff.*Player 1.*Hole 2 of 9/);
+    assert.match(gameLabel, /^play.*Player 1.*Hole 2 of 9/, 'Next hole can use the piece already on the Board');
     assert.deepEqual(latestRound().players.map(p => p.game.completedStrokes), [[10], [10], [10], [10]]);
     assert.deepEqual(latestRound().players.map(p => p.game.strokes), [0, 0, 0, 0]);
     const nextHole = structuredClone(latestRound());
@@ -697,8 +728,8 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.match(gameLabel, /^scorecard/);
     for (const name of ['Lee', 'Sam', 'Alex']) assert.ok(texts(frames.length - 1).includes(name));
     tap(540, 1570); run(0.1);
-    assert.match(gameLabel, /^handoff/);
-    assert.deepEqual(latestRound(), nextHole, 'scorecard returns to the same pending turn');
+    assert.match(gameLabel, /^play/);
+    assert.deepEqual(latestRound(), nextHole, 'scorecard returns to the same turn');
   });
 
   await t.test('replacement and removal cannot inherit another participant’s scores', async () => {
@@ -753,11 +784,11 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     };
     tapBox(RESTORE_PLAYERS_BUTTON); await settleSelector();
     assert.match(gameLabel, /^handoff.*Player 3: Sam/);
-    assert.ok(texts(frames.length - 1).includes('Sam’s turn'), 'restored participants return to the named placement on the course');
+    assert.ok(texts(frames.length - 1).includes('Sam’s turn'), 'restored participants return to the turn announcement on the course');
     assert.deepEqual(latestRun, pendingGroupSave, 'rejoining participants retain their own saved progress');
-    placeForTurn();
+    settleForTurn();
     assert.match(gameLabel, /^play.*Player 3: Sam/);
-    assert.deepEqual(latestRun, pendingGroupSave, 'named placement preserves the restored lie without inventing a stroke');
+    assert.deepEqual(latestRun, pendingGroupSave, 'settling the retained piece preserves the restored lie without inventing a stroke');
   });
   await t.test('explicit guest restoration accepts a new session ID without transferring scores during ordinary replacement', async () => {
     const saved = structuredClone(latestRun as SavedRound);
@@ -786,7 +817,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.equal(latestRound().players[1].game.strokes, 1);
     assert.match(gameLabel, /^handoff.*Player 3: Sam/);
     assert.ok(texts(frames.length - 1).includes('Sam’s turn'));
-    placeForTurn();
+    settleForTurn();
     assert.deepEqual(latestRun, restored, 'confirming play keeps the restored score and ball');
 
     menuAction('setup'); run(0.1);
@@ -800,7 +831,7 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
     assert.match(gameLabel, /^setup/);
     assert.deepEqual(latestRun, restored, 'the ordinary Change player selector cannot reassign saved guest scores to another guest in the same seat');
   });
-  await t.test('the last unfinished multiplayer golfer must place again for each shot', () => {
+  await t.test('the last unfinished multiplayer golfer can leave the piece down between deliberate shots', () => {
     const finalRoster = [profile, {playerId: '', sessionId: 25, name: 'Finisher', type: BoardPlayerType.Guest, avatarId: '0'}];
     const finishingRound = createRound(finalRoster);
     const finished = finishingRound.players[0].game;
@@ -821,13 +852,12 @@ test("portrait Sports golf restores solo saves, completes nine holes, and plays 
       chooseClub('PUTTER'); swing(40); run(12);
       assert.equal(latestRound().activeIndex, 1, 'finished golfers are skipped');
       assert.equal(activeGame().strokes, expectedStrokes);
-      assert.match(gameLabel, /^handoff.*Player 2: Finisher/, 'the same remaining golfer gets a fresh placement turn');
+      assert.match(gameLabel, /^play.*Player 2: Finisher/, 'the same remaining golfer continues with the piece left down');
       const settled = structuredClone(latestRound());
-      run(1); tap(540, 1570); run(0.7);
-      assert.match(gameLabel, /^handoff/, 'a held piece or finger cannot start the next shot');
-      assert.deepEqual(latestRound(), settled, 'waiting for reentry keeps both golfers’ progress');
+      run(1.7);
+      assert.match(gameLabel, /^play/);
+      assert.deepEqual(latestRound(), settled, 'a held piece cannot create the next shot');
       assert.deepEqual(latestRound().players[0].game, finished, 'the finished golfer keeps the completed hole');
-      if (expectedStrokes === 1) placeForTurn();
     }
   });
   assert.deepEqual(errors, [], 'the complete one-to-four-player journey threw');

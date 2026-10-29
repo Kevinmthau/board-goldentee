@@ -338,3 +338,18 @@ The person requested installation on their Board. Installed and launched the ver
 - Request: commit and push all pending work.
 - Publish the simplified HUD, named-circle starts and turns, input safeguards, automated checks, documentation, and browser/native screenshots together on `codex/clear-shot-ui`.
 - Existing ignored dependencies, build outputs, install packages, and local diagnostics remain outside version control.
+
+## October 28, 2026 — Allow placement anywhere on a turn
+
+- Request: stop requiring the piece in a circle on each turn; place it anywhere.
+- Remove the normal turn circle and accept a settled Sports piece across the full native glass, including the footer and side areas. A shared piece can remain in place.
+- Keep the course visible and briefly announce the active golfer after placement; require a deliberate new twist for every shot.
+- Preserve the initial named-circle start, roster recovery, saved scores, and explicit results. Final verification and installation evidence belong in the acceptance ledger.
+- Fixed a review finding so a newly arrived piece takes control before backswing when the previous piece remains, without resetting club or aim.
+- Final evidence: 296 automated checks and 14 browser checks pass; TypeScript/Vite and the verified 18-file package pass. Installed and launched on KT’s Board, with native startup verified.
+
+## October 28, 2026 — Publish anywhere placement
+
+- Request: commit and push all changes.
+- Publish anywhere placement, shared/new-piece ownership, tests, documentation, and 13 browser/native screenshots on `codex/clear-shot-ui`.
+- No runtime changes after the verified Board installation. Generated packages, dependencies, and local diagnostics remain ignored.

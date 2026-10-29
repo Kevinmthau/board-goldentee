@@ -25,7 +25,7 @@ Open the local address Vite prints. The browser toolbar is a simulator and does 
 2. Drag sideways across the simulated player to bring the club back.
 3. Grab it again and drag the other way until the club returns to the ball. A larger backswing gives more power.
 4. Select a club and use the aim arrows before the next swing. A full 7 iron reaches the first green.
-5. After each multiplayer shot, the course stays visible and announces the next player’s turn. Place the Sports piece in the circle on that player’s name and hold briefly to begin. Lift or move a retained piece out of the circle before replacing it. No Ready tap is needed.
+5. After each multiplayer shot, the course stays visible and announces the next player’s turn. Place the Sports piece anywhere on Board and hold briefly, or keep the shared piece where it is. No turn circle or Ready tap is needed.
 6. Each player keeps a separate ball and score. Choose **Next hole** after everyone finishes. Lowest total wins; ties share the win.
 
 The shot view keeps only hole/par and distance at the top. Wind, player details, and Scorecard sit below the course. Aim and club controls disappear while the ball moves.
@@ -34,7 +34,7 @@ The wind arrow points where the wind blows, at the displayed mph. Wind affects a
 
 Water costs one penalty stroke and returns the ball to its previous lie. Carry it in the air or use a shorter club to lay up. Sand reduces carry and roll. Each hole has a ten-stroke limit.
 
-At the next lie, hold the piece still to set your new starting angle before swinging again.
+At the next lie, hold the piece still to set your new starting angle before swinging again. Every position on the glass is playable, including outside the course artwork.
 Lifting the piece removes the club and leaves the course clear, with no replacement character graphic.
 The browser-only facing arrow shows the current direction; canonical piece art stays upright.
 
@@ -64,11 +64,9 @@ The native system menu provides How to swing, Restart round, and Change setup. T
 ## Design and evidence
 
 See [the plan](docs/PLAN.md), [build checklist](docs/BUILD-CHECKLIST.md), and [acceptance ledger](docs/ACCEPTANCE-LEDGER.md).
-Each multiplayer turn now begins with a fresh placement on the active golfer’s named circle, with the course visible throughout the handoff. There is no Ready button or normal between-shot interstitial. The flow passes 277 automated checks, with zero failures and three existing catalog skips, plus 13 browser checks covering real shots, successive players, retained pieces, finger taps, and pause return. Tests also cover consecutive turns for the last unfinished golfer and roster recovery during a committed shot. TypeScript, Vite, and the 18-file package pass.
+Per-turn placement now accepts a Sports piece anywhere on Board and lets a shared piece stay in place. The course remains visible with a short turn announcement. The initial title/setup circle still starts the round. This revision passes 296 automated checks and 14 browser checks and is installed and launched on KT’s Board. Browser shots work at the upper screen, footer, and sides; tests verify exact ownership when a new piece arrives beside the old one. Native startup is verified; physical multiplayer pacing remains a human playtest item. Details are in the acceptance ledger.
 
-This revision is installed and launched on KT’s Board. Native startup and the named title circle are verified. Browser screenshots and evidence are in the acceptance ledger; physical turn placement, native saves, sustained performance, and multiplayer pacing still require a person playing.
-
-Older saves keep their scores and ball state. New green slopes apply to resumed rolls. A save without wind continues its current hole in calm conditions, then gains wind on the next hole. Earlier three-hole personal bests remain stored separately from nine-hole records. The 90-degree full-power twist is retained. Returning to setup or from a menu with a piece already on the circle requires moving it out and back in.
+Older saves keep their scores and ball state. New green slopes apply to resumed rolls. A save without wind continues its current hole in calm conditions, then gains wind on the next hole. Earlier three-hole personal bests remain stored separately from nine-hole records. The 90-degree full-power twist is retained. The initial title/setup circle still requires a fresh entry after returning from setup or a menu. During turns, a shared piece can stay in place; a newly placed piece can take control before the swing begins.
 
 Artwork, the Board SDK, font, platform layer, and piece-set assets have separate provenance and terms; see the [asset manifest](docs/ASSET-MANIFEST.md). Keep the vendored SDK and package lockfile so a fresh checkout uses the tested SDK version.
 

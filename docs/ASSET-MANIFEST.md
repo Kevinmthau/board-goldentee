@@ -27,8 +27,9 @@ Model SHA-256: 4d75343e149b72f8410cad10f518c64791634ae6e6932880088a34c164026ad9.
 | src/holes.ts | Nine authored coastal hole layouts, yardages, pars, and hazards | Original project course data |
 | src/scorecard.ts | Traditional golf card, table, and scoring marks | Original project code and Canvas artwork |
 | src/wind-view.ts | Fixed wind indicator and camera-relative arrow | Original project code and Canvas artwork |
-| src/multiplayer-view.ts | Roster setup, shared scorecard, and fixed named turn circles | Original project code and Canvas artwork |
-| src/name-start.ts | Named placement target and guarded start/turn confirmation | Original project code |
+| src/multiplayer-view.ts | Roster setup and initial name circles, shared scorecard, and course-visible turn text | Original project code and Canvas artwork |
+| src/turn-placement.ts | Settled anywhere placement and exact incoming-piece turn ownership | Original project code |
+| src/name-start.ts | Named placement target and guarded initial start confirmation | Original project code |
 | src/green.ts | Shared green elevation, slope, and downhill acceleration; source for procedural mesh and contours | Original project code and course data |
 | src/club-picker.ts | Full-size twelve-club bag layout and two-degree aim controls | Original project code |
 | src/course-art.ts | Cached natural foliage, turf/sand fallback materials, and soft shadows | Original seeded procedural Canvas artwork |
@@ -57,7 +58,7 @@ Vite assigns content hashes to the two bundle filenames. The package inventory b
 ```text
 art/coastal-sky.png
 art/fairway-turf.png
-assets/index-BQe40-iN.js
+assets/index-CQIcZOkO.js
 assets/index-DcBmdo0M.css
 board-platform.js
 fonts/itc-kabel-ultra.otf
@@ -140,3 +141,8 @@ October 28, 2026 per-turn named circles replace the original procedural handoff 
 No external art, fonts, audio, models, or dependencies changed. All 18 package files match dist; the Sports model and app identity are unchanged.
 Bundle: `assets/index-BQe40-iN.js`. Platform build: `45747be39c620877`. Package SHA-256: `f6c3e463f54e95fb2b4ea9fa9d1bc08a2c6277db294893913682dfb3916bedfe`.
 Screenshots named `turn-circle-*.png` record verification evidence and do not ship.
+
+October 28, 2026 anywhere-turn placement removes the normal handoff circle, expands the playable glass area, and adds original settled-contact selection logic.
+No external art, font, audio, model, or dependency changed. All 18 package files match dist, with the established identity and Sports model.
+Bundle: `assets/index-CQIcZOkO.js`. Platform build: `abf7a4f2d361e7e7`. Package SHA-256: `2b717ecc951400c9b574036755fefab56dba3aab1c7bde99aadb6baa38cb67cc`.
+Screenshots named `anywhere-turn-*.png` are verification evidence and do not ship.
